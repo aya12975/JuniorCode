@@ -7,7 +7,8 @@ if (!isset($_SESSION["role"]) || $_SESSION["role"] !== "teacher") {
     exit();
 }
 
-$teacherName = $_SESSION["username"];
+$teacherId = (int)($_SESSION["user_id"] ?? 0);
+$teacherName = $_SESSION["username"] ?? "Teacher";
 
 /* =========================
    Earnings summary
@@ -18,26 +19,34 @@ $totalLessons = 0;
 $latestLessonDate = "-";
 
 $stmt = $conn->prepare("
-    SELECT 
+    SELECT
         COUNT(*) AS total_lessons,
-        COALESCE(SUM(amount), 0) AS total_earnings,
-        MAX(lesson_date) AS latest_lesson_date
+        COALESCE(SUM(amount), 0) AS total_earnings
     FROM teacher_earnings
-    WHERE teacher_name = ?
+    WHERE teacher_id = ?
 ");
-$stmt->bind_param("s", $teacherName);
+
+if (!$stmt) {
+    die("Prepare failed (earnings summary): " . $conn->error);
+}
+
+$stmt->bind_param("i", $teacherId);
 $stmt->execute();
 $result = $stmt->get_result();
 
 if ($result && $row = $result->fetch_assoc()) {
     $totalLessons = (int)$row["total_lessons"];
     $totalEarnings = (float)$row["total_earnings"];
-    $latestLessonDate = $row["latest_lesson_date"] ? $row["latest_lesson_date"] : "-";
     $totalPaidSessions = $totalLessons;
 }
 
+$stmt->close();
+
 /* =========================
    Monthly class summary
+   Your current classes table only has:
+   id, class_name
+   So these values stay 0 for now
 ========================= */
 $fullPay = 0;
 $halfPay = 0;
@@ -46,118 +55,83 @@ $demoEnrolled = 0;
 $demoPending = 0;
 $demoOther = 0;
 
-$stmt2 = $conn->prepare("
-    SELECT type
-    FROM classes
-    WHERE teacher_name = ?
-      AND MONTH(class_date) = MONTH(CURDATE())
-      AND YEAR(class_date) = YEAR(CURDATE())
-");
-$stmt2->bind_param("s", $teacherName);
-$stmt2->execute();
-$result2 = $stmt2->get_result();
-
-if ($result2) {
-    while ($row = $result2->fetch_assoc()) {
-        $type = strtolower(trim($row["type"]));
-
-        if ($type === "paid") {
-            $fullPay++;
-        } elseif ($type === "half pay") {
-            $halfPay++;
-        } elseif ($type === "no pay") {
-            $noPay++;
-        } elseif ($type === "demo enrolled") {
-            $demoEnrolled++;
-        } elseif ($type === "demo pending" || $type === "demo") {
-            $demoPending++;
-        } elseif ($type === "demo other" || $type === "other") {
-            $demoOther++;
-        }
-    }
-}
-
 $totalDemos = $demoEnrolled + $demoPending + $demoOther;
 $conversionRate = $totalDemos > 0 ? round(($demoEnrolled / $totalDemos) * 100) : 0;
 
 /* =========================
    All classes
+   Current classes table does not store:
+   teacher_name, student_name, class_date, class_time, type, details
 ========================= */
 $classSessions = [];
-$stmt3 = $conn->prepare("
-    SELECT id, student_name, class_date, class_time, type, details
-    FROM classes
-    WHERE teacher_name = ?
-    ORDER BY class_date DESC, class_time ASC
-");
-$stmt3->bind_param("s", $teacherName);
-$stmt3->execute();
-$result3 = $stmt3->get_result();
-
-if ($result3) {
-    while ($row = $result3->fetch_assoc()) {
-        $classSessions[] = $row;
-    }
-}
 
 /* =========================
    Today's classes
 ========================= */
 $todaysClasses = [];
-$stmt4 = $conn->prepare("
-    SELECT id, student_name, class_time, type, details
-    FROM classes
-    WHERE teacher_name = ? AND class_date = CURDATE()
-    ORDER BY class_time ASC
-");
-$stmt4->bind_param("s", $teacherName);
-$stmt4->execute();
-$result4 = $stmt4->get_result();
-
-if ($result4) {
-    while ($row = $result4->fetch_assoc()) {
-        $todaysClasses[] = $row;
-    }
-}
 
 /* =========================
    Earnings table
+   Build a simple list from current teacher_earnings table
 ========================= */
 $earnings = [];
+
 $stmt5 = $conn->prepare("
-    SELECT id, lesson_title, amount, lesson_date, notes
+    SELECT id, amount
     FROM teacher_earnings
-    WHERE teacher_name = ?
-    ORDER BY lesson_date DESC, id DESC
+    WHERE teacher_id = ?
+    ORDER BY id DESC
 ");
-$stmt5->bind_param("s", $teacherName);
+
+if (!$stmt5) {
+    die("Prepare failed (earnings table): " . $conn->error);
+}
+
+$stmt5->bind_param("i", $teacherId);
 $stmt5->execute();
 $result5 = $stmt5->get_result();
 
 if ($result5) {
     while ($row = $result5->fetch_assoc()) {
-        $earnings[] = $row;
+        $earnings[] = [
+            "id" => $row["id"],
+            "lesson_title" => "Session #" . $row["id"],
+            "amount" => $row["amount"],
+            "lesson_date" => "-",
+            "notes" => "-"
+        ];
     }
 }
 
+$stmt5->close();
+
 /* =========================
    Teacher students list
+   Current DB has no student_name column in classes
 ========================= */
 $students = [];
-$stmt6 = $conn->prepare("
-    SELECT DISTINCT student_name
-    FROM classes
-    WHERE teacher_name = ?
-    ORDER BY student_name ASC
-");
-$stmt6->bind_param("s", $teacherName);
-$stmt6->execute();
-$result6 = $stmt6->get_result();
 
-if ($result6) {
-    while ($row = $result6->fetch_assoc()) {
-        $students[] = $row["student_name"];
+/* =========================
+   Optional availability count
+========================= */
+$totalAvailabilitySlots = 0;
+
+$stmt6 = $conn->prepare("
+    SELECT COUNT(*) AS total_slots
+    FROM teacher_availability
+    WHERE teacher_id = ?
+");
+
+if ($stmt6) {
+    $stmt6->bind_param("i", $teacherId);
+    $stmt6->execute();
+    $result6 = $stmt6->get_result();
+
+    if ($result6 && $row = $result6->fetch_assoc()) {
+        $totalAvailabilitySlots = (int)$row["total_slots"];
     }
+
+    $stmt6->close();
 }
 
 $currentMonth = date("F");
@@ -448,6 +422,16 @@ $currentYear = date("Y");
       border-bottom: none;
     }
 
+    .info-note {
+      background: #eff6ff;
+      color: #1e40af;
+      border: 1px solid #bfdbfe;
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-bottom: 16px;
+      font-size: 0.92rem;
+    }
+
     @media (max-width: 991px) {
       .sidebar {
         position: static;
@@ -496,11 +480,6 @@ $currentYear = date("Y");
       <span>My Schedule</span>
     </a>
 
-    <a href="#curriculum" class="nav-link-custom">
-      <span class="nav-icon">⚙️</span>
-      <span>Curriculum</span>
-    </a>
-
     <a href="#earnings" class="nav-link-custom">
       <span class="nav-icon">💵</span>
       <span>My Earnings</span>
@@ -536,6 +515,10 @@ $currentYear = date("Y");
     </div>
     <div class="month-box">Viewing: <?php echo $currentMonth . " " . $currentYear; ?></div>
   </section>
+
+  <div class="info-note">
+    This dashboard is running with your current database structure. Class, student, and detailed schedule sections will stay empty until you add more columns to the <strong>classes</strong> table.
+  </div>
 
   <div class="row g-4">
     <div class="col-lg-4">
@@ -653,13 +636,6 @@ $currentYear = date("Y");
     <?php endif; ?>
   </section>
 
-  <section id="curriculum" class="panel-card">
-    <div class="panel-title">Curriculum</div>
-    <div class="text-muted">
-      Curriculum section is ready in the UI. Later you can connect it to a database table for lesson plans, course topics, and teaching materials.
-    </div>
-  </section>
-
   <section id="earnings" class="panel-card">
     <div class="panel-title">My Earnings</div>
 
@@ -712,6 +688,14 @@ $currentYear = date("Y");
     <?php else: ?>
       <div class="empty-box">No earnings found.</div>
     <?php endif; ?>
+  </section>
+
+  <section class="panel-card">
+    <div class="panel-title">Availability</div>
+    <div class="soft-stat soft-blue">
+      <div>Total Availability Slots</div>
+      <div class="big-stat"><?php echo $totalAvailabilitySlots; ?></div>
+    </div>
   </section>
 
   <section id="students" class="panel-card">

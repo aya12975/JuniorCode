@@ -7,7 +7,8 @@ if (!isset($_SESSION["role"]) || $_SESSION["role"] !== "teacher") {
     exit();
 }
 
-$teacherName = $_SESSION["username"];
+$teacherId = (int)($_SESSION["user_id"] ?? 0);
+$teacherName = $_SESSION["username"] ?? "Teacher";
 
 /* week start */
 $startDate = isset($_GET["start"]) ? $_GET["start"] : date("Y-m-d");
@@ -26,12 +27,18 @@ $times = [
 
 /* load saved availability */
 $availability = [];
+
 $stmt = $conn->prepare("
     SELECT available_date, available_time, status
     FROM teacher_availability
-    WHERE teacher_name = ?
+    WHERE teacher_id = ?
 ");
-$stmt->bind_param("s", $teacherName);
+
+if (!$stmt) {
+    die("Prepare failed: " . $conn->error);
+}
+
+$stmt->bind_param("i", $teacherId);
 $stmt->execute();
 $result = $stmt->get_result();
 
@@ -39,6 +46,8 @@ while ($row = $result->fetch_assoc()) {
     $key = $row["available_date"] . "_" . $row["available_time"];
     $availability[$key] = $row["status"];
 }
+
+$stmt->close();
 
 $prevWeek = date("Y-m-d", strtotime("-7 days", $startTimestamp));
 $nextWeek = date("Y-m-d", strtotime("+7 days", $startTimestamp));
@@ -78,13 +87,9 @@ $nextWeek = date("Y-m-d", strtotime("+7 days", $startTimestamp));
       color:#166534;
       font-weight:bold;
     }
-    .slot.unavailable {
-      background:#fee2e2;
-      color:#991b1b;
-      font-weight:bold;
-    }
     .week-nav {
       display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;
+      gap: 12px;
     }
   </style>
 </head>
@@ -127,7 +132,7 @@ $nextWeek = date("Y-m-d", strtotime("+7 days", $startTimestamp));
                 $status = $availability[$key] ?? "";
               ?>
               <td
-                class="slot <?php echo $status; ?>"
+                class="slot <?php echo $status === "available" ? "available" : ""; ?>"
                 data-date="<?php echo $day; ?>"
                 data-time="<?php echo $time; ?>"
               >
@@ -138,6 +143,10 @@ $nextWeek = date("Y-m-d", strtotime("+7 days", $startTimestamp));
         <?php endforeach; ?>
       </tbody>
     </table>
+
+    <div class="mt-3">
+      <a href="teacher_dashboard.php" class="btn btn-secondary">Back to Dashboard</a>
+    </div>
   </div>
 </div>
 
@@ -172,6 +181,9 @@ document.querySelectorAll(".slot").forEach(slot => {
       } else {
         alert("Error saving availability");
       }
+    })
+    .catch(() => {
+      alert("Error saving availability");
     });
   });
 });

@@ -51,15 +51,27 @@ if ($result && $row = $result->fetch_assoc()) {
     $totalAvailableSlots = (int)$row["total"];
 }
 
+
 $today = date("Y-m-d");
-$stmt = $conn->prepare("SELECT COUNT(*) AS total FROM teacher_availability WHERE status='available' AND available_date=?");
+
+$stmt = $conn->prepare("
+    SELECT COUNT(*) AS total 
+    FROM teacher_availability 
+    WHERE status = 'available' AND available_date = ?
+");
+
+if (!$stmt) {
+    die("Prepare failed: " . $conn->error);
+}
+
 $stmt->bind_param("s", $today);
 $stmt->execute();
+
 $result = $stmt->get_result();
+
 if ($result && $row = $result->fetch_assoc()) {
     $todayAvailableSlots = (int)$row["total"];
 }
-
 /* -----------------------------
    Recent users
 ----------------------------- */

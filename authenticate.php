@@ -7,6 +7,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $password = trim($_POST["password"]);
 
     $stmt = $conn->prepare("SELECT id, username, password, role FROM users WHERE username = ?");
+
+    if (!$stmt) {
+        die("Prepare failed: " . $conn->error);
+    }
+
     $stmt->bind_param("s", $username);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -19,20 +24,21 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $_SESSION["username"] = $user["username"];
             $_SESSION["role"] = $user["role"];
 
-            if ($user["role"] === "student") {
-                header("Location: student_dashboard.php");
+            if ($user["role"] === "admin") {
+                header("Location: admin_dashboard.php");
                 exit();
             } elseif ($user["role"] === "teacher") {
                 header("Location: teacher_dashboard.php");
                 exit();
-            } elseif ($user["role"] === "admin") {
-                header("Location: admin_dashboard.php");
+            } elseif ($user["role"] === "student") {
+                header("Location: student_dashboard.php");
                 exit();
             }
+        } else {
+            die("Wrong password");
         }
+    } else {
+        die("User not found");
     }
-
-    header("Location: login.php?error=1");
-    exit();
 }
 ?>

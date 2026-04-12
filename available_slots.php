@@ -10,9 +10,16 @@ if (!isset($_SESSION["role"]) || $_SESSION["role"] !== "admin") {
 $slots = [];
 
 $result = $conn->query("
-    SELECT * FROM teacher_availability
-    WHERE status='available'
-    ORDER BY available_date ASC, available_time ASC
+    SELECT 
+        ta.id,
+        ta.available_date,
+        ta.available_time,
+        ta.status,
+        u.username AS teacher_name
+    FROM teacher_availability ta
+    JOIN users u ON ta.teacher_id = u.id
+    WHERE ta.status = 'available'
+    ORDER BY ta.available_date ASC, ta.available_time ASC
 ");
 
 if ($result) {
@@ -21,7 +28,6 @@ if ($result) {
     }
 }
 ?>
-
 <!DOCTYPE html>
 <html>
 <head>

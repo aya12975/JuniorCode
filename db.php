@@ -2,11 +2,13 @@
 $host = "localhost";
 $user = "root";
 $pass = "";
-$dbname = "juniorcode_db";
+$dbname = "juniorcode_db2";
 
-$conn = new mysqli($host, $user, $pass, $dbname);
+$conn = mysqli_connect($host, $user, $pass, $dbname);
 
-if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
+if (!$conn) {
+    die("Database connection failed: " . mysqli_connect_error());
 }
+
+mysqli_set_charset($conn, "utf8mb4");
 ?>
