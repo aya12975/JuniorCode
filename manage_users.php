@@ -53,8 +53,8 @@ function isActive($page, $currentPage) {
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
     :root {
-      --primary: #2563eb;
-      --secondary: #38bdf8;
+      --primary: #3e5077;
+      --secondary: #143674;
       --dark: #0f172a;
       --muted: #64748b;
       --soft: #eff6ff;
@@ -104,7 +104,7 @@ function isActive($page, $currentPage) {
       height: 55px;
       object-fit: contain;
       border-radius: 12px;
-      background: white;
+      background: none;
       padding: 6px;
       flex-shrink: 0;
     }
@@ -191,6 +191,8 @@ function isActive($page, $currentPage) {
       gap: 16px;
       margin-bottom: 24px;
       padding: 18px 20px;
+        background: linear-gradient(135deg, var(--primary), var(--secondary));;
+        
     }
 
     .topbar h1 {
@@ -205,9 +207,9 @@ function isActive($page, $currentPage) {
     }
 
     .admin-badge {
-      background: var(--soft);
-      color: #1d4ed8;
-      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.15);
+      color: #f6f8fc;
+      
       border-radius: 999px;
       padding: 10px 16px;
       font-weight: 800;
@@ -346,7 +348,7 @@ function isActive($page, $currentPage) {
   <div class="app-shell">
     <aside class="sidebar">
       <div class="brand-box">
-        <img src="images/logo.png" class="logo-img" alt="Logo">
+        <img src="images/robot2.png.png" class="logo-img" alt="Logo">
         <div>
           <div class="brand-title">JuniorCode</div>
           <div class="brand-sub">Admin Panel</div>

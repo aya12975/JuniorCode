@@ -134,9 +134,9 @@ function isActive($page, $currentPage) {
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
     :root {
-      --primary: #2563eb;
-      --primary-dark: #1d4ed8;
-      --secondary: #38bdf8;
+      --primary: #3e5077;
+      --primary-dark: #152c6b;
+      --secondary: #143674;
       --dark: #0f172a;
       --muted: #64748b;
       --soft: #eff6ff;
@@ -163,6 +163,7 @@ function isActive($page, $currentPage) {
     .app-shell {
       min-height: 100vh;
       display: flex;
+      
     }
 
     .sidebar {
@@ -282,23 +283,25 @@ function isActive($page, $currentPage) {
     }
 
     .topbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 16px;
-      margin-bottom: 24px;
-      padding: 18px 20px;
-      background: rgba(255,255,255,0.85);
-      border: 1px solid #edf4ff;
-      border-radius: 22px;
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(10px);
-    }
+   
+       display: flex;
+       justify-content: space-between;
+       align-items: center;
+       gap: 16px;
+       margin-bottom: 24px;
+       padding: 18px 20px;
 
-    .topbar h1 {
-      font-size: 1.8rem;
-      font-weight: 900;
-      margin: 0;
+       background: linear-gradient(135deg, var(--primary), var(--secondary)); /* ✅ SAME AS SIDEBAR */
+       border-radius: 22px;
+       border: none;
+
+       box-shadow: 0 12px 28px rgba(37, 99, 235, 0.3);
+}
+
+    .topbar h1,
+    .topbar p {
+      
+      color: white;
     }
 
     .topbar p {
@@ -307,13 +310,13 @@ function isActive($page, $currentPage) {
     }
 
     .admin-badge {
-      background: var(--soft);
-      color: var(--primary-dark);
-      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.15);
+      color: white;
+      
       border-radius: 999px;
       padding: 10px 16px;
       font-weight: 800;
-      white-space: nowrap;
+      
     }
 
     .stats-grid {
@@ -494,6 +497,7 @@ function isActive($page, $currentPage) {
 
       .main-content {
         padding: 18px;
+        
       }
 
       .topbar {

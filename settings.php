@@ -11,58 +11,93 @@ $currentPage = basename($_SERVER["PHP_SELF"]);
 $adminName = $_SESSION["username"] ?? "Admin";
 $message = "";
 
-/* Add new class */
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    $teacher_name = trim($_POST["teacher_name"] ?? "");
-    $student_name = trim($_POST["student_name"] ?? "");
-    $class_date   = $_POST["class_date"] ?? "";
-    $class_time   = $_POST["class_time"] ?? "";
-    $type         = trim($_POST["type"] ?? "");
-    $details      = trim($_POST["details"] ?? "");
+/* create settings table if not exists */
+$conn->query("
+    CREATE TABLE IF NOT EXISTS settings (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        setting_key VARCHAR(100) NOT NULL UNIQUE,
+        setting_value TEXT NOT NULL
+    )
+");
 
-    if ($teacher_name !== "" && $student_name !== "" && $class_date !== "" && $class_time !== "" && $type !== "") {
-        $stmt = $conn->prepare("
-            INSERT INTO classes (teacher_name, student_name, class_date, class_time, type, details)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ");
-
-        if ($stmt) {
-            $stmt->bind_param("ssssss", $teacher_name, $student_name, $class_date, $class_time, $type, $details);
-
-            if ($stmt->execute()) {
-                header("Location: manage_classes.php?added=1");
-                exit();
-            } else {
-                $message = "Error adding class.";
-            }
-        } else {
-            $message = "Prepare failed: " . $conn->error;
-        }
-    } else {
-        $message = "Please fill all required fields.";
-    }
-}
-
-/* Get all classes */
-$classes = [];
-$result = $conn->query("SELECT * FROM classes ORDER BY class_date DESC, class_time ASC");
-
-if ($result) {
-    while ($row = $result->fetch_assoc()) {
-        $classes[] = $row;
-    }
-}
-
+/* helper functions */
 function isActive($page, $currentPage) {
     return $page === $currentPage ? "active" : "";
 }
+
+function getSetting($conn, $key, $default = "") {
+    $stmt = $conn->prepare("SELECT setting_value FROM settings WHERE setting_key = ? LIMIT 1");
+    if (!$stmt) {
+        return $default;
+    }
+    $stmt->bind_param("s", $key);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    if ($result && $row = $result->fetch_assoc()) {
+        return $row["setting_value"];
+    }
+    return $default;
+}
+
+function saveSetting($conn, $key, $value) {
+    $stmt = $conn->prepare("
+        INSERT INTO settings (setting_key, setting_value)
+        VALUES (?, ?)
+        ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)
+    ");
+    if (!$stmt) {
+        return false;
+    }
+    $stmt->bind_param("ss", $key, $value);
+    return $stmt->execute();
+}
+
+/* save settings */
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
+    $academy_name      = trim($_POST["academy_name"] ?? "");
+    $admin_email       = trim($_POST["admin_email"] ?? "");
+    $whatsapp_number   = trim($_POST["whatsapp_number"] ?? "");
+    $currency          = trim($_POST["currency"] ?? "");
+    $timezone          = trim($_POST["timezone"] ?? "");
+    $trial_message     = trim($_POST["trial_message"] ?? "");
+    $welcome_message   = trim($_POST["welcome_message"] ?? "");
+    $system_status     = trim($_POST["system_status"] ?? "");
+    $class_duration    = trim($_POST["class_duration"] ?? "");
+    $session_timeout   = trim($_POST["session_timeout"] ?? "");
+
+    $ok = true;
+    $ok = $ok && saveSetting($conn, "academy_name", $academy_name);
+    $ok = $ok && saveSetting($conn, "admin_email", $admin_email);
+    $ok = $ok && saveSetting($conn, "whatsapp_number", $whatsapp_number);
+    $ok = $ok && saveSetting($conn, "currency", $currency);
+    $ok = $ok && saveSetting($conn, "timezone", $timezone);
+    $ok = $ok && saveSetting($conn, "trial_message", $trial_message);
+    $ok = $ok && saveSetting($conn, "welcome_message", $welcome_message);
+    $ok = $ok && saveSetting($conn, "system_status", $system_status);
+    $ok = $ok && saveSetting($conn, "class_duration", $class_duration);
+    $ok = $ok && saveSetting($conn, "session_timeout", $session_timeout);
+
+    $message = $ok ? "Settings saved successfully." : "Failed to save some settings.";
+}
+
+/* load settings */
+$academy_name    = getSetting($conn, "academy_name", "JuniorCode Academy");
+$admin_email     = getSetting($conn, "admin_email", "admin@juniorcode.com");
+$whatsapp_number = getSetting($conn, "whatsapp_number", "+961");
+$currency        = getSetting($conn, "currency", "USD");
+$timezone        = getSetting($conn, "timezone", "Asia/Beirut");
+$trial_message   = getSetting($conn, "trial_message", "The admin will contact you soon with the next steps.");
+$welcome_message = getSetting($conn, "welcome_message", "Welcome to JuniorCode Academy.");
+$system_status   = getSetting($conn, "system_status", "active");
+$class_duration  = getSetting($conn, "class_duration", "60");
+$session_timeout = getSetting($conn, "session_timeout", "30");
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Manage Classes | JuniorCode Admin</title>
+  <title>Settings | JuniorCode Admin</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
     :root {
@@ -230,20 +265,25 @@ function isActive($page, $currentPage) {
 
     .panel-card {
       padding: 22px;
-      margin-bottom: 24px;
+      margin-bottom: 22px;
     }
 
     .panel-title {
-      font-size: 1.2rem;
+      font-size: 1.15rem;
       font-weight: 900;
       margin: 0 0 18px 0;
     }
 
     .form-control,
-    .form-select {
+    .form-select,
+    textarea {
       border-radius: 14px;
       padding: 12px 14px;
       border: 1px solid #dbe4f0;
+    }
+
+    textarea {
+      min-height: 110px;
     }
 
     .btn-main {
@@ -252,7 +292,7 @@ function isActive($page, $currentPage) {
       color: white;
       font-weight: 800;
       border-radius: 14px;
-      padding: 10px 18px;
+      padding: 12px 18px;
       text-decoration: none;
       display: inline-block;
     }
@@ -262,58 +302,10 @@ function isActive($page, $currentPage) {
       opacity: 0.95;
     }
 
-    .table-responsive {
-      border-radius: 18px;
-      overflow: hidden;
-    }
-
-    .table {
-      margin-bottom: 0;
-      background: white;
-    }
-
-    .table thead th {
-      background: #f8fbff;
-      font-weight: 800;
-      color: var(--dark);
-      border-bottom: 1px solid #e6eefb;
-    }
-
-    .badge-paid {
-      background: #dcfce7;
-      color: #166534;
-      padding: 6px 12px;
-      border-radius: 999px;
-      font-size: 0.8rem;
-      font-weight: 800;
-    }
-
-    .badge-demo {
-      background: #fef3c7;
-      color: #92400e;
-      padding: 6px 12px;
-      border-radius: 999px;
-      font-size: 0.8rem;
-      font-weight: 800;
-    }
-
-    .badge-other {
-      background: #e0e7ff;
-      color: #3730a3;
-      padding: 6px 12px;
-      border-radius: 999px;
-      font-size: 0.8rem;
-      font-weight: 800;
-    }
-
-    .empty-box {
-      text-align: center;
-      padding: 26px 18px;
-      border-radius: 18px;
-      background: #f8fbff;
-      color: var(--muted);
-      border: 1px dashed #d9e9ff;
-      font-weight: 700;
+    .settings-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 22px;
     }
 
     @media (max-width: 991px) {
@@ -334,6 +326,10 @@ function isActive($page, $currentPage) {
       .topbar {
         flex-direction: column;
         align-items: flex-start;
+      }
+
+      .settings-grid {
+        grid-template-columns: 1fr;
       }
     }
   </style>
@@ -401,133 +397,100 @@ function isActive($page, $currentPage) {
     <main class="main-content">
       <div class="topbar">
         <div>
-          <h1>Manage Classes</h1>
-          <p>Admin can add, edit, and delete teacher classes from here.</p>
+          <h1>Settings</h1>
+          <p>Manage platform information, messages, and system preferences.</p>
         </div>
         <div class="admin-badge">
           Hello, <?php echo htmlspecialchars($adminName); ?>
         </div>
       </div>
 
-      <?php if (isset($_GET["added"])): ?>
-        <div class="alert alert-success">Class added successfully.</div>
-      <?php endif; ?>
-
-      <?php if (isset($_GET["updated"])): ?>
-        <div class="alert alert-success">Class updated successfully.</div>
-      <?php endif; ?>
-
-      <?php if (isset($_GET["deleted"])): ?>
-        <div class="alert alert-success">Class deleted successfully.</div>
-      <?php endif; ?>
-
       <?php if ($message !== ""): ?>
-        <div class="alert alert-danger"><?php echo htmlspecialchars($message); ?></div>
+        <div class="alert <?php echo str_contains($message, 'successfully') ? 'alert-success' : 'alert-danger'; ?>">
+          <?php echo htmlspecialchars($message); ?>
+        </div>
       <?php endif; ?>
 
-      <section class="panel-card">
-        <h2 class="panel-title">Add New Class</h2>
+      <form method="POST">
+        <div class="settings-grid">
+          <section class="panel-card">
+            <h2 class="panel-title">Website Information</h2>
 
-        <form method="POST">
-          <div class="row g-3">
-            <div class="col-md-4">
-              <label class="form-label">Teacher Name</label>
-              <input type="text" name="teacher_name" class="form-control" required>
+            <div class="mb-3">
+              <label class="form-label">Academy Name</label>
+              <input type="text" name="academy_name" class="form-control" value="<?php echo htmlspecialchars($academy_name); ?>">
             </div>
 
-            <div class="col-md-4">
-              <label class="form-label">Student Name</label>
-              <input type="text" name="student_name" class="form-control" required>
+            <div class="mb-3">
+              <label class="form-label">Admin Email</label>
+              <input type="email" name="admin_email" class="form-control" value="<?php echo htmlspecialchars($admin_email); ?>">
             </div>
 
-            <div class="col-md-4">
-              <label class="form-label">Type</label>
-              <select name="type" class="form-select" required>
-                <option value="">Choose type</option>
-                <option value="Paid">Paid</option>
-                <option value="Demo">Demo</option>
-                <option value="Half Pay">Half Pay</option>
-                <option value="No Pay">No Pay</option>
-                <option value="Demo Enrolled">Demo Enrolled</option>
-                <option value="Demo Pending">Demo Pending</option>
-                <option value="Demo Other">Demo Other</option>
+            <div class="mb-3">
+              <label class="form-label">WhatsApp Number</label>
+              <input type="text" name="whatsapp_number" class="form-control" value="<?php echo htmlspecialchars($whatsapp_number); ?>">
+            </div>
+          </section>
+
+          <section class="panel-card">
+            <h2 class="panel-title">System Preferences</h2>
+
+            <div class="mb-3">
+              <label class="form-label">Currency</label>
+              <select name="currency" class="form-select">
+                <option value="USD" <?php echo $currency === "USD" ? "selected" : ""; ?>>USD</option>
+                <option value="LBP" <?php echo $currency === "LBP" ? "selected" : ""; ?>>LBP</option>
+                <option value="EUR" <?php echo $currency === "EUR" ? "selected" : ""; ?>>EUR</option>
               </select>
             </div>
 
-            <div class="col-md-4">
-              <label class="form-label">Class Date</label>
-              <input type="date" name="class_date" class="form-control" required>
+            <div class="mb-3">
+              <label class="form-label">Time Zone</label>
+              <input type="text" name="timezone" class="form-control" value="<?php echo htmlspecialchars($timezone); ?>">
             </div>
 
-            <div class="col-md-4">
-              <label class="form-label">Class Time</label>
-              <input type="time" name="class_time" class="form-control" required>
+            <div class="mb-3">
+              <label class="form-label">System Status</label>
+              <select name="system_status" class="form-select">
+                <option value="active" <?php echo $system_status === "active" ? "selected" : ""; ?>>Active</option>
+                <option value="maintenance" <?php echo $system_status === "maintenance" ? "selected" : ""; ?>>Maintenance</option>
+              </select>
+            </div>
+          </section>
+
+          <section class="panel-card">
+            <h2 class="panel-title">Class Settings</h2>
+
+            <div class="mb-3">
+              <label class="form-label">Default Class Duration (minutes)</label>
+              <input type="number" name="class_duration" class="form-control" value="<?php echo htmlspecialchars($class_duration); ?>">
             </div>
 
-            <div class="col-md-4">
-              <label class="form-label">Details</label>
-              <input type="text" name="details" class="form-control" placeholder="Python basics / Demo class / etc.">
+            <div class="mb-3">
+              <label class="form-label">Session Timeout (minutes)</label>
+              <input type="number" name="session_timeout" class="form-control" value="<?php echo htmlspecialchars($session_timeout); ?>">
             </div>
 
-            <div class="col-12">
-              <button type="submit" class="btn-main">Add Class</button>
+            <div class="mb-3">
+              <label class="form-label">Welcome Message</label>
+              <textarea name="welcome_message" class="form-control"><?php echo htmlspecialchars($welcome_message); ?></textarea>
             </div>
-          </div>
-        </form>
-      </section>
+          </section>
 
-      <section class="panel-card">
-        <h2 class="panel-title">All Classes</h2>
+          <section class="panel-card">
+            <h2 class="panel-title">Trial Form Settings</h2>
 
-        <?php if (!empty($classes)): ?>
-          <div class="table-responsive">
-            <table class="table align-middle">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Teacher</th>
-                  <th>Student</th>
-                  <th>Date</th>
-                  <th>Time</th>
-                  <th>Type</th>
-                  <th>Details</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <?php foreach ($classes as $class): ?>
-                  <tr>
-                    <td><?php echo htmlspecialchars($class["id"]); ?></td>
-                    <td><?php echo htmlspecialchars($class["teacher_name"]); ?></td>
-                    <td><?php echo htmlspecialchars($class["student_name"]); ?></td>
-                    <td><?php echo htmlspecialchars($class["class_date"]); ?></td>
-                    <td><?php echo htmlspecialchars($class["class_time"]); ?></td>
-                    <td>
-                      <?php
-                        $type = strtolower(trim($class["type"]));
-                        if ($type === "paid") {
-                            echo '<span class="badge-paid">Paid</span>';
-                        } elseif ($type === "demo") {
-                            echo '<span class="badge-demo">Demo</span>';
-                        } else {
-                            echo '<span class="badge-other">' . htmlspecialchars($class["type"]) . '</span>';
-                        }
-                      ?>
-                    </td>
-                    <td><?php echo htmlspecialchars($class["details"]); ?></td>
-                    <td>
-                      <a href="edit_class.php?id=<?php echo $class["id"]; ?>" class="btn btn-sm btn-warning">Edit</a>
-                      <a href="delete_class.php?id=<?php echo $class["id"]; ?>" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this class?');">Delete</a>
-                    </td>
-                  </tr>
-                <?php endforeach; ?>
-              </tbody>
-            </table>
-          </div>
-        <?php else: ?>
-          <div class="empty-box">No classes found.</div>
-        <?php endif; ?>
-      </section>
+            <div class="mb-3">
+              <label class="form-label">Trial Success Message</label>
+              <textarea name="trial_message" class="form-control"><?php echo htmlspecialchars($trial_message); ?></textarea>
+            </div>
+          </section>
+        </div>
+
+        <div class="mt-3">
+          <button type="submit" class="btn-main">Save Settings</button>
+        </div>
+      </form>
     </main>
   </div>
 </body>
