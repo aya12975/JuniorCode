@@ -49,8 +49,9 @@
       width: auto;
       object-fit: contain;
       border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(29, 78, 216, 0.15);
+      
       border: 1px solid rgba(255, 255, 255, 0.2);
+      
     }
 
     .logo-title {
@@ -80,6 +81,8 @@
       background: rgba(255, 255, 255, 0.92) !important;
       backdrop-filter: blur(10px);
       box-shadow: 0 8px 30px rgba(15, 23, 42, 0.05);
+      padding-left: 20px;
+      padding-right: ;
     }
 
     .navbar.scrolled {
@@ -163,13 +166,7 @@
       position: relative;
     }
 
-    .hero-card {
-      border: none;
-      border-radius: 34px;
-      box-shadow: var(--shadow-lg);
-      overflow: hidden;
-      background: white;
-    }
+    
 
     .hero-badge,
     .section-badge {
@@ -510,11 +507,11 @@
     }
 
     .brand-logo-img {
-      height: 60px;
-      width: 60px;
+      height: 50px;
+      width: 50px;
       object-fit: cover;
       border-radius: 14px;
-      border: 2px solid rgba(255,255,255,0.15);
+      
     }
 
     .reveal {
@@ -727,7 +724,7 @@
 
       return (
         <nav className={`navbar navbar-expand-lg fixed-top ${scrolled ? "scrolled" : ""}`}>
-          <div className="container">
+          <div className="container-fluid px-5">
             <a className="navbar-brand d-flex align-items-center gap-3" href="#home">
               <img src={logo} className="logo-icon" alt="JuniorCode logo" />
               <div className="logo-text">
@@ -780,8 +777,8 @@
     function Hero() {
       return (
         <section className="hero" id="home">
-          <div className="container">
-            <div className="card hero-card reveal active">
+          <div className="container-fluid px-4">
+            <div className="reveal active">
               <div className="row g-0 align-items-stretch">
                 <div className="col-lg-6 p-4 p-md-5 d-flex flex-column justify-content-center">
                   <span className="hero-badge mb-3">Modern Tech Learning for Kids & Juniors</span>
@@ -911,66 +908,118 @@
     }
 
     function TrialSection() {
-      return (
-        <section className="section-padding" id="trial">
-          <div className="container">
-            <div className="cta-card p-4 p-md-5 reveal">
-              <div className="row align-items-center g-4">
-                <div className="col-lg-7">
-                  <span className="section-badge mb-3">Free Trial Session</span>
-                  <h2 className="section-title">Let students try a class before choosing a plan</h2>
-                  <p className="text-muted mb-4" style={{ lineHeight: "1.8" }}>
-                    The free trial session helps students and parents understand the teaching style, check the level,
-                    and choose the most suitable program.
-                  </p>
+  const [studentName, setStudentName] = React.useState("");
+  const [parentEmail, setParentEmail] = React.useState("");
+  const [ageGroup, setAgeGroup] = React.useState("");
 
-                  <div className="row g-3">
-                    <div className="col-md-6">
-                      <div className="p-4 rounded-4 bg-light h-100">
-                        <h6 className="fw-bold">Live Introduction</h6>
-                        <p className="text-muted mb-0">Meet the instructor and explore a real sample class.</p>
-                      </div>
-                    </div>
-                    <div className="col-md-6">
-                      <div className="p-4 rounded-4 bg-light h-100">
-                        <h6 className="fw-bold">Level Matching</h6>
-                        <p className="text-muted mb-0">Receive a course recommendation based on age and level.</p>
-                      </div>
-                    </div>
+  const handleSubmit = (e) => {
+    e.preventDefault();
+
+    if (!studentName || !parentEmail || !ageGroup) {
+      alert("Please fill all fields");
+      return;
+    }
+
+    // Redirect to success page
+    window.location.href = "trial_success.html";
+  };
+
+  return (
+    <section className="section-padding" id="trial">
+      <div className="container">
+        <div className="cta-card p-4 p-md-5 reveal">
+          <div className="row align-items-center g-4">
+
+            {/* LEFT TEXT */}
+            <div className="col-lg-7">
+              <span className="section-badge mb-3">Free Trial Session</span>
+
+              <h2 className="section-title">
+                Let students try a class before choosing a plan
+              </h2>
+
+              <p className="text-muted mb-4" style={{ lineHeight: "1.8" }}>
+                The free trial session helps students and parents understand the teaching style,
+                check the level, and choose the most suitable program.
+              </p>
+
+              <div className="row g-3">
+                <div className="col-md-6">
+                  <div className="p-4 rounded-4 bg-light h-100">
+                    <h6 className="fw-bold">Live Introduction</h6>
+                    <p className="text-muted mb-0">
+                      Meet the instructor and explore a real sample class.
+                    </p>
                   </div>
                 </div>
 
-                <div className="col-lg-5">
-                  <div className="offer-box p-4 p-md-5">
-                    <h4 className="fw-bold mb-3 position-relative" style={{ zIndex: 2 }}>Reserve Your Trial</h4>
-
-                    <div className="mb-3">
-                      <input type="text" className="form-control" placeholder="Student Name" />
-                    </div>
-
-                    <div className="mb-3">
-                      <input type="email" className="form-control" placeholder="Parent Email" />
-                    </div>
-
-                    <div className="mb-3">
-                      <select className="form-select">
-                        <option>Choose Age Group</option>
-                        <option>6–10</option>
-                        <option>11–14</option>
-                        <option>15–18</option>
-                      </select>
-                    </div>
-
-                    <button className="btn btn-light-strong w-100">Book Free Trial</button>
+                <div className="col-md-6">
+                  <div className="p-4 rounded-4 bg-light h-100">
+                    <h6 className="fw-bold">Level Matching</h6>
+                    <p className="text-muted mb-0">
+                      Receive a course recommendation based on age and level.
+                    </p>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        </section>
-      );
-    }
 
+            {/* RIGHT FORM */}
+            <div className="col-lg-5">
+              <div className="offer-box p-4 p-md-5">
+                <h4 className="fw-bold mb-3 position-relative" style={{ zIndex: 2 }}>
+                  Reserve Your Trial
+                </h4>
+
+                <form onSubmit={handleSubmit}>
+                  
+                  <div className="mb-3">
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="Student Name"
+                      value={studentName}
+                      onChange={(e) => setStudentName(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="mb-3">
+                    <input
+                      type="email"
+                      className="form-control"
+                      placeholder="Parent Email"
+                      value={parentEmail}
+                      onChange={(e) => setParentEmail(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="mb-3">
+                    <select
+                      className="form-select"
+                      value={ageGroup}
+                      onChange={(e) => setAgeGroup(e.target.value)}
+                    >
+                      <option value="">Choose Age Group</option>
+                      <option value="6–10">6–10</option>
+                      <option value="11–14">11–14</option>
+                      <option value="15–18">15–18</option>
+                    </select>
+                  </div>
+
+                  <button type="submit" className="btn btn-light-strong w-100">
+                    Book Free Trial
+                  </button>
+
+                </form>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
     function Pricing() {
       return (
         <section className="section-padding" id="pricing">
@@ -1048,7 +1097,7 @@
               <div className="col-lg-4">
                 <div className="d-flex align-items-center gap-3 mb-3">
                   <div className="brand-icon">
-                    <img src={heroImage} alt="JuniorCode Logo" className="brand-logo-img" />
+                    <img src="images/robot2.png.png" alt="JuniorCode Logo" className="brand-logo-img" />
                   </div>
                   <div>
                     <h5 className="mb-0">JuniorCode Academy</h5>
