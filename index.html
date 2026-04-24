@@ -13,7 +13,7 @@
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
   <style>
     :root {
       --primary: #1d4ed8;
@@ -564,6 +564,7 @@
 
   <script type="text/babel">
     const { useEffect, useState } = React;
+    emailjs.init("Y1FSyohqy-Hhh_-SA");
 
     // put your uploaded image here
     const logo = "images/robot2.png.png";
@@ -908,20 +909,22 @@
     }
 
     function TrialSection() {
-  const [studentName, setStudentName] = React.useState("");
-  const [parentEmail, setParentEmail] = React.useState("");
-  const [ageGroup, setAgeGroup] = React.useState("");
-
-  const handleSubmit = (e) => {
+  const sendEmail = (e) => {
     e.preventDefault();
 
-    if (!studentName || !parentEmail || !ageGroup) {
-      alert("Please fill all fields");
-      return;
-    }
-
-    // Redirect to success page
-    window.location.href = "trial_success.html";
+    emailjs.sendForm(
+      "service_s8r4j0q",
+      "template_4umb0hu",
+      e.target
+    ).then(
+      () => {
+        window.location.href = "trial_success.html";
+      },
+      (error) => {
+        alert("Failed to send email: " + error.text);
+        console.error(error);
+      }
+    );
   };
 
   return (
@@ -930,88 +933,62 @@
         <div className="cta-card p-4 p-md-5 reveal">
           <div className="row align-items-center g-4">
 
-            {/* LEFT TEXT */}
             <div className="col-lg-7">
-              <span className="section-badge mb-3">Free Trial Session</span>
+              <span className="section-badge mb-3">
+                Free Trial Session
+              </span>
 
               <h2 className="section-title">
-                Let students try a class before choosing a plan
+                Let students try a class before enrolling
               </h2>
 
               <p className="text-muted mb-4" style={{ lineHeight: "1.8" }}>
-                The free trial session helps students and parents understand the teaching style,
-                check the level, and choose the most suitable program.
+                The free trial session helps students and parents understand our teaching style and choose the most suitable program.
               </p>
-
-              <div className="row g-3">
-                <div className="col-md-6">
-                  <div className="p-4 rounded-4 bg-light h-100">
-                    <h6 className="fw-bold">Live Introduction</h6>
-                    <p className="text-muted mb-0">
-                      Meet the instructor and explore a real sample class.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="col-md-6">
-                  <div className="p-4 rounded-4 bg-light h-100">
-                    <h6 className="fw-bold">Level Matching</h6>
-                    <p className="text-muted mb-0">
-                      Receive a course recommendation based on age and level.
-                    </p>
-                  </div>
-                </div>
-              </div>
             </div>
 
-            {/* RIGHT FORM */}
             <div className="col-lg-5">
-              <div className="offer-box p-4 p-md-5">
-                <h4 className="fw-bold mb-3 position-relative" style={{ zIndex: 2 }}>
-                  Reserve Your Trial
-                </h4>
+              <form onSubmit={sendEmail}>
+                <div className="mb-3">
+                  <input
+                    type="text"
+                    name="student_name"
+                    className="form-control"
+                    placeholder="Student Name"
+                    required
+                  />
+                </div>
 
-                <form onSubmit={handleSubmit}>
-                  
-                  <div className="mb-3">
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="Student Name"
-                      value={studentName}
-                      onChange={(e) => setStudentName(e.target.value)}
-                    />
-                  </div>
+                <div className="mb-3">
+                  <input
+                    type="email"
+                    name="parent_email"
+                    className="form-control"
+                    placeholder="Parent Email"
+                    required
+                  />
+                </div>
 
-                  <div className="mb-3">
-                    <input
-                      type="email"
-                      className="form-control"
-                      placeholder="Parent Email"
-                      value={parentEmail}
-                      onChange={(e) => setParentEmail(e.target.value)}
-                    />
-                  </div>
+                <div className="mb-3">
+                  <select
+                    name="age_group"
+                    className="form-select"
+                    required
+                  >
+                    <option value="">Choose Age Group</option>
+                    <option value="6-10">6 - 10</option>
+                    <option value="11-14">11 - 14</option>
+                    <option value="15-18">15 - 18</option>
+                  </select>
+                </div>
 
-                  <div className="mb-3">
-                    <select
-                      className="form-select"
-                      value={ageGroup}
-                      onChange={(e) => setAgeGroup(e.target.value)}
-                    >
-                      <option value="">Choose Age Group</option>
-                      <option value="6–10">6–10</option>
-                      <option value="11–14">11–14</option>
-                      <option value="15–18">15–18</option>
-                    </select>
-                  </div>
-
-                  <button type="submit" className="btn btn-light-strong w-100">
-                    Book Free Trial
-                  </button>
-
-                </form>
-              </div>
+                <button
+                  type="submit"
+                  className="btn btn-light-strong w-100"
+                >
+                  Book Free Trial
+                </button>
+              </form>
             </div>
 
           </div>
