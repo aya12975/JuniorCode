@@ -35,10 +35,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $class_time   = $_POST["class_time"];
     $type         = trim($_POST["type"]);
     $details      = trim($_POST["details"]);
+    $zoom_link    = trim($_POST["zoom_link"] ?? "");
 
     if ($teacher_name !== "" && $student_name !== "" && $class_date !== "" && $class_time !== "" && $type !== "") {
-        $stmt2 = $conn->prepare("UPDATE classes SET teacher_name = ?, student_name = ?, class_date = ?, class_time = ?, type = ?, details = ? WHERE id = ?");
-        $stmt2->bind_param("ssssssi", $teacher_name, $student_name, $class_date, $class_time, $type, $details, $id);
+        $stmt2 = $conn->prepare("UPDATE classes SET teacher_name = ?, student_name = ?, class_date = ?, class_time = ?, type = ?, details = ?, zoom_link = ? WHERE id = ?");
+        $stmt2->bind_param("sssssssi", $teacher_name, $student_name, $class_date, $class_time, $type, $details, $zoom_link, $id);
 
         if ($stmt2->execute()) {
             header("Location: manage_classes.php?updated=1");
@@ -129,6 +130,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         <div class="col-12">
           <label class="form-label">Details</label>
           <textarea name="details" class="form-control" rows="3"><?php echo htmlspecialchars($class["details"]); ?></textarea>
+        </div>
+
+        <div class="col-12">
+          <label class="form-label">Zoom Link <span class="text-muted fw-normal">(optional)</span></label>
+          <input type="url" name="zoom_link" class="form-control" placeholder="https://zoom.us/j/..." value="<?php echo htmlspecialchars($class["zoom_link"] ?? ""); ?>">
         </div>
 
         <div class="col-12">

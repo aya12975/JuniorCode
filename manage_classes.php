@@ -11,23 +11,51 @@ $currentPage = basename($_SERVER["PHP_SELF"]);
 $adminName = $_SESSION["username"] ?? "Admin";
 $message = "";
 
+/* Auto-add missing columns */
+$colCheck = $conn->query("SHOW COLUMNS FROM classes LIKE 'zoom_link'");
+if ($colCheck && $colCheck->num_rows === 0) {
+    $conn->query("ALTER TABLE classes ADD COLUMN zoom_link VARCHAR(500) DEFAULT NULL");
+}
+$colCheck2 = $conn->query("SHOW COLUMNS FROM classes LIKE 'teacher_id'");
+if ($colCheck2 && $colCheck2->num_rows === 0) {
+    $conn->query("ALTER TABLE classes ADD COLUMN teacher_id INT DEFAULT NULL");
+}
+/* Backfill teacher_id for any existing rows that were added before this fix */
+$conn->query("
+    UPDATE classes c
+    JOIN users u ON LOWER(u.username) = LOWER(c.teacher_name)
+    SET c.teacher_id = u.id
+    WHERE c.teacher_id IS NULL AND u.role = 'teacher'
+");
+
+/* Fetch real teachers for the dropdown */
+$teachers = [];
+$tResult = $conn->query("SELECT id, username FROM users WHERE role = 'teacher' ORDER BY username ASC");
+if ($tResult) {
+    while ($row = $tResult->fetch_assoc()) {
+        $teachers[] = $row;
+    }
+}
+
 /* Add new class */
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
+    $teacher_id   = (int)($_POST["teacher_id"] ?? 0);
     $teacher_name = trim($_POST["teacher_name"] ?? "");
     $student_name = trim($_POST["student_name"] ?? "");
     $class_date   = $_POST["class_date"] ?? "";
     $class_time   = $_POST["class_time"] ?? "";
     $type         = trim($_POST["type"] ?? "");
     $details      = trim($_POST["details"] ?? "");
+    $zoom_link    = trim($_POST["zoom_link"] ?? "");
 
-    if ($teacher_name !== "" && $student_name !== "" && $class_date !== "" && $class_time !== "" && $type !== "") {
+    if ($teacher_id > 0 && $student_name !== "" && $class_date !== "" && $class_time !== "" && $type !== "") {
         $stmt = $conn->prepare("
-            INSERT INTO classes (teacher_name, student_name, class_date, class_time, type, details)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO classes (teacher_id, teacher_name, student_name, class_date, class_time, type, details, zoom_link)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ");
 
         if ($stmt) {
-            $stmt->bind_param("ssssss", $teacher_name, $student_name, $class_date, $class_time, $type, $details);
+            $stmt->bind_param("isssssss", $teacher_id, $teacher_name, $student_name, $class_date, $class_time, $type, $details, $zoom_link);
 
             if ($stmt->execute()) {
                 header("Location: manage_classes.php?added=1");
@@ -316,6 +344,33 @@ function isActive($page, $currentPage) {
       font-weight: 700;
     }
 
+    .btn-zoom {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #2D8CFF;
+      color: white;
+      font-weight: 700;
+      border-radius: 10px;
+      padding: 6px 12px;
+      font-size: 0.82rem;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .btn-zoom:hover {
+      background: #1a6fd4;
+      color: white;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(45,140,255,0.3);
+    }
+
+    .zoom-empty {
+      color: #94a3b8;
+      font-size: 0.85rem;
+    }
+
     @media (max-width: 991px) {
       .app-shell {
         flex-direction: column;
@@ -431,8 +486,17 @@ function isActive($page, $currentPage) {
         <form method="POST">
           <div class="row g-3">
             <div class="col-md-4">
-              <label class="form-label">Teacher Name</label>
-              <input type="text" name="teacher_name" class="form-control" required>
+              <label class="form-label">Teacher</label>
+              <select name="teacher_id" class="form-select" required onchange="syncTeacherName(this)">
+                <option value="">Choose teacher</option>
+                <?php foreach ($teachers as $t): ?>
+                  <option value="<?php echo $t['id']; ?>"
+                          data-name="<?php echo htmlspecialchars($t['username']); ?>">
+                    <?php echo htmlspecialchars($t['username']); ?>
+                  </option>
+                <?php endforeach; ?>
+              </select>
+              <input type="hidden" name="teacher_name" id="teacher_name_hidden">
             </div>
 
             <div class="col-md-4">
@@ -469,6 +533,11 @@ function isActive($page, $currentPage) {
               <input type="text" name="details" class="form-control" placeholder="Python basics / Demo class / etc.">
             </div>
 
+            <div class="col-md-8">
+              <label class="form-label">Zoom Link <span class="text-muted fw-normal">(optional)</span></label>
+              <input type="url" name="zoom_link" class="form-control" placeholder="https://zoom.us/j/...">
+            </div>
+
             <div class="col-12">
               <button type="submit" class="btn-main">Add Class</button>
             </div>
@@ -491,6 +560,7 @@ function isActive($page, $currentPage) {
                   <th>Time</th>
                   <th>Type</th>
                   <th>Details</th>
+                  <th>Zoom</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -516,6 +586,15 @@ function isActive($page, $currentPage) {
                     </td>
                     <td><?php echo htmlspecialchars($class["details"]); ?></td>
                     <td>
+                      <?php if (!empty($class["zoom_link"])): ?>
+                        <a href="<?php echo htmlspecialchars($class["zoom_link"]); ?>" target="_blank" rel="noopener" class="btn-zoom">
+                          📹 Open Zoom
+                        </a>
+                      <?php else: ?>
+                        <span class="zoom-empty">— No link</span>
+                      <?php endif; ?>
+                    </td>
+                    <td>
                       <a href="edit_class.php?id=<?php echo $class["id"]; ?>" class="btn btn-sm btn-warning">Edit</a>
                       <a href="delete_class.php?id=<?php echo $class["id"]; ?>" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this class?');">Delete</a>
                     </td>
@@ -530,5 +609,13 @@ function isActive($page, $currentPage) {
       </section>
     </main>
   </div>
+
+<script>
+  function syncTeacherName(select) {
+    const opt = select.options[select.selectedIndex];
+    document.getElementById('teacher_name_hidden').value = opt.dataset.name || '';
+  }
+</script>
+
 </body>
 </html>

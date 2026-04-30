@@ -43,10 +43,34 @@ if ($result && $row = $result->fetch_assoc()) {
 $stmt->close();
 
 /* =========================
-   Monthly class summary
-   Your current classes table only has:
-   id, class_name
-   So these values stay 0 for now
+   Ensure teacher_id column exists
+========================= */
+$colCheck = $conn->query("SHOW COLUMNS FROM classes LIKE 'teacher_id'");
+if ($colCheck && $colCheck->num_rows === 0) {
+    $conn->query("ALTER TABLE classes ADD COLUMN teacher_id INT DEFAULT NULL");
+}
+
+/* =========================
+   All classes for this teacher
+========================= */
+$classSessions = [];
+$stmt2 = $conn->prepare("
+    SELECT * FROM classes
+    WHERE teacher_id = ? OR LOWER(teacher_name) = LOWER(?)
+    ORDER BY class_date ASC, class_time ASC
+");
+if ($stmt2) {
+    $stmt2->bind_param("is", $teacherId, $teacherName);
+    $stmt2->execute();
+    $result2 = $stmt2->get_result();
+    while ($row = $result2->fetch_assoc()) {
+        $classSessions[] = $row;
+    }
+    $stmt2->close();
+}
+
+/* =========================
+   Stats from real classes
 ========================= */
 $fullPay = 0;
 $halfPay = 0;
@@ -55,24 +79,34 @@ $demoEnrolled = 0;
 $demoPending = 0;
 $demoOther = 0;
 
+foreach ($classSessions as $c) {
+    $t = strtolower(trim($c["type"] ?? ""));
+    if ($t === "paid")                    $fullPay++;
+    elseif ($t === "half pay")            $halfPay++;
+    elseif ($t === "no pay")              $noPay++;
+    elseif ($t === "demo enrolled")       $demoEnrolled++;
+    elseif ($t === "demo pending")        $demoPending++;
+    elseif (strpos($t, "demo") !== false) $demoOther++;
+}
+
 $totalDemos = $demoEnrolled + $demoPending + $demoOther;
 $conversionRate = $totalDemos > 0 ? round(($demoEnrolled / $totalDemos) * 100) : 0;
 
 /* =========================
-   All classes
-   Current classes table does not store:
-   teacher_name, student_name, class_date, class_time, type, details
-========================= */
-$classSessions = [];
-
-/* =========================
    Today's classes
 ========================= */
-$todaysClasses = [];
+$today = date("Y-m-d");
+$todaysClasses = array_values(array_filter($classSessions, function($c) use ($today) {
+    return ($c["class_date"] ?? "") === $today;
+}));
+
+/* =========================
+   Unique students
+========================= */
+$students = array_values(array_unique(array_filter(array_column($classSessions, "student_name"))));
 
 /* =========================
    Earnings table
-   Build a simple list from current teacher_earnings table
 ========================= */
 $earnings = [];
 
@@ -105,11 +139,7 @@ if ($result5) {
 
 $stmt5->close();
 
-/* =========================
-   Teacher students list
-   Current DB has no student_name column in classes
-========================= */
-$students = [];
+/* students list is built above from $classSessions */
 
 /* =========================
    Optional availability count
@@ -146,144 +176,166 @@ $currentYear = date("Y");
   <title>Teacher Dashboard</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
-    body {
-      margin: 0;
-      background: #f4f7fb;
-      font-family: Arial, sans-serif;
-      color: #1e293b;
+    :root {
+      --primary:      #1d4ed8;
+      --primary-dark: #1e3a8a;
+      --secondary:    #0ea5e9;
+      --accent:       #38bdf8;
+      --dark:         #0f172a;
+      --muted:        #64748b;
     }
 
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--dark);
+      background:
+        radial-gradient(circle at top left,  rgba(29,78,216,0.07), transparent 25%),
+        radial-gradient(circle at bottom right, rgba(14,165,233,0.07), transparent 25%),
+        linear-gradient(180deg, #f8fbff 0%, #eaf4ff 100%);
+    }
+
+    /* ── Sidebar ── */
     .sidebar {
       position: fixed;
-      top: 0;
-      left: 0;
-      width: 255px;
+      top: 0; left: 0;
+      width: 260px;
       height: 100vh;
-      background: #ffffff;
-      border-right: 1px solid #e5e7eb;
+      background: linear-gradient(180deg, #0f172a 0%, #1e3a8a 55%, #0c4a8a 100%);
       display: flex;
       flex-direction: column;
       justify-content: space-between;
       z-index: 1000;
+      overflow-y: auto;
     }
 
-    .sidebar-top {
-      padding: 18px;
-    }
+    .sidebar-top { padding: 20px 16px; }
 
     .brand {
       display: flex;
       align-items: center;
       gap: 12px;
-      padding: 6px 8px 18px 8px;
-      border-bottom: 1px solid #eef2f7;
-      margin-bottom: 18px;
+      padding: 10px 10px 20px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      margin-bottom: 16px;
     }
 
-    .brand-logo {
-      width: 44px;
-      height: 44px;
-      border-radius: 12px;
-      background: linear-gradient(135deg, #2563eb, #4f46e5);
-      color: white;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      font-size: 18px;
+    .brand-logo-img {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      object-fit: contain;
+      background: rgba(255,255,255,0.12);
+      padding: 4px;
+      flex-shrink: 0;
     }
 
     .brand-title {
-      font-size: 1.1rem;
-      font-weight: bold;
+      font-size: 1.05rem;
+      font-weight: 900;
       margin: 0;
+      color: #ffffff;
+      line-height: 1.2;
     }
 
     .brand-subtitle {
-      font-size: 0.85rem;
-      color: #64748b;
-      margin: 0;
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.55);
+      margin: 3px 0 0;
+      letter-spacing: 1px;
     }
 
     .teacher-box {
       display: flex;
       align-items: center;
       gap: 12px;
-      background: #f8fafc;
-      border: 1px solid #e5e7eb;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
       border-radius: 16px;
       padding: 14px;
       margin-bottom: 18px;
     }
 
     .teacher-avatar {
-      width: 46px;
-      height: 46px;
+      width: 44px;
+      height: 44px;
       border-radius: 50%;
-      background: #dbeafe;
-      color: #1d4ed8;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: white;
       font-weight: bold;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 18px;
+      flex-shrink: 0;
     }
 
-    .teacher-name {
-      font-weight: bold;
-      margin: 0;
-    }
-
-    .teacher-role {
-      margin: 0;
-      color: #64748b;
-      font-size: 0.9rem;
-    }
+    .teacher-name  { font-weight: 800; margin: 0; color: #ffffff; }
+    .teacher-role  { margin: 0; color: rgba(255,255,255,0.55); font-size: 0.85rem; }
 
     .nav-link-custom {
       display: flex;
       align-items: center;
       gap: 12px;
       text-decoration: none;
-      color: #334155;
-      padding: 13px 14px;
-      border-radius: 12px;
-      margin: 6px 4px;
-      font-weight: 600;
-      transition: 0.25s;
+      color: rgba(255,255,255,0.78);
+      padding: 12px 14px;
+      border-radius: 14px;
+      margin: 4px 0;
+      font-weight: 700;
+      transition: all 0.22s ease;
     }
 
-    .nav-link-custom:hover,
+    .nav-link-custom:hover {
+      background: rgba(255,255,255,0.09);
+      color: #ffffff;
+    }
+
     .nav-link-custom.active {
-      background: #e8f0ff;
-      color: #1d4ed8;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: #ffffff;
+      box-shadow: 0 8px 20px rgba(29,78,216,0.35);
     }
 
     .nav-icon {
-      width: 20px;
-      text-align: center;
-      font-size: 16px;
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+
+    .nav-link-custom.active .nav-icon {
+      background: rgba(255,255,255,0.18);
     }
 
     .sidebar-bottom {
-      padding: 18px;
-      border-top: 1px solid #eef2f7;
+      padding: 16px;
+      border-top: 1px solid rgba(255,255,255,0.1);
     }
 
+    /* ── Main content ── */
     .main {
-      margin-left: 255px;
+      margin-left: 260px;
       padding: 26px;
+      min-height: 100vh;
     }
 
     .topbar {
-      background: white;
-      border: 1px solid #e5e7eb;
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(10px);
+      border: 1px solid #e0ecff;
       border-radius: 18px;
-      padding: 14px 18px;
+      padding: 14px 20px;
       margin-bottom: 22px;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      box-shadow: 0 4px 16px rgba(29,78,216,0.06);
     }
 
     .topbar-user {
@@ -297,7 +349,7 @@ $currentYear = date("Y");
       width: 38px;
       height: 38px;
       border-radius: 50%;
-      background: #1d4ed8;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
       color: white;
       display: flex;
       align-items: center;
@@ -306,36 +358,65 @@ $currentYear = date("Y");
     }
 
     .hero {
-      background: linear-gradient(135deg, #0f4fd6, #1d4ed8);
+      background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 50%, var(--secondary) 100%);
       color: white;
-      border-radius: 22px;
-      padding: 22px 24px;
+      border-radius: 24px;
+      padding: 26px 28px;
       margin-bottom: 22px;
-      box-shadow: 0 12px 30px rgba(29, 78, 216, 0.18);
+      box-shadow: 0 16px 40px rgba(29,78,216,0.22);
       display: flex;
       justify-content: space-between;
       align-items: center;
       flex-wrap: wrap;
       gap: 16px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: "";
+      position: absolute;
+      width: 260px; height: 260px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.06);
+      top: -80px; right: -60px;
+      pointer-events: none;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      width: 180px; height: 180px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.05);
+      bottom: -60px; left: -40px;
+      pointer-events: none;
     }
 
     .hero h2 {
       margin: 0;
-      font-size: 1.6rem;
-      font-weight: bold;
+      font-size: 1.7rem;
+      font-weight: 900;
+      position: relative;
+      z-index: 1;
     }
 
     .hero p {
-      margin: 4px 0 0;
-      opacity: 0.92;
+      margin: 5px 0 0;
+      opacity: 0.88;
+      position: relative;
+      z-index: 1;
     }
 
     .month-box {
-      background: rgba(255,255,255,0.14);
-      border: 1px solid rgba(255,255,255,0.18);
-      padding: 10px 16px;
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.22);
+      padding: 10px 18px;
       border-radius: 14px;
-      font-weight: 600;
+      font-weight: 700;
+      position: relative;
+      z-index: 1;
+      backdrop-filter: blur(4px);
     }
 
     .panel-card {
@@ -363,7 +444,7 @@ $currentYear = date("Y");
     .soft-green { background: #ecfeff; color: #0f766e; }
     .soft-orange { background: #fff7ed; color: #c2410c; }
     .soft-red { background: #fef2f2; color: #b91c1c; }
-    .soft-blue { background: #eff6ff; color: #1d4ed8; }
+    .soft-blue { background: #eff6ff; color: var(--primary); }
     .soft-purple { background: #f5f3ff; color: #6d28d9; }
 
     .big-stat {
@@ -413,6 +494,42 @@ $currentYear = date("Y");
       padding: 30px 10px;
     }
 
+    .btn-zoom {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #2D8CFF;
+      color: white;
+      font-weight: 700;
+      border-radius: 10px;
+      padding: 6px 12px;
+      font-size: 0.82rem;
+      text-decoration: none;
+      white-space: nowrap;
+      transition: all 0.2s ease;
+    }
+
+    .btn-zoom:hover {
+      background: #1a6fd4;
+      color: white;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(45,140,255,0.3);
+    }
+
+    .zoom-none {
+      color: #cbd5e1;
+      font-size: 0.85rem;
+    }
+
+    .badge-type {
+      border-radius: 999px;
+      padding: 5px 11px;
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+
+    .row-today { background: #f0f9ff !important; }
+
     .mini-list li {
       padding: 10px 0;
       border-bottom: 1px solid #eef2f7;
@@ -432,16 +549,13 @@ $currentYear = date("Y");
       font-size: 0.92rem;
     }
 
-    @media (max-width: 991px) {
-      .sidebar {
-        position: static;
-        width: 100%;
-        height: auto;
-      }
+    html { scroll-behavior: smooth; }
 
-      .main {
-        margin-left: 0;
-      }
+    section[id] { scroll-margin-top: 20px; }
+
+    @media (max-width: 991px) {
+      .sidebar { position: static; width: 100%; height: auto; }
+      .main    { margin-left: 0; }
     }
   </style>
 </head>
@@ -450,10 +564,10 @@ $currentYear = date("Y");
 <div class="sidebar">
   <div class="sidebar-top">
     <div class="brand">
-      <div class="brand-logo">JC</div>
+      <img src="images/robot2.png.png" class="brand-logo-img" alt="JuniorCode Logo">
       <div>
-        <p class="brand-title">JuniorCode</p>
-        <p class="brand-subtitle">Coding Education</p>
+        <p class="brand-title">JuniorCode <span style="color:var(--secondary)">&lt;/&gt;</span></p>
+        <p class="brand-subtitle">TEACHER PORTAL</p>
       </div>
     </div>
 
@@ -465,27 +579,27 @@ $currentYear = date("Y");
       </div>
     </div>
 
-    <a href="#dashboard" class="nav-link-custom active">
+    <a href="#dashboard" class="nav-link-custom nav-item active">
       <span class="nav-icon">🏠</span>
       <span>Dashboard</span>
     </a>
 
-    <a href="#classes" class="nav-link-custom">
+    <a href="#classes" class="nav-link-custom nav-item">
       <span class="nav-icon">🖥️</span>
       <span>My Classes</span>
     </a>
 
-    <a href="teacher_schedule.php" class="nav-link-custom">
+    <a href="#schedule" class="nav-link-custom nav-item">
       <span class="nav-icon">📅</span>
       <span>My Schedule</span>
     </a>
 
-    <a href="#earnings" class="nav-link-custom">
+    <a href="#earnings" class="nav-link-custom nav-item">
       <span class="nav-icon">💵</span>
       <span>My Earnings</span>
     </a>
 
-    <a href="#students" class="nav-link-custom">
+    <a href="#students" class="nav-link-custom nav-item">
       <span class="nav-icon">👤</span>
       <span>My Students</span>
     </a>
@@ -505,212 +619,255 @@ $currentYear = date("Y");
       <div class="small-avatar"><?php echo strtoupper(substr($teacherName, 0, 1)); ?></div>
       <span><?php echo htmlspecialchars($teacherName); ?></span>
     </div>
-    <div class="text-muted fw-semibold"><?php echo $currentMonth . " " . $currentYear; ?></div>
+    <div class="text-muted fw-semibold" id="topbar-section-label">Dashboard</div>
   </div>
 
-  <section id="dashboard" class="hero">
-    <div>
-      <h2>Hello, <?php echo htmlspecialchars($teacherName); ?></h2>
-      <p>Teaching Dashboard</p>
-    </div>
-    <div class="month-box">Viewing: <?php echo $currentMonth . " " . $currentYear; ?></div>
-  </section>
+  <!-- ══ VIEW: DASHBOARD ══ -->
+  <div class="view" id="view-dashboard">
+    <section class="hero">
+      <div>
+        <h2>Hello, <?php echo htmlspecialchars($teacherName); ?></h2>
+        <p>Teaching Dashboard</p>
+      </div>
+      <div class="month-box">Viewing: <?php echo $currentMonth . " " . $currentYear; ?></div>
+    </section>
 
-  <div class="info-note">
-    This dashboard is running with your current database structure. Class, student, and detailed schedule sections will stay empty until you add more columns to the <strong>classes</strong> table.
-  </div>
-
-  <div class="row g-4">
-    <div class="col-lg-4">
-      <div class="panel-card">
-        <div class="panel-title">Paid Classes</div>
-        <div class="row g-3">
-          <div class="col-4">
-            <div class="soft-stat soft-green">
-              <div>Full Pay</div>
-              <div class="big-stat"><?php echo $fullPay; ?></div>
-            </div>
+    <div class="row g-4 mb-4">
+      <div class="col-lg-4">
+        <div class="panel-card">
+          <div class="panel-title">Paid Classes</div>
+          <div class="row g-3">
+            <div class="col-4"><div class="soft-stat soft-green"><div>Full Pay</div><div class="big-stat"><?php echo $fullPay; ?></div></div></div>
+            <div class="col-4"><div class="soft-stat soft-orange"><div>Half Pay</div><div class="big-stat"><?php echo $halfPay; ?></div></div></div>
+            <div class="col-4"><div class="soft-stat soft-red"><div>No Pay</div><div class="big-stat"><?php echo $noPay; ?></div></div></div>
           </div>
-          <div class="col-4">
-            <div class="soft-stat soft-orange">
-              <div>Half Pay</div>
-              <div class="big-stat"><?php echo $halfPay; ?></div>
-            </div>
+        </div>
+      </div>
+      <div class="col-lg-4">
+        <div class="panel-card">
+          <div class="panel-title">Demo Classes</div>
+          <div class="row g-3">
+            <div class="col-4"><div class="soft-stat soft-green"><div>Enrolled</div><div class="big-stat"><?php echo $demoEnrolled; ?></div></div></div>
+            <div class="col-4"><div class="soft-stat soft-blue"><div>Pending</div><div class="big-stat"><?php echo $demoPending; ?></div></div></div>
+            <div class="col-4"><div class="soft-stat soft-orange"><div>Other</div><div class="big-stat"><?php echo $demoOther; ?></div></div></div>
           </div>
-          <div class="col-4">
-            <div class="soft-stat soft-red">
-              <div>No Pay</div>
-              <div class="big-stat"><?php echo $noPay; ?></div>
-            </div>
-          </div>
+        </div>
+      </div>
+      <div class="col-lg-4">
+        <div class="panel-card">
+          <div class="panel-title">Conversion Rate</div>
+          <div class="big-stat text-primary"><?php echo $conversionRate; ?>%</div>
+          <div class="text-muted">Success Rate</div>
+          <div class="mt-2 text-muted"><?php echo $demoEnrolled; ?> / <?php echo $totalDemos; ?> demos</div>
         </div>
       </div>
     </div>
 
-    <div class="col-lg-4">
-      <div class="panel-card">
-        <div class="panel-title">Demo Classes</div>
-        <div class="row g-3">
-          <div class="col-4">
-            <div class="soft-stat soft-green">
-              <div>Enrolled</div>
-              <div class="big-stat"><?php echo $demoEnrolled; ?></div>
-            </div>
-          </div>
-          <div class="col-4">
-            <div class="soft-stat soft-blue">
-              <div>Pending</div>
-              <div class="big-stat"><?php echo $demoPending; ?></div>
-            </div>
-          </div>
-          <div class="col-4">
-            <div class="soft-stat soft-orange">
-              <div>Other</div>
-              <div class="big-stat"><?php echo $demoOther; ?></div>
-            </div>
-          </div>
-        </div>
+    <div class="panel-card">
+      <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <div class="panel-title mb-0">Today's Schedule</div>
+        <span class="text-muted" style="font-size:0.9rem"><?php echo date("l, d F Y"); ?></span>
       </div>
-    </div>
-
-    <div class="col-lg-4">
-      <div class="panel-card">
-        <div class="panel-title">Conversion Rate</div>
-        <div class="big-stat text-primary"><?php echo $conversionRate; ?>%</div>
-        <div class="text-muted">Success Rate</div>
-        <div class="mt-2 text-muted"><?php echo $demoEnrolled; ?> / <?php echo $totalDemos; ?> demos</div>
-      </div>
+      <?php if (!empty($todaysClasses)): ?>
+        <ul class="mini-list list-unstyled mb-0">
+          <?php foreach ($todaysClasses as $class): ?>
+            <li class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+              <div>
+                <strong><?php echo htmlspecialchars($class["student_name"]); ?></strong>
+                <span class="text-muted ms-2"><?php echo date("h:i A", strtotime($class["class_time"])); ?></span>
+                <span class="ms-2" style="font-size:0.82rem;color:#64748b"><?php echo htmlspecialchars($class["type"]); ?></span>
+              </div>
+              <?php if (!empty($class["zoom_link"])): ?>
+                <a href="<?php echo htmlspecialchars($class["zoom_link"]); ?>" target="_blank" rel="noopener" class="btn-zoom">📹 Start Class</a>
+              <?php endif; ?>
+            </li>
+          <?php endforeach; ?>
+        </ul>
+      <?php else: ?>
+        <div class="empty-box">No classes scheduled for today.</div>
+      <?php endif; ?>
     </div>
   </div>
 
-  <section id="classes" class="panel-card">
-    <div class="panel-title">My Classes</div>
-    <?php if (!empty($classSessions)): ?>
-      <div class="table-responsive">
-        <table class="table align-middle">
-          <thead>
-            <tr>
-              <th>Student</th>
-              <th>Date</th>
-              <th>Time</th>
-              <th>Type</th>
-              <th>Details</th>
-            </tr>
-          </thead>
-          <tbody>
-            <?php foreach ($classSessions as $class): ?>
+  <!-- ══ VIEW: MY CLASSES ══ -->
+  <div class="view" id="view-classes" style="display:none">
+    <div class="panel-card">
+      <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <div class="panel-title mb-0">My Classes</div>
+        <span class="badge bg-primary rounded-pill"><?php echo count($classSessions); ?> total</span>
+      </div>
+      <?php if (!empty($classSessions)): ?>
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead>
               <tr>
-                <td><?php echo htmlspecialchars($class["student_name"]); ?></td>
-                <td><?php echo htmlspecialchars($class["class_date"]); ?></td>
-                <td><?php echo htmlspecialchars($class["class_time"]); ?></td>
-                <td>
-                  <span class="<?php echo strtolower($class["type"]) === "paid" ? "badge-paid" : "badge-demo"; ?>">
-                    <?php echo htmlspecialchars($class["type"]); ?>
-                  </span>
-                </td>
-                <td><?php echo htmlspecialchars($class["details"]); ?></td>
+                <th>Student</th>
+                <th>Date</th>
+                <th>Time</th>
+                <th>Type</th>
+                <th>Details</th>
+                <th>Zoom</th>
               </tr>
-            <?php endforeach; ?>
-          </tbody>
-        </table>
-      </div>
-    <?php else: ?>
-      <div class="empty-box">No classes found.</div>
-    <?php endif; ?>
-  </section>
-
-  <section id="schedule" class="panel-card">
-    <div class="panel-title">My Schedule</div>
-    <?php if (!empty($todaysClasses)): ?>
-      <ul class="mini-list list-unstyled mb-0">
-        <?php foreach ($todaysClasses as $class): ?>
-          <li>
-            <strong><?php echo htmlspecialchars($class["student_name"]); ?></strong>
-            — <?php echo htmlspecialchars($class["class_time"]); ?>
-            — <?php echo htmlspecialchars($class["type"]); ?>
-          </li>
-        <?php endforeach; ?>
-      </ul>
-    <?php else: ?>
-      <div class="empty-box">No scheduled classes for today.</div>
-    <?php endif; ?>
-  </section>
-
-  <section id="earnings" class="panel-card">
-    <div class="panel-title">My Earnings</div>
-
-    <div class="row g-4 mb-3">
-      <div class="col-md-4">
-        <div class="soft-stat soft-green">
-          <div>Total Earnings</div>
-          <div class="big-stat">$<?php echo number_format($totalEarnings, 2); ?></div>
+            </thead>
+            <tbody>
+              <?php foreach ($classSessions as $class):
+                $isToday = ($class["class_date"] ?? "") === date("Y-m-d");
+                $t = strtolower(trim($class["type"] ?? ""));
+                if ($t === "paid")                   $badgeClass = "badge-paid";
+                elseif (strpos($t,"demo") !== false) $badgeClass = "badge-demo";
+                else                                 $badgeClass = "badge-other";
+              ?>
+                <tr class="<?php echo $isToday ? 'row-today' : ''; ?>">
+                  <td>
+                    <strong><?php echo htmlspecialchars($class["student_name"]); ?></strong>
+                    <?php if ($isToday): ?><span class="badge bg-success ms-1" style="font-size:0.7rem">Today</span><?php endif; ?>
+                  </td>
+                  <td><?php echo date("d M Y", strtotime($class["class_date"])); ?></td>
+                  <td><?php echo date("h:i A", strtotime($class["class_time"])); ?></td>
+                  <td><span class="badge-type <?php echo $badgeClass; ?>"><?php echo htmlspecialchars($class["type"]); ?></span></td>
+                  <td><?php echo htmlspecialchars($class["details"] ?? "—"); ?></td>
+                  <td>
+                    <?php if (!empty($class["zoom_link"])): ?>
+                      <a href="<?php echo htmlspecialchars($class["zoom_link"]); ?>" target="_blank" rel="noopener" class="btn-zoom">📹 Start Class</a>
+                    <?php else: ?>
+                      <span class="zoom-none">— No link</span>
+                    <?php endif; ?>
+                  </td>
+                </tr>
+              <?php endforeach; ?>
+            </tbody>
+          </table>
         </div>
-      </div>
-      <div class="col-md-4">
-        <div class="soft-stat soft-blue">
-          <div>Paid Sessions Income</div>
-          <div class="big-stat"><?php echo $totalPaidSessions; ?></div>
+      <?php else: ?>
+        <div class="empty-box">
+          <div style="font-size:2rem;margin-bottom:8px">📚</div>
+          No classes assigned yet. The admin will add your classes here.
         </div>
-      </div>
-      <div class="col-md-4">
-        <div class="soft-stat soft-purple">
-          <div>Latest Lesson Date</div>
-          <div class="big-stat" style="font-size: 1.1rem;"><?php echo htmlspecialchars($latestLessonDate); ?></div>
-        </div>
-      </div>
+      <?php endif; ?>
     </div>
+  </div>
 
-    <?php if (!empty($earnings)): ?>
-      <div class="table-responsive">
-        <table class="table align-middle">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Lesson Title</th>
-              <th>Amount</th>
-              <th>Lesson Date</th>
-              <th>Notes</th>
-            </tr>
-          </thead>
-          <tbody>
-            <?php foreach ($earnings as $earning): ?>
-              <tr>
-                <td><?php echo $earning["id"]; ?></td>
-                <td><?php echo htmlspecialchars($earning["lesson_title"]); ?></td>
-                <td><span class="money-badge">$<?php echo number_format($earning["amount"], 2); ?></span></td>
-                <td><?php echo htmlspecialchars($earning["lesson_date"]); ?></td>
-                <td><?php echo htmlspecialchars($earning["notes"]); ?></td>
-              </tr>
-            <?php endforeach; ?>
-          </tbody>
-        </table>
+  <!-- ══ VIEW: MY SCHEDULE ══ -->
+  <div class="view" id="view-schedule" style="display:none">
+    <div class="panel-card">
+      <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <div class="panel-title mb-0">My Schedule</div>
+        <span class="text-muted" style="font-size:0.9rem"><?php echo date("l, d F Y"); ?></span>
       </div>
-    <?php else: ?>
-      <div class="empty-box">No earnings found.</div>
-    <?php endif; ?>
-  </section>
-
-  <section class="panel-card">
-    <div class="panel-title">Availability</div>
-    <div class="soft-stat soft-blue">
-      <div>Total Availability Slots</div>
-      <div class="big-stat"><?php echo $totalAvailabilitySlots; ?></div>
+      <?php if (!empty($classSessions)): ?>
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead>
+              <tr><th>Student</th><th>Date</th><th>Time</th><th>Type</th><th>Zoom</th></tr>
+            </thead>
+            <tbody>
+              <?php foreach ($classSessions as $class):
+                $isToday = ($class["class_date"] ?? "") === date("Y-m-d");
+              ?>
+                <tr class="<?php echo $isToday ? 'row-today' : ''; ?>">
+                  <td><strong><?php echo htmlspecialchars($class["student_name"]); ?></strong>
+                    <?php if ($isToday): ?><span class="badge bg-success ms-1" style="font-size:0.7rem">Today</span><?php endif; ?>
+                  </td>
+                  <td><?php echo date("d M Y", strtotime($class["class_date"])); ?></td>
+                  <td><?php echo date("h:i A", strtotime($class["class_time"])); ?></td>
+                  <td><?php echo htmlspecialchars($class["type"]); ?></td>
+                  <td>
+                    <?php if (!empty($class["zoom_link"])): ?>
+                      <a href="<?php echo htmlspecialchars($class["zoom_link"]); ?>" target="_blank" rel="noopener" class="btn-zoom">📹 Start Class</a>
+                    <?php else: ?>
+                      <span class="zoom-none">— No link</span>
+                    <?php endif; ?>
+                  </td>
+                </tr>
+              <?php endforeach; ?>
+            </tbody>
+          </table>
+        </div>
+      <?php else: ?>
+        <div class="empty-box">No scheduled classes yet.</div>
+      <?php endif; ?>
     </div>
-  </section>
+  </div>
 
-  <section id="students" class="panel-card">
-    <div class="panel-title">My Students</div>
-    <?php if (!empty($students)): ?>
-      <ul class="mini-list list-unstyled mb-0">
-        <?php foreach ($students as $student): ?>
-          <li><?php echo htmlspecialchars($student); ?></li>
-        <?php endforeach; ?>
-      </ul>
-    <?php else: ?>
-      <div class="empty-box">No students assigned yet.</div>
-    <?php endif; ?>
-  </section>
+  <!-- ══ VIEW: MY EARNINGS ══ -->
+  <div class="view" id="view-earnings" style="display:none">
+    <div class="panel-card">
+      <div class="panel-title">My Earnings</div>
+      <div class="row g-4 mb-3">
+        <div class="col-md-4"><div class="soft-stat soft-green"><div>Total Earnings</div><div class="big-stat">$<?php echo number_format($totalEarnings, 2); ?></div></div></div>
+        <div class="col-md-4"><div class="soft-stat soft-blue"><div>Paid Sessions</div><div class="big-stat"><?php echo $totalPaidSessions; ?></div></div></div>
+        <div class="col-md-4"><div class="soft-stat soft-purple"><div>Latest Lesson</div><div class="big-stat" style="font-size:1.1rem"><?php echo htmlspecialchars($latestLessonDate); ?></div></div></div>
+      </div>
+      <?php if (!empty($earnings)): ?>
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead><tr><th>ID</th><th>Lesson</th><th>Amount</th><th>Date</th><th>Notes</th></tr></thead>
+            <tbody>
+              <?php foreach ($earnings as $earning): ?>
+                <tr>
+                  <td><?php echo $earning["id"]; ?></td>
+                  <td><?php echo htmlspecialchars($earning["lesson_title"]); ?></td>
+                  <td><span class="money-badge">$<?php echo number_format($earning["amount"], 2); ?></span></td>
+                  <td><?php echo htmlspecialchars($earning["lesson_date"]); ?></td>
+                  <td><?php echo htmlspecialchars($earning["notes"]); ?></td>
+                </tr>
+              <?php endforeach; ?>
+            </tbody>
+          </table>
+        </div>
+      <?php else: ?>
+        <div class="empty-box">No earnings found.</div>
+      <?php endif; ?>
+    </div>
+  </div>
+
+  <!-- ══ VIEW: MY STUDENTS ══ -->
+  <div class="view" id="view-students" style="display:none">
+    <div class="panel-card">
+      <div class="panel-title">My Students</div>
+      <?php if (!empty($students)): ?>
+        <ul class="mini-list list-unstyled mb-0">
+          <?php foreach ($students as $student): ?>
+            <li><?php echo htmlspecialchars($student); ?></li>
+          <?php endforeach; ?>
+        </ul>
+      <?php else: ?>
+        <div class="empty-box">No students assigned yet.</div>
+      <?php endif; ?>
+    </div>
+  </div>
 </div>
 
+<script>
+  const navItems = document.querySelectorAll('.nav-item');
+
+  navItems.forEach(link => {
+    link.addEventListener('click', e => {
+      const href = link.getAttribute('href');
+      if (href && href.startsWith('#')) {
+        e.preventDefault();
+        const target = document.getElementById(href.slice(1));
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+      navItems.forEach(n => n.classList.remove('active'));
+      link.classList.add('active');
+    });
+  });
+
+  // Highlight nav based on scroll position
+  const sections = ['dashboard','classes','schedule','earnings','students'];
+  window.addEventListener('scroll', () => {
+    let current = 'dashboard';
+    sections.forEach(id => {
+      const el = document.getElementById(id);
+      if (el && window.scrollY >= el.offsetTop - 120) current = id;
+    });
+    navItems.forEach(n => {
+      n.classList.toggle('active', n.getAttribute('href') === '#' + current);
+    });
+  });
+</script>
 </body>
 </html>

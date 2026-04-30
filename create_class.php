@@ -42,24 +42,25 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $date = $slot["available_date"];
     $time = $slot["available_time"];
 
-    $student = trim($_POST["student_name"] ?? "");
-    $type = trim($_POST["type"] ?? "");
-    $details = trim($_POST["details"] ?? "");
+    $student   = trim($_POST["student_name"] ?? "");
+    $type      = trim($_POST["type"] ?? "");
+    $details   = trim($_POST["details"] ?? "");
+    $zoom_link = trim($_POST["zoom_link"] ?? "");
 
     if ($student === "" || $type === "") {
         die("Student name and type are required.");
     }
 
     $insert = $conn->prepare("
-        INSERT INTO classes (teacher_id, teacher_name, student_name, class_date, class_time, type, details)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO classes (teacher_id, teacher_name, student_name, class_date, class_time, type, details, zoom_link)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ");
 
     if (!$insert) {
         die("Insert prepare failed: " . $conn->error);
     }
 
-    $insert->bind_param("issssss", $teacherId, $teacherName, $student, $date, $time, $type, $details);
+    $insert->bind_param("isssssss", $teacherId, $teacherName, $student, $date, $time, $type, $details, $zoom_link);
     $insert->execute();
     $insert->close();
 
@@ -124,6 +125,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
   <div class="mb-3">
     <label>Details</label>
     <textarea name="details" class="form-control"></textarea>
+  </div>
+
+  <div class="mb-3">
+    <label>Zoom Link <span class="text-muted">(optional)</span></label>
+    <input type="url" name="zoom_link" class="form-control" placeholder="https://zoom.us/j/...">
   </div>
 
   <button class="btn btn-success">Create Class</button>

@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/xampp/**)",
+      "Bash(./mysql/bin/mysql.exe -u root -e \"DESCRIBE juniorcode_db2.classes;\")"
+    ]
+  }
+}
