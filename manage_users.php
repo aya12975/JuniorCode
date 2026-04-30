@@ -199,6 +199,7 @@ function isActive($page, $currentPage) {
       font-size: 1.8rem;
       font-weight: 900;
       margin: 0;
+      color: white;
     }
 
     .topbar p {
