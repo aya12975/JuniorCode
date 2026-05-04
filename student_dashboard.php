@@ -58,6 +58,7 @@ if ($result2) {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Student Dashboard</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
   <style>
     body {
       margin: 0;
@@ -345,24 +346,24 @@ if ($result2) {
     </div>
 
     <a href="#dashboard" class="nav-link-custom active">
-      <span class="nav-icon">🏠</span>
+      <span class="nav-icon"><i class="fas fa-house"></i></span>
       <span>Dashboard</span>
     </a>
 
-    <a href="#classes" class="nav-link-custom">
-      <span class="nav-icon">📚</span>
+    <a href="student_classes.php" class="nav-link-custom">
+      <span class="nav-icon"><i class="fas fa-book"></i></span>
       <span>My Classes</span>
     </a>
 
     <a href="#contact" class="nav-link-custom">
-      <span class="nav-icon">💬</span>
+      <span class="nav-icon"><i class="fas fa-comments"></i></span>
       <span>Contact Admin</span>
     </a>
   </div>
 
   <div class="sidebar-bottom">
     <a href="logout.php" class="nav-link-custom">
-      <span class="nav-icon">↪</span>
+      <span class="nav-icon"><i class="fas fa-right-from-bracket"></i></span>
       <span>Logout</span>
     </a>
   </div>

@@ -2,29 +2,23 @@
 session_start();
 require_once "db.php";
 
-if (!isset($_SESSION["role"]) || $_SESSION["role"] !== "teacher") {
+if (!isset($_SESSION["role"]) || $_SESSION["role"] !== "student") {
     header("Location: login.php");
     exit();
 }
 
-$teacherId   = (int)($_SESSION["user_id"] ?? 0);
-$teacherName = $_SESSION["username"] ?? "Teacher";
+$studentName = $_SESSION["username"] ?? "Student";
 
-/* ── Ensure teacher_id column exists ── */
-$colCheck = $conn->query("SHOW COLUMNS FROM classes LIKE 'teacher_id'");
-if ($colCheck && $colCheck->num_rows === 0) {
-    $conn->query("ALTER TABLE classes ADD COLUMN teacher_id INT DEFAULT NULL");
-}
-
-/* ── Fetch all classes for this teacher ── */
+/* ── Fetch all classes for this student ── */
 $classSessions = [];
 $stmt = $conn->prepare("
-    SELECT * FROM classes
-    WHERE teacher_id = ? OR LOWER(teacher_name) = LOWER(?)
+    SELECT id, teacher_name, student_name, class_date, class_time, type, details, zoom_link
+    FROM classes
+    WHERE student_name = ?
     ORDER BY class_date ASC, class_time ASC
 ");
 if ($stmt) {
-    $stmt->bind_param("is", $teacherId, $teacherName);
+    $stmt->bind_param("s", $studentName);
     $stmt->execute();
     $result = $stmt->get_result();
     while ($row = $result->fetch_assoc()) {
@@ -33,8 +27,8 @@ if ($stmt) {
     $stmt->close();
 }
 
-$today    = date("Y-m-d");
-$total    = count($classSessions);
+$today         = date("Y-m-d");
+$total         = count($classSessions);
 $todayCount    = 0;
 $upcomingCount = 0;
 $pastCount     = 0;
@@ -62,116 +56,102 @@ foreach ($classSessions as $c) {
       --dark: #0f172a;
       --muted: #64748b;
       --border: #e5e7eb;
-      --soft: #f8fafc;
     }
 
     * { box-sizing: border-box; }
 
     body {
       margin: 0;
+      background: #f4f7fb;
       font-family: Arial, sans-serif;
       color: var(--dark);
-      background:
-        radial-gradient(circle at top left,  rgba(29,78,216,0.07), transparent 25%),
-        radial-gradient(circle at bottom right, rgba(14,165,233,0.07), transparent 25%),
-        linear-gradient(180deg, #f8fbff 0%, #eaf4ff 100%);
     }
 
     /* ── Sidebar ── */
     .sidebar {
       position: fixed;
       top: 0; left: 0;
-      width: 260px;
+      width: 255px;
       height: 100vh;
-      background: linear-gradient(180deg, #0f172a 0%, #1e3a8a 55%, #0c4a8a 100%);
+      background: #ffffff;
+      border-right: 1px solid var(--border);
       display: flex;
       flex-direction: column;
       justify-content: space-between;
       z-index: 1000;
-      overflow-y: auto;
     }
 
-    .sidebar-top { padding: 20px 16px; }
+    .sidebar-top { padding: 18px; }
 
     .brand {
       display: flex;
       align-items: center;
       gap: 12px;
-      padding: 10px 10px 20px;
-      border-bottom: 1px solid rgba(255,255,255,0.1);
-      margin-bottom: 16px;
+      padding: 6px 8px 18px 8px;
+      border-bottom: 1px solid #eef2f7;
+      margin-bottom: 18px;
     }
 
-    .brand-logo-img {
-      width: 48px; height: 48px;
-      border-radius: 14px;
-      object-fit: contain;
-      background: rgba(255,255,255,0.12);
-      padding: 4px;
-      flex-shrink: 0;
+    .brand-logo {
+      width: 44px; height: 44px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #2563eb, #4f46e5);
+      color: white;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: bold; font-size: 18px;
     }
 
-    .brand-title    { font-size: 1.05rem; font-weight: 900; margin: 0; color: #fff; line-height: 1.2; }
-    .brand-subtitle { font-size: 0.75rem; color: rgba(255,255,255,0.55); margin: 3px 0 0; letter-spacing: 1px; }
+    .brand-title    { font-size: 1.1rem; font-weight: bold; margin: 0; }
+    .brand-subtitle { font-size: 0.85rem; color: #64748b; margin: 0; }
 
-    .teacher-box {
+    .student-box {
       display: flex;
       align-items: center;
       gap: 12px;
-      background: rgba(255,255,255,0.08);
-      border: 1px solid rgba(255,255,255,0.12);
+      background: #f8fafc;
+      border: 1px solid var(--border);
       border-radius: 16px;
       padding: 14px;
       margin-bottom: 18px;
     }
 
-    .teacher-avatar {
-      width: 44px; height: 44px;
+    .student-avatar {
+      width: 46px; height: 46px;
       border-radius: 50%;
-      background: linear-gradient(135deg, var(--primary), var(--secondary));
-      color: #fff;
+      background: #dbeafe;
+      color: #1d4ed8;
       font-weight: bold;
       display: flex; align-items: center; justify-content: center;
-      font-size: 18px; flex-shrink: 0;
+      font-size: 18px;
     }
 
-    .teacher-name  { font-weight: 800; margin: 0; color: #fff; }
-    .teacher-role  { margin: 0; color: rgba(255,255,255,0.55); font-size: 0.85rem; }
+    .student-name { font-weight: bold; margin: 0; }
+    .student-role { margin: 0; color: #64748b; font-size: 0.9rem; }
 
     .nav-link-custom {
       display: flex;
       align-items: center;
       gap: 12px;
       text-decoration: none;
-      color: rgba(255,255,255,0.78);
-      padding: 12px 14px;
-      border-radius: 14px;
-      margin: 4px 0;
-      font-weight: 700;
-      transition: all 0.22s ease;
+      color: #334155;
+      padding: 13px 14px;
+      border-radius: 12px;
+      margin: 6px 4px;
+      font-weight: 600;
+      transition: 0.25s;
     }
 
-    .nav-link-custom:hover { background: rgba(255,255,255,0.09); color: #fff; }
-
+    .nav-link-custom:hover,
     .nav-link-custom.active {
-      background: linear-gradient(135deg, var(--primary), var(--secondary));
-      color: #fff;
-      box-shadow: 0 8px 20px rgba(29,78,216,0.35);
+      background: #e8f0ff;
+      color: #1d4ed8;
     }
 
-    .nav-icon {
-      width: 32px; height: 32px;
-      border-radius: 10px;
-      background: rgba(255,255,255,0.08);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 15px; flex-shrink: 0;
-    }
-
-    .nav-link-custom.active .nav-icon { background: rgba(255,255,255,0.18); }
+    .nav-icon { width: 20px; text-align: center; font-size: 16px; }
 
     .sidebar-bottom {
-      padding: 16px;
-      border-top: 1px solid rgba(255,255,255,0.1);
+      padding: 18px;
+      border-top: 1px solid #eef2f7;
     }
 
     /* ── Main ── */
@@ -179,7 +159,7 @@ foreach ($classSessions as $c) {
 
     /* ── Topbar ── */
     .topbar {
-      background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 50%, #0ea5e9 100%);
+      background: linear-gradient(135deg, #1d4ed8, #0ea5e9);
       border-radius: 20px;
       padding: 22px 26px;
       margin-bottom: 26px;
@@ -220,18 +200,8 @@ foreach ($classSessions as $c) {
       box-shadow: 0 4px 14px rgba(15,23,42,0.04);
     }
 
-    .stat-card .stat-num {
-      font-size: 2rem;
-      font-weight: 900;
-      line-height: 1;
-      margin-bottom: 6px;
-    }
-
-    .stat-card .stat-label {
-      font-size: 0.84rem;
-      color: var(--muted);
-      font-weight: 600;
-    }
+    .stat-num   { font-size: 2rem; font-weight: 900; line-height: 1; margin-bottom: 6px; }
+    .stat-label { font-size: 0.84rem; color: var(--muted); font-weight: 600; }
 
     .c-blue   { color: #2563eb; }
     .c-green  { color: #16a34a; }
@@ -259,13 +229,9 @@ foreach ($classSessions as $c) {
     }
 
     .filter-btn:hover  { border-color: var(--primary); color: var(--primary); }
-    .filter-btn.active {
-      background: var(--primary);
-      border-color: var(--primary);
-      color: #fff;
-    }
+    .filter-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
 
-    /* ── Class cards grid ── */
+    /* ── Classes grid ── */
     .classes-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -290,14 +256,9 @@ foreach ($classSessions as $c) {
       box-shadow: 0 12px 32px rgba(15,23,42,0.1);
     }
 
-    .class-card.is-today {
-      border-color: #2563eb;
-      border-width: 2px;
-    }
+    .class-card.is-today  { border-color: #2563eb; border-width: 2px; }
+    .class-card.is-past   { opacity: 0.72; }
 
-    .class-card.is-past { opacity: 0.72; }
-
-    /* Today ribbon */
     .today-ribbon {
       position: absolute;
       top: 16px; right: 16px;
@@ -310,14 +271,13 @@ foreach ($classSessions as $c) {
       letter-spacing: 0.5px;
     }
 
-    /* Card header */
     .card-header-row {
       display: flex;
       align-items: flex-start;
       gap: 14px;
     }
 
-    .student-avatar {
+    .teacher-avatar {
       width: 46px; height: 46px;
       border-radius: 50%;
       background: linear-gradient(135deg, #dbeafe, #bfdbfe);
@@ -328,14 +288,13 @@ foreach ($classSessions as $c) {
       flex-shrink: 0;
     }
 
-    .student-name {
+    .card-teacher-name {
       font-size: 1.05rem;
       font-weight: 800;
       color: var(--dark);
       margin: 0 0 4px;
     }
 
-    /* Type badge */
     .type-badge {
       display: inline-block;
       border-radius: 999px;
@@ -344,13 +303,12 @@ foreach ($classSessions as $c) {
       font-weight: 700;
     }
 
-    .t-paid         { background: #dcfce7; color: #166534; }
-    .t-demo         { background: #fef3c7; color: #92400e; }
-    .t-halfpay      { background: #e0e7ff; color: #3730a3; }
-    .t-nopay        { background: #fee2e2; color: #991b1b; }
-    .t-other        { background: #f1f5f9; color: #475569; }
+    .t-paid    { background: #dcfce7; color: #166534; }
+    .t-demo    { background: #fef3c7; color: #92400e; }
+    .t-halfpay { background: #e0e7ff; color: #3730a3; }
+    .t-nopay   { background: #fee2e2; color: #991b1b; }
+    .t-other   { background: #f1f5f9; color: #475569; }
 
-    /* Info rows */
     .info-row {
       display: flex;
       align-items: center;
@@ -376,7 +334,6 @@ foreach ($classSessions as $c) {
       padding-top: 10px;
     }
 
-    /* Zoom button */
     .btn-zoom {
       display: flex;
       align-items: center;
@@ -417,7 +374,6 @@ foreach ($classSessions as $c) {
       margin-top: auto;
     }
 
-    /* Empty state */
     .empty-state {
       text-align: center;
       padding: 60px 20px;
@@ -429,7 +385,6 @@ foreach ($classSessions as $c) {
     .empty-state h5 { font-weight: 800; color: #334155; }
     .empty-state p  { font-size: 0.95rem; max-width: 340px; margin: 0 auto; }
 
-    /* Responsive */
     @media (max-width: 991px) {
       .sidebar { position: static; width: 100%; height: auto; }
       .main { margin-left: 0; padding: 16px; }
@@ -437,7 +392,6 @@ foreach ($classSessions as $c) {
     }
 
     @media (max-width: 575px) {
-      .stat-grid { grid-template-columns: repeat(2, 1fr); }
       .classes-grid { grid-template-columns: 1fr; }
       .topbar h1 { font-size: 1.4rem; }
     }
@@ -445,39 +399,33 @@ foreach ($classSessions as $c) {
 </head>
 <body>
 
-<!-- ══ SIDEBAR ══ -->
+<!-- ── SIDEBAR ── -->
 <div class="sidebar">
   <div class="sidebar-top">
     <div class="brand">
-      <img src="images/robot2.png.png" class="brand-logo-img" alt="JuniorCode Logo">
+      <div class="brand-logo">JC</div>
       <div>
-        <p class="brand-title">JuniorCode <span style="opacity:.7">&lt;/&gt;</span></p>
-        <p class="brand-subtitle">TEACHER PORTAL</p>
+        <p class="brand-title">JuniorCode</p>
+        <p class="brand-subtitle">Student Panel</p>
       </div>
     </div>
 
-    <div class="teacher-box">
-      <div class="teacher-avatar"><?php echo strtoupper(substr($teacherName, 0, 1)); ?></div>
+    <div class="student-box">
+      <div class="student-avatar"><?php echo strtoupper(substr($studentName, 0, 1)); ?></div>
       <div>
-        <p class="teacher-name"><?php echo htmlspecialchars($teacherName); ?></p>
-        <p class="teacher-role">Teacher</p>
+        <p class="student-name"><?php echo htmlspecialchars($studentName); ?></p>
+        <p class="student-role">Student</p>
       </div>
     </div>
 
-    <a href="teacher_dashboard.php" class="nav-link-custom">
+    <a href="student_dashboard.php" class="nav-link-custom">
       <span class="nav-icon"><i class="fas fa-house"></i></span><span>Dashboard</span>
     </a>
-    <a href="teacher_classes.php" class="nav-link-custom active">
-      <span class="nav-icon"><i class="fas fa-chalkboard-user"></i></span><span>My Classes</span>
+    <a href="student_classes.php" class="nav-link-custom active">
+      <span class="nav-icon"><i class="fas fa-book"></i></span><span>My Classes</span>
     </a>
-    <a href="teacher_schedule.php" class="nav-link-custom">
-      <span class="nav-icon"><i class="fas fa-calendar-days"></i></span><span>My Schedule</span>
-    </a>
-    <a href="teacher_dashboard.php#earnings" class="nav-link-custom">
-      <span class="nav-icon"><i class="fas fa-dollar-sign"></i></span><span>My Earnings</span>
-    </a>
-    <a href="teacher_students.php" class="nav-link-custom">
-      <span class="nav-icon"><i class="fas fa-user-graduate"></i></span><span>My Students</span>
+    <a href="student_dashboard.php#contact" class="nav-link-custom">
+      <span class="nav-icon"><i class="fas fa-comments"></i></span><span>Contact Admin</span>
     </a>
   </div>
 
@@ -488,7 +436,7 @@ foreach ($classSessions as $c) {
   </div>
 </div>
 
-<!-- ══ MAIN ══ -->
+<!-- ── MAIN ── -->
 <div class="main">
 
   <!-- Topbar -->
@@ -535,30 +483,30 @@ foreach ($classSessions as $c) {
 
     <?php if (empty($classSessions)): ?>
       <div class="empty-state">
-        <div class="empty-icon"><i class="fas fa-book-open"></i></div>
+        <div class="empty-icon"><i class="fas fa-book"></i></div>
         <h5>No classes yet</h5>
         <p>Once the admin assigns a class to you it will appear here with all the details and your Zoom link.</p>
       </div>
 
     <?php else: foreach ($classSessions as $c):
-        $cDate    = $c["class_date"] ?? "";
-        $cTime    = $c["class_time"] ?? "";
-        $cType    = $c["type"] ?? "";
-        $cDetails = $c["details"] ?? "";
-        $cZoom    = $c["zoom_link"] ?? "";
-        $cStudent = $c["student_name"] ?? "";
+        $cDate    = $c["class_date"]   ?? "";
+        $cTime    = $c["class_time"]   ?? "";
+        $cType    = $c["type"]         ?? "";
+        $cDetails = $c["details"]      ?? "";
+        $cZoom    = $c["zoom_link"]    ?? "";
+        $cTeacher = $c["teacher_name"] ?? "";
 
         if ($cDate === $today)   $when = "today";
         elseif ($cDate > $today) $when = "upcoming";
         else                     $when = "past";
 
         $t = strtolower(trim($cType));
-        if ($t === "paid")                   $tClass = "t-paid";
-        elseif ($t === "demo")               $tClass = "t-demo";
+        if ($t === "paid")              $tClass = "t-paid";
+        elseif ($t === "demo")          $tClass = "t-demo";
         elseif (strpos($t,"demo") !== false) $tClass = "t-demo";
-        elseif ($t === "half pay")           $tClass = "t-halfpay";
-        elseif ($t === "no pay")             $tClass = "t-nopay";
-        else                                 $tClass = "t-other";
+        elseif ($t === "half pay")      $tClass = "t-halfpay";
+        elseif ($t === "no pay")        $tClass = "t-nopay";
+        else                            $tClass = "t-other";
     ?>
 
       <div class="class-card <?php echo $when === 'today' ? 'is-today' : ($when === 'past' ? 'is-past' : ''); ?>"
@@ -568,24 +516,26 @@ foreach ($classSessions as $c) {
           <div class="today-ribbon">TODAY</div>
         <?php endif; ?>
 
-        <!-- Student header -->
+        <!-- Teacher header -->
         <div class="card-header-row">
-          <div class="student-avatar">
-            <?php echo strtoupper(substr($cStudent, 0, 1)); ?>
+          <div class="teacher-avatar">
+            <?php echo strtoupper(substr($cTeacher, 0, 1)); ?>
           </div>
           <div>
-            <p class="student-name"><?php echo htmlspecialchars($cStudent); ?></p>
+            <p class="card-teacher-name"><?php echo htmlspecialchars($cTeacher); ?></p>
             <span class="type-badge <?php echo $tClass; ?>">
               <?php echo htmlspecialchars($cType); ?>
             </span>
           </div>
         </div>
 
-        <!-- Date & Time -->
+        <!-- Date -->
         <div class="info-row">
           <div class="info-icon"><i class="fas fa-calendar-days"></i></div>
           <span><?php echo date("l, d F Y", strtotime($cDate)); ?></span>
         </div>
+
+        <!-- Time -->
         <div class="info-row">
           <div class="info-icon"><i class="fas fa-clock"></i></div>
           <span><?php echo date("h:i A", strtotime($cTime)); ?></span>
@@ -606,7 +556,7 @@ foreach ($classSessions as $c) {
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
               <path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4z"/>
             </svg>
-            Start Class on Zoom
+            Join Class on Zoom
           </a>
         <?php else: ?>
           <div class="no-zoom">
@@ -626,22 +576,18 @@ foreach ($classSessions as $c) {
 
 <script>
   function filterClasses(filter, btn) {
-    // Update active button
     document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
 
-    // Show/hide cards
     const cards = document.querySelectorAll(".class-card");
     let visible = 0;
 
     cards.forEach(card => {
-      const when = card.dataset.when;
-      const show = filter === "all" || when === filter;
+      const show = filter === "all" || card.dataset.when === filter;
       card.style.display = show ? "" : "none";
       if (show) visible++;
     });
 
-    // Empty state
     let empty = document.getElementById("emptyFiltered");
     if (visible === 0) {
       if (!empty) {

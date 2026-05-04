@@ -9,6 +9,7 @@
     href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
     rel="stylesheet"
   />
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet" />
 
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
@@ -963,22 +964,22 @@
 
     const features = [
       {
-        icon: "🎯",
+        icon: "fas fa-bullseye",
         title: "Age-Based Learning Paths",
         text: "Programs are built for ages 6 to 18 so every student learns at the right level and pace."
       },
       {
-        icon: "💻",
+        icon: "fas fa-laptop-code",
         title: "Real Coding Practice",
         text: "Students build games, websites, mini apps, and logical projects instead of only watching theory."
       },
       {
-        icon: "🤖",
+        icon: "fas fa-robot",
         title: "Robotics Experience",
         text: "Kids and juniors explore robotics thinking, control systems, and creative technology challenges."
       },
       {
-        icon: "👩‍🏫",
+        icon: "fas fa-chalkboard-user",
         title: "Live Mentor Support",
         text: "Friendly instructors guide students through each step with feedback, structure, and motivation."
       }
@@ -986,37 +987,37 @@
 
     const courses = [
       {
-        icon: "🧩",
+        icon: "fas fa-puzzle-piece",
         title: "Coding for Kids",
         level: "Ages 6–10",
         text: "Visual coding, logic games, creative problem solving, and fun beginner programming projects."
       },
       {
-        icon: "🎮",
+        icon: "fas fa-gamepad",
         title: "Game Development",
         level: "Ages 10–14",
         text: "Learn how to create games with levels, events, scoring systems, and interactive logic."
       },
       {
-        icon: "🌐",
+        icon: "fas fa-globe",
         title: "Web Development",
         level: "Ages 12–18",
         text: "Build modern websites using HTML, CSS, JavaScript, responsive design, and UI thinking."
       },
       {
-        icon: "🐍",
+        icon: "fab fa-python",
         title: "Python Programming",
         level: "Ages 11–18",
         text: "Master variables, loops, conditions, functions, and practical project-based coding."
       },
       {
-        icon: "🤖",
+        icon: "fas fa-robot",
         title: "Robotics Basics",
         level: "Ages 8–16",
         text: "Discover sensors, automation ideas, movement logic, and how robots respond to commands."
       },
       {
-        icon: "🧠",
+        icon: "fas fa-brain",
         title: "AI & Future Tech",
         level: "Ages 14–18",
         text: "Explore introductory AI ideas, innovation thinking, and future technology concepts."
@@ -1134,9 +1135,9 @@
     }
 
     const tracks = [
-      { label: "6–10 · Kids",    emoji: "🧩", desc: "Visual coding, logic games, and beginner projects in a fun, creative environment with no prior experience needed." },
-      { label: "11–14 · Juniors", emoji: "🎮", desc: "Game development, Python fundamentals, and web basics through real hands-on projects and mentor-led sessions." },
-      { label: "15–18 · Teens",  emoji: "🚀", desc: "Advanced web dev, AI concepts, robotics, and portfolio-ready projects designed to open real career doors." },
+      { label: "6–10 · Kids",    icon: "fas fa-puzzle-piece", desc: "Visual coding, logic games, and beginner projects in a fun, creative environment with no prior experience needed." },
+      { label: "11–14 · Juniors", icon: "fas fa-gamepad",      desc: "Game development, Python fundamentals, and web basics through real hands-on projects and mentor-led sessions." },
+      { label: "15–18 · Teens",  icon: "fas fa-rocket",        desc: "Advanced web dev, AI concepts, robotics, and portfolio-ready projects designed to open real career doors." },
     ];
 
     function Hero() {
@@ -1176,7 +1177,7 @@
                     className={`age-pill ${activeTrack === i ? "active" : ""}`}
                     onClick={() => setActiveTrack(i)}
                   >
-                    {t.emoji} {t.label}
+                    <i className={t.icon}></i> {t.label}
                   </span>
                 ))}
               </div>
@@ -1205,7 +1206,7 @@
                 </div>
                 <div className="col-6 col-sm-4 col-md-3">
                   <div className="mini-stat">
-                    <div className="fw-bold fs-3 gradient-text"><CountUp to={4.9} decimals={1} suffix="★" /></div>
+                    <div className="fw-bold fs-3 gradient-text"><CountUp to={4.9} decimals={1} /><i className="fas fa-star ms-1" style={{fontSize:"0.75em"}}></i></div>
                     <div className="text-muted">Average Rating</div>
                   </div>
                 </div>
@@ -1233,7 +1234,7 @@
               {features.map((item, index) => (
                 <div className="col-md-6 col-lg-3" key={index}>
                   <div className={`feature-card p-4 reveal delay-${(index % 4) + 1}`}>
-                    <div className="icon-box">{item.icon}</div>
+                    <div className="icon-box"><i className={item.icon}></i></div>
                     <h5 className="fw-bold mb-3">{item.title}</h5>
                     <p className="text-muted mb-0" style={{ lineHeight: "1.8" }}>{item.text}</p>
                   </div>
@@ -1265,7 +1266,7 @@
                 <div className="col-md-6 col-lg-4" key={index}>
                   <div className={`course-card p-4 reveal delay-${(index % 4) + 1}`}>
                     <div className="d-flex justify-content-between align-items-start mb-3">
-                      <div className="icon-box">{course.icon}</div>
+                      <div className="icon-box"><i className={course.icon}></i></div>
                       <span className="course-pill">{course.level}</span>
                     </div>
                     <h5 className="fw-bold mb-3">{course.title}</h5>
@@ -1390,7 +1391,7 @@
                     <div className="text-muted mb-4">{plan.subtitle}</div>
 
                     {plan.features.map((feature, idx) => (
-                      <div className="pricing-item" key={idx}>✓ {feature}</div>
+                      <div className="pricing-item" key={idx}><i className="fas fa-check"></i> {feature}</div>
                     ))}
 
                     <div className="mt-4">
@@ -1423,7 +1424,7 @@
               {testimonials.map((item, index) => (
                 <div className="col-md-6 col-lg-4" key={index}>
                   <div className={`testimonial-card reveal delay-${(index % 3) + 1}`}>
-                    <div className="stars">⭐⭐⭐⭐⭐</div>
+                    <div className="stars"><i className="fas fa-star"></i><i className="fas fa-star"></i><i className="fas fa-star"></i><i className="fas fa-star"></i><i className="fas fa-star"></i></div>
                     <p className="text-muted" style={{ lineHeight: "1.8" }}>
                       “{item.text}”
                     </p>
@@ -1487,7 +1488,7 @@
 
             <hr className="border-secondary my-4" />
             <div className="text-center text-secondary">
-              ©️ 2026 JuniorCode Academy. All rights reserved.
+              &copy; 2026 JuniorCode Academy. All rights reserved.
             </div>
           </div>
         </footer>

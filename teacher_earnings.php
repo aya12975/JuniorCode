@@ -32,6 +32,7 @@ function isActive($page, $currentPage) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Teacher Earnings | JuniorCode Admin</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
   <style>
     :root {
       --primary: #3e5077;
@@ -318,47 +319,47 @@ function isActive($page, $currentPage) {
       <div class="nav-title">Main</div>
       <div class="nav-custom">
         <a href="admin_dashboard.php" class="nav-link-custom <?php echo isActive('admin_dashboard.php', $currentPage); ?>">
-          <span class="nav-icon">🏠</span>
+          <span class="nav-icon"><i class="fas fa-house"></i></span>
           <span>Dashboard</span>
         </a>
 
         <a href="manage_users.php" class="nav-link-custom <?php echo isActive('manage_users.php', $currentPage); ?>">
-          <span class="nav-icon">👥</span>
+          <span class="nav-icon"><i class="fas fa-users"></i></span>
           <span>Manage Users</span>
         </a>
 
         <a href="manage_classes.php" class="nav-link-custom <?php echo isActive('manage_classes.php', $currentPage); ?>">
-          <span class="nav-icon">📚</span>
+          <span class="nav-icon"><i class="fas fa-book"></i></span>
           <span>Manage Classes</span>
         </a>
 
         <a href="teacher_earnings.php" class="nav-link-custom <?php echo isActive('teacher_earnings.php', $currentPage); ?>">
-          <span class="nav-icon">💰</span>
+          <span class="nav-icon"><i class="fas fa-dollar-sign"></i></span>
           <span>Teacher Earnings</span>
         </a>
 
         <a href="available_slots.php" class="nav-link-custom <?php echo isActive('available_slots.php', $currentPage); ?>">
-          <span class="nav-icon">📅</span>
+          <span class="nav-icon"><i class="fas fa-calendar-days"></i></span>
           <span>Available Slots</span>
         </a>
 
         <a href="courses.php" class="nav-link-custom <?php echo isActive('courses.php', $currentPage); ?>">
-          <span class="nav-icon">🎓</span>
+          <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span>
           <span>Courses</span>
         </a>
 
         <a href="reports.php" class="nav-link-custom <?php echo isActive('reports.php', $currentPage); ?>">
-          <span class="nav-icon">📊</span>
+          <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
           <span>Reports</span>
         </a>
 
         <a href="settings.php" class="nav-link-custom <?php echo isActive('settings.php', $currentPage); ?>">
-          <span class="nav-icon">⚙️</span>
+          <span class="nav-icon"><i class="fas fa-gear"></i></span>
           <span>Settings</span>
         </a>
 
         <a href="logout.php" class="nav-link-custom">
-          <span class="nav-icon">🚪</span>
+          <span class="nav-icon"><i class="fas fa-right-from-bracket"></i></span>
           <span>Logout</span>
         </a>
       </div>

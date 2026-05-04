@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Read(//c/xampp/**)",
-      "Bash(./mysql/bin/mysql.exe -u root -e \"DESCRIBE juniorcode_db2.classes;\")"
+      "Bash(./mysql/bin/mysql.exe -u root -e \"DESCRIBE juniorcode_db2.classes;\")",
+      "Bash(awk '{print $NF}')",
+      "Bash(python3 *)",
+      "Bash(python -c \"print\\('hello'\\)\")",
+      "Bash(py -c \"print\\('hello'\\)\")"
     ]
   }
 }

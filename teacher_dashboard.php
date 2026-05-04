@@ -175,6 +175,7 @@ $currentYear = date("Y");
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Teacher Dashboard</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
   <style>
     :root {
       --primary:      #1d4ed8;
@@ -323,38 +324,6 @@ $currentYear = date("Y");
       margin-left: 260px;
       padding: 26px;
       min-height: 100vh;
-    }
-
-    .topbar {
-      background: rgba(255,255,255,0.92);
-      backdrop-filter: blur(10px);
-      border: 1px solid #e0ecff;
-      border-radius: 18px;
-      padding: 14px 20px;
-      margin-bottom: 22px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      box-shadow: 0 4px 16px rgba(29,78,216,0.06);
-    }
-
-    .topbar-user {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-weight: bold;
-    }
-
-    .small-avatar {
-      width: 38px;
-      height: 38px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, var(--primary), var(--secondary));
-      color: white;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
     }
 
     .hero {
@@ -580,47 +549,40 @@ $currentYear = date("Y");
     </div>
 
     <a href="#dashboard" class="nav-link-custom nav-item active">
-      <span class="nav-icon">🏠</span>
+      <span class="nav-icon"><i class="fas fa-house"></i></span>
       <span>Dashboard</span>
     </a>
 
-    <a href="#classes" class="nav-link-custom nav-item">
-      <span class="nav-icon">🖥️</span>
+    <a href="teacher_classes.php" class="nav-link-custom nav-item">
+      <span class="nav-icon"><i class="fas fa-chalkboard-user"></i></span>
       <span>My Classes</span>
     </a>
 
     <a href="#schedule" class="nav-link-custom nav-item">
-      <span class="nav-icon">📅</span>
+      <span class="nav-icon"><i class="fas fa-calendar-days"></i></span>
       <span>My Schedule</span>
     </a>
 
     <a href="#earnings" class="nav-link-custom nav-item">
-      <span class="nav-icon">💵</span>
+      <span class="nav-icon"><i class="fas fa-dollar-sign"></i></span>
       <span>My Earnings</span>
     </a>
 
-    <a href="#students" class="nav-link-custom nav-item">
-      <span class="nav-icon">👤</span>
+    <a href="teacher_students.php" class="nav-link-custom nav-item">
+      <span class="nav-icon"><i class="fas fa-user-graduate"></i></span>
       <span>My Students</span>
     </a>
   </div>
 
   <div class="sidebar-bottom">
     <a href="logout.php" class="nav-link-custom">
-      <span class="nav-icon">↪</span>
+      <span class="nav-icon"><i class="fas fa-right-from-bracket"></i></span>
       <span>Logout</span>
     </a>
   </div>
 </div>
 
 <div class="main">
-  <div class="topbar">
-    <div class="topbar-user">
-      <div class="small-avatar"><?php echo strtoupper(substr($teacherName, 0, 1)); ?></div>
-      <span><?php echo htmlspecialchars($teacherName); ?></span>
-    </div>
-    <div class="text-muted fw-semibold" id="topbar-section-label">Dashboard</div>
-  </div>
 
   <!-- ══ VIEW: DASHBOARD ══ -->
   <div class="view" id="view-dashboard">
@@ -678,7 +640,7 @@ $currentYear = date("Y");
                 <span class="ms-2" style="font-size:0.82rem;color:#64748b"><?php echo htmlspecialchars($class["type"]); ?></span>
               </div>
               <?php if (!empty($class["zoom_link"])): ?>
-                <a href="<?php echo htmlspecialchars($class["zoom_link"]); ?>" target="_blank" rel="noopener" class="btn-zoom">📹 Start Class</a>
+                <a href="<?php echo htmlspecialchars($class["zoom_link"]); ?>" target="_blank" rel="noopener" class="btn-zoom"><i class="fas fa-video"></i> Start Class</a>
               <?php endif; ?>
             </li>
           <?php endforeach; ?>
@@ -728,7 +690,7 @@ $currentYear = date("Y");
                   <td><?php echo htmlspecialchars($class["details"] ?? "—"); ?></td>
                   <td>
                     <?php if (!empty($class["zoom_link"])): ?>
-                      <a href="<?php echo htmlspecialchars($class["zoom_link"]); ?>" target="_blank" rel="noopener" class="btn-zoom">📹 Start Class</a>
+                      <a href="<?php echo htmlspecialchars($class["zoom_link"]); ?>" target="_blank" rel="noopener" class="btn-zoom"><i class="fas fa-video"></i> Start Class</a>
                     <?php else: ?>
                       <span class="zoom-none">— No link</span>
                     <?php endif; ?>
@@ -740,7 +702,7 @@ $currentYear = date("Y");
         </div>
       <?php else: ?>
         <div class="empty-box">
-          <div style="font-size:2rem;margin-bottom:8px">📚</div>
+          <div style="font-size:2rem;margin-bottom:8px"><i class="fas fa-book-open" style="color:#94a3b8"></i></div>
           No classes assigned yet. The admin will add your classes here.
         </div>
       <?php endif; ?>
@@ -773,7 +735,7 @@ $currentYear = date("Y");
                   <td><?php echo htmlspecialchars($class["type"]); ?></td>
                   <td>
                     <?php if (!empty($class["zoom_link"])): ?>
-                      <a href="<?php echo htmlspecialchars($class["zoom_link"]); ?>" target="_blank" rel="noopener" class="btn-zoom">📹 Start Class</a>
+                      <a href="<?php echo htmlspecialchars($class["zoom_link"]); ?>" target="_blank" rel="noopener" class="btn-zoom"><i class="fas fa-video"></i> Start Class</a>
                     <?php else: ?>
                       <span class="zoom-none">— No link</span>
                     <?php endif; ?>

@@ -132,6 +132,7 @@ function isActive($page, $currentPage) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Dashboard | JuniorCode Academy</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
   <style>
     :root {
       --primary: #3e5077;
@@ -291,7 +292,7 @@ function isActive($page, $currentPage) {
        margin-bottom: 24px;
        padding: 18px 20px;
 
-       background: linear-gradient(135deg, var(--primary), var(--secondary)); /* ✅ SAME AS SIDEBAR */
+       background: linear-gradient(135deg, var(--primary), var(--secondary)); /* SAME AS SIDEBAR */
        border-radius: 22px;
        border: none;
 
@@ -528,48 +529,48 @@ function isActive($page, $currentPage) {
       <div class="nav-title">Main</div>
       <div class="nav-custom">
         <a href="admin_dashboard.php" class="nav-link-custom <?php echo isActive('admin_dashboard.php', $currentPage); ?>">
-          <span class="nav-icon">🏠</span>
+          <span class="nav-icon"><i class="fas fa-house"></i></span>
           <span>Dashboard</span>
         </a>
         
 
         <a href="manage_users.php" class="nav-link-custom">
-          <span class="nav-icon">👥</span>
+          <span class="nav-icon"><i class="fas fa-users"></i></span>
           <span>Manage Users</span>
         </a>
 
         <a href="manage_classes.php" class="nav-link-custom">
-          <span class="nav-icon">📚</span>
+          <span class="nav-icon"><i class="fas fa-book"></i></span>
           <span>Manage Classes</span>
         </a>
 
         <a href="teacher_earnings.php" class="nav-link-custom">
-          <span class="nav-icon">💰</span>
+          <span class="nav-icon"><i class="fas fa-dollar-sign"></i></span>
           <span>Teacher Earnings</span>
         </a>
 
         <a href="available_slots.php" class="nav-link-custom">
-          <span class="nav-icon">📅</span>
+          <span class="nav-icon"><i class="fas fa-calendar-days"></i></span>
           <span>Available Slots</span>
         </a>
 
         <a href="courses.php" class="nav-link-custom">
-          <span class="nav-icon">🎓</span>
+          <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span>
           <span>Courses</span>
         </a>
 
         <a href="reports.php" class="nav-link-custom">
-          <span class="nav-icon">📊</span>
+          <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
           <span>Reports</span>
         </a>
 
         <a href="settings.php" class="nav-link-custom">
-          <span class="nav-icon">⚙️</span>
+          <span class="nav-icon"><i class="fas fa-gear"></i></span>
           <span>Settings</span>
         </a>
 
         <a href="logout.php" class="nav-link-custom">
-          <span class="nav-icon">🚪</span>
+          <span class="nav-icon"><i class="fas fa-right-from-bracket"></i></span>
           <span>Logout</span>
         </a>
       </div>
@@ -595,7 +596,7 @@ function isActive($page, $currentPage) {
         <div class="stat-card">
           <div class="stat-head">
             <div class="stat-label">Total Users</div>
-            <div class="stat-icon">👥</div>
+            <div class="stat-icon"><i class="fas fa-users"></i></div>
           </div>
           <div class="stat-value"><?php echo $totalUsers; ?></div>
           <div class="stat-note">All registered accounts</div>
@@ -604,7 +605,7 @@ function isActive($page, $currentPage) {
         <div class="stat-card">
           <div class="stat-head">
             <div class="stat-label">Students</div>
-            <div class="stat-icon">👨‍🎓</div>
+            <div class="stat-icon"><i class="fas fa-user-graduate"></i></div>
           </div>
           <div class="stat-value"><?php echo $totalStudents; ?></div>
           <div class="stat-note">Student accounts</div>
@@ -613,7 +614,7 @@ function isActive($page, $currentPage) {
         <div class="stat-card">
           <div class="stat-head">
             <div class="stat-label">Teachers</div>
-            <div class="stat-icon">👩‍🏫</div>
+            <div class="stat-icon"><i class="fas fa-chalkboard-user"></i></div>
           </div>
           <div class="stat-value"><?php echo $totalTeachers; ?></div>
           <div class="stat-note">Teacher accounts</div>
@@ -622,7 +623,7 @@ function isActive($page, $currentPage) {
         <div class="stat-card">
           <div class="stat-head">
             <div class="stat-label">Classes</div>
-            <div class="stat-icon">📘</div>
+            <div class="stat-icon"><i class="fas fa-book-open"></i></div>
           </div>
           <div class="stat-value"><?php echo $totalClasses; ?></div>
           <div class="stat-note">Total classes in system</div>

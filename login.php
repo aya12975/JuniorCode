@@ -18,6 +18,7 @@ if (isset($_SESSION['role'])) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Login | JuniorCode Academy</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
   <style>
     :root {
       --primary:      #2563eb;
@@ -436,7 +437,7 @@ if (isset($_SESSION['role'])) {
       align-items: center;
       gap: 8px;
     }
-    .alert-box::before { content: "⚠"; }
+    .alert-box::before { font-family: "Font Awesome 6 Free"; font-weight: 900; content: "\f071"; }
 
     /* ── Helper box ── */
     .helper-box {
@@ -524,19 +525,19 @@ if (isset($_SESSION['role'])) {
 
       <div class="lp-features" id="lp-features">
         <div class="lp-feat">
-          <div class="lp-feat-icon">🎯</div>
+          <div class="lp-feat-icon"><i class="fas fa-bullseye"></i></div>
           <span>Age-based learning paths for students aged 6–18</span>
         </div>
         <div class="lp-feat">
-          <div class="lp-feat-icon">💻</div>
+          <div class="lp-feat-icon"><i class="fas fa-laptop-code"></i></div>
           <span>Real coding projects, games, and web development</span>
         </div>
         <div class="lp-feat">
-          <div class="lp-feat-icon">🤖</div>
+          <div class="lp-feat-icon"><i class="fas fa-robot"></i></div>
           <span>Robotics, AI exploration, and future tech skills</span>
         </div>
         <div class="lp-feat">
-          <div class="lp-feat-icon">👨‍🏫</div>
+          <div class="lp-feat-icon"><i class="fas fa-chalkboard-user"></i></div>
           <span>Live mentor-led sessions with instant feedback</span>
         </div>
       </div>
@@ -544,7 +545,7 @@ if (isset($_SESSION['role'])) {
       <div class="lp-stats">
         <div class="lp-stat"><strong>500+</strong><span>Students</span></div>
         <div class="lp-stat"><strong>12+</strong><span>Courses</span></div>
-        <div class="lp-stat"><strong>4.9★</strong><span>Rating</span></div>
+        <div class="lp-stat"><strong>4.9<i class="fas fa-star fa-xs ms-1"></i></strong><span>Rating</span></div>
       </div>
 
     </div>
