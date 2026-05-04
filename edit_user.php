@@ -36,8 +36,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     if ($password !== "") {
         $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-        $stmt = $conn->prepare("UPDATE users SET username = ?, password = ?, role = ? WHERE id = ?");
-        $stmt->bind_param("sssi", $username, $hashedPassword, $role, $id);
+        $stmt = $conn->prepare("UPDATE users SET username = ?, password = ?, plain_password = ?, role = ? WHERE id = ?");
+        $stmt->bind_param("ssssi", $username, $hashedPassword, $password, $role, $id);
     } else {
         $stmt = $conn->prepare("UPDATE users SET username = ?, role = ? WHERE id = ?");
         $stmt->bind_param("ssi", $username, $role, $id);

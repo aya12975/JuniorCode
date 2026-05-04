@@ -13,7 +13,13 @@ $adminName = $_SESSION["username"] ?? "Admin";
 $filterRole = $_GET["role"] ?? "";
 $search = trim($_GET["search"] ?? "");
 
-$sql = "SELECT id, username, role FROM users WHERE 1=1";
+// Ensure plain_password column exists
+$chk = $conn->query("SHOW COLUMNS FROM users LIKE 'plain_password'");
+if ($chk && $chk->num_rows === 0) {
+    $conn->query("ALTER TABLE users ADD COLUMN plain_password VARCHAR(255) NOT NULL DEFAULT ''");
+}
+
+$sql = "SELECT id, username, plain_password, role FROM users WHERE 1=1";
 $params = [];
 $types = "";
 
@@ -305,6 +311,15 @@ function isActive($page, $currentPage) {
       color: #166534;
     }
 
+    .pwd-cell { display:flex; align-items:center; gap:8px; }
+    .pwd-text  { font-family:monospace; font-size:.9rem; letter-spacing:.05em; }
+    .eye-btn   {
+      background:none; border:none; cursor:pointer;
+      color:var(--muted); padding:2px 6px; border-radius:6px;
+      transition:color .15s;
+    }
+    .eye-btn:hover { color:var(--primary); }
+
     .action-btn {
       text-decoration: none;
       font-weight: 700;
@@ -345,6 +360,7 @@ function isActive($page, $currentPage) {
       }
     }
   </style>
+<script>(function(){var t=localStorage.getItem("jc-theme");if(t==="dark")document.documentElement.classList.add("dark");})();</script><style>html.dark body{background:#0f172a!important;color:#e2e8f0!important}html.dark .sidebar{background:linear-gradient(180deg,#020817 0%,#0c1226 100%)!important}html.dark .panel-card,html.dark .stat-card{background:#1e293b!important;border-color:#334155!important;color:#e2e8f0}html.dark .stat-label{color:#94a3b8!important}html.dark .stat-value{color:#f1f5f9!important}html.dark .form-control,html.dark .form-select,html.dark textarea{background:#1e293b!important;border-color:#475569!important;color:#e2e8f0!important}html.dark .topbar{background:linear-gradient(135deg,#1e3a6e 0%,#0f2456 100%)!important}html.dark .table thead th{background:#1e293b!important;color:#94a3b8!important;border-color:#334155!important}html.dark .table td{color:#cbd5e1!important;border-color:#334155!important}html.dark .panel-title{color:#f1f5f9!important}</style>
 </head>
 <body>
   <div class="app-shell">
@@ -457,15 +473,32 @@ function isActive($page, $currentPage) {
                 <tr>
                   <th>ID</th>
                   <th>Username</th>
+                  <th>Password</th>
                   <th>Role</th>
-                  <th style="width: 180px;">Actions</th>
+                  <th style="width: 160px;">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                <?php while ($user = $result->fetch_assoc()): ?>
+                <?php $rowIdx = 0; while ($user = $result->fetch_assoc()): $rowIdx++; ?>
                   <tr>
                     <td><?php echo htmlspecialchars($user["id"]); ?></td>
                     <td><?php echo htmlspecialchars($user["username"]); ?></td>
+                    <td>
+                      <?php if ($user["role"] === "admin"): ?>
+                        <span style="color:var(--muted);font-size:.85rem;">—</span>
+                      <?php else: ?>
+                        <div class="pwd-cell">
+                          <span class="pwd-text" id="pwd-<?= $rowIdx ?>" data-val="<?= htmlspecialchars($user['plain_password']) ?>">
+                            <?= $user['plain_password'] !== '' ? '••••••••' : '<em style="color:var(--muted);font-size:.82rem">not set</em>' ?>
+                          </span>
+                          <?php if ($user['plain_password'] !== ''): ?>
+                            <button class="eye-btn" onclick="togglePwd(<?= $rowIdx ?>)" title="Show/hide password">
+                              <i class="fas fa-eye" id="eye-<?= $rowIdx ?>"></i>
+                            </button>
+                          <?php endif; ?>
+                        </div>
+                      <?php endif; ?>
+                    </td>
                     <td>
                       <span class="role-badge role-<?php echo htmlspecialchars($user["role"]); ?>">
                         <?php echo htmlspecialchars(ucfirst($user["role"])); ?>

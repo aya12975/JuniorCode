@@ -24,10 +24,16 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         exit();
     }
 
+    // Ensure plain_password column exists
+    $chk = $conn->query("SHOW COLUMNS FROM users LIKE 'plain_password'");
+    if ($chk && $chk->num_rows === 0) {
+        $conn->query("ALTER TABLE users ADD COLUMN plain_password VARCHAR(255) NOT NULL DEFAULT ''");
+    }
+
     $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
 
-    $stmt = $conn->prepare("INSERT INTO users (username, password, role) VALUES (?, ?, ?)");
-    $stmt->bind_param("sss", $username, $hashedPassword, $role);
+    $stmt = $conn->prepare("INSERT INTO users (username, password, plain_password, role) VALUES (?, ?, ?, ?)");
+    $stmt->bind_param("ssss", $username, $hashedPassword, $password, $role);
 
     if ($stmt->execute()) {
         header("Location: manage_users.php?success=1");
@@ -323,6 +329,7 @@ body {
   }
 }
 </style>
+<script>(function(){var t=localStorage.getItem("jc-theme");if(t==="dark")document.documentElement.classList.add("dark");})();</script><style>html.dark body{background:#0f172a!important;color:#e2e8f0!important}html.dark .sidebar{background:linear-gradient(180deg,#020817 0%,#0c1226 100%)!important}html.dark .panel-card,html.dark .stat-card{background:#1e293b!important;border-color:#334155!important;color:#e2e8f0}html.dark .stat-label{color:#94a3b8!important}html.dark .stat-value{color:#f1f5f9!important}html.dark .form-control,html.dark .form-select,html.dark textarea{background:#1e293b!important;border-color:#475569!important;color:#e2e8f0!important}html.dark .topbar{background:linear-gradient(135deg,#1e3a6e 0%,#0f2456 100%)!important}html.dark .table thead th{background:#1e293b!important;color:#94a3b8!important;border-color:#334155!important}html.dark .table td{color:#cbd5e1!important;border-color:#334155!important}html.dark .panel-title{color:#f1f5f9!important}</style>
 </head>
 
 <body>
