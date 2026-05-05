@@ -31,6 +31,7 @@ function fetchCourses($conn, $section, $search, $filterType) {
     }
     $sql .= " ORDER BY id DESC";
     $stmt = $conn->prepare($sql);
+    if (!$stmt) return false;
     $stmt->bind_param($types, ...$params);
     $stmt->execute();
     return $stmt->get_result();
@@ -41,10 +42,50 @@ $chk = $conn->query("SHOW COLUMNS FROM courses LIKE 'section'");
 if ($chk && $chk->num_rows === 0) {
     $conn->query("ALTER TABLE courses ADD COLUMN section VARCHAR(50) NOT NULL DEFAULT 'kids'");
 }
+// Ensure sub_section column exists
+$chk2 = $conn->query("SHOW COLUMNS FROM courses LIKE 'sub_section'");
+if ($chk2 && $chk2->num_rows === 0) {
+    $conn->query("ALTER TABLE courses ADD COLUMN sub_section VARCHAR(50) NOT NULL DEFAULT ''");
+}
 
-$kidsResult   = fetchCourses($conn, 'kids',   $search, $filterType);
 $juniorResult = fetchCourses($conn, 'junior', $search, $filterType);
 $demoResult   = fetchCourses($conn, 'demo',   $search, $filterType);
+
+function fetchKidsByCategory($conn, $category, $search, $filterType) {
+    $sql    = "SELECT * FROM courses WHERE section = 'kids' AND category = ?";
+    $params = [$category];
+    $types  = "s";
+    if ($search !== "") { $sql .= " AND course_name LIKE ?"; $params[] = "%$search%"; $types .= "s"; }
+    if ($filterType !== "") { $sql .= " AND course_type = ?"; $params[] = $filterType; $types .= "s"; }
+    $sql .= " ORDER BY id DESC";
+    $stmt = $conn->prepare($sql);
+    if (!$stmt) return false;
+    $stmt->bind_param($types, ...$params);
+    $stmt->execute();
+    return $stmt->get_result();
+}
+
+$kidsGame   = fetchKidsByCategory($conn, 'Game Development',     $search, $filterType);
+$kidsPython = fetchKidsByCategory($conn, 'Python Introduction',  $search, $filterType);
+$kidsVM     = fetchKidsByCategory($conn, 'Virtual Machine',      $search, $filterType);
+
+function fetchJuniorByCategory($conn, $category, $search, $filterType) {
+    $sql    = "SELECT * FROM courses WHERE section = 'junior' AND category = ?";
+    $params = [$category];
+    $types  = "s";
+    if ($search !== "") { $sql .= " AND course_name LIKE ?"; $params[] = "%$search%"; $types .= "s"; }
+    if ($filterType !== "") { $sql .= " AND course_type = ?"; $params[] = $filterType; $types .= "s"; }
+    $sql .= " ORDER BY id DESC";
+    $stmt = $conn->prepare($sql);
+    if (!$stmt) return false;
+    $stmt->bind_param($types, ...$params);
+    $stmt->execute();
+    return $stmt->get_result();
+}
+
+$juniorGame   = fetchJuniorByCategory($conn, 'Game Development',    $search, $filterType);
+$juniorPython = fetchJuniorByCategory($conn, 'Python Introduction', $search, $filterType);
+$juniorVM     = fetchJuniorByCategory($conn, 'Virtual Machine',     $search, $filterType);
 
 function isActive($page, $currentPage) {
     return $page === $currentPage ? "active" : "";
@@ -440,6 +481,87 @@ function renderCourseTable($result) {
     .junior-icon { background: #ede9fe; color: #5b21b6; }
     .demo-icon   { background: #dcfce7; color: #166534; }
 
+    .kids-drop-item {
+      display: block;
+      width: 100%;
+      padding: 13px 18px;
+      border: none;
+      background: none;
+      text-align: left;
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: #0f172a;
+      cursor: pointer;
+      transition: background 0.15s;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .kids-drop-item:last-child { border-bottom: none; }
+    .kids-drop-item:hover  { background: #f0f7ff; color: var(--primary); }
+    .kids-drop-item.active { background: #eff6ff; color: var(--primary); font-weight: 900; }
+
+    .kids-cat-section   { display: none; }
+    .kids-cat-section.active   { display: block; }
+    .junior-cat-section { display: none; }
+    .junior-cat-section.active { display: block; }
+
+    .grade-group {
+      margin-bottom: 24px;
+    }
+
+    .grade-group-header {
+      margin-bottom: 12px;
+    }
+
+    .grade-group-label {
+      font-size: 1rem;
+      font-weight: 900;
+      color: #0f172a;
+    }
+
+    .grade-cards {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .grade-card {
+      background: #f8fbff;
+      border: 1px solid #dbeafe;
+      border-radius: 16px;
+      padding: 18px 22px;
+      min-width: 180px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .grade-num {
+      font-weight: 900;
+      font-size: 1rem;
+      color: #0f172a;
+    }
+
+    .grade-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #2563eb;
+      text-decoration: none;
+      background: #dbeafe;
+      padding: 6px 12px;
+      border-radius: 8px;
+      transition: background 0.2s;
+    }
+    .grade-link:hover { background: #bfdbfe; color: #1d4ed8; }
+
+    .grade-link-empty {
+      font-size: 0.82rem;
+      color: #94a3b8;
+      font-style: italic;
+    }
+
     .empty-box {
       text-align: center;
       padding: 26px 18px;
@@ -570,24 +692,105 @@ function renderCourseTable($result) {
 
       <!-- Kids Section -->
       <div id="tab-kids" class="tab-section <?= $activeTab === 'kids' ? 'active' : '' ?>">
-        <section class="panel-card">
-          <div class="panel-header">
-            <h2 class="panel-title" style="color:#854d0e;">Kids Courses</h2>
-            <a href="add_course.php?section=kids" class="btn-main">+ Add Kids Course</a>
+
+        <!-- Kids sub-category selector -->
+        <div style="position:relative;display:inline-block;margin-bottom:16px;">
+          <button class="btn-main" onclick="toggleKidsMenu(event)" type="button">
+            Select Kids Module <i class="fas fa-chevron-down ms-2" id="kids-chevron"></i>
+          </button>
+          <div id="kids-dropdown" style="
+            display:none; position:absolute; top:calc(100% + 8px); left:0;
+            background:white; border:1px solid #dbeafe; border-radius:16px;
+            box-shadow:0 12px 32px rgba(15,23,42,0.12); min-width:220px; z-index:100;
+            overflow:hidden;
+          ">
+            <button class="kids-drop-item active" onclick="switchKidsCat('game',   this)" type="button">Game Development</button>
+            <button class="kids-drop-item"        onclick="switchKidsCat('python', this)" type="button">Python Introduction</button>
+            <button class="kids-drop-item"        onclick="switchKidsCat('vm',     this)" type="button">Virtual Machine</button>
           </div>
-          <?= renderCourseTable($kidsResult) ?>
-        </section>
+        </div>
+
+        <div id="kids-game" class="kids-cat-section active">
+          <section class="panel-card">
+            <div class="panel-header">
+              <h2 class="panel-title">Game Development</h2>
+              <a href="add_course.php?section=kids&category=Game+Development" class="btn-main">+ Add Course</a>
+            </div>
+            <?= renderCourseTable($kidsGame) ?>
+          </section>
+        </div>
+
+        <div id="kids-python" class="kids-cat-section">
+          <section class="panel-card">
+            <div class="panel-header">
+              <h2 class="panel-title">Python Introduction</h2>
+              <a href="add_course.php?section=kids&category=Python+Introduction" class="btn-main">+ Add Course</a>
+            </div>
+            <?= renderCourseTable($kidsPython) ?>
+          </section>
+        </div>
+
+        <div id="kids-vm" class="kids-cat-section">
+          <section class="panel-card">
+            <div class="panel-header">
+              <h2 class="panel-title">Virtual Machine</h2>
+              <a href="add_course.php?section=kids&category=Virtual+Machine" class="btn-main">+ Add Course</a>
+            </div>
+            <?= renderCourseTable($kidsVM) ?>
+          </section>
+        </div>
+
       </div>
 
       <!-- Junior Section -->
       <div id="tab-junior" class="tab-section <?= $activeTab === 'junior' ? 'active' : '' ?>">
-        <section class="panel-card">
-          <div class="panel-header">
-            <h2 class="panel-title" style="color:#5b21b6;">Junior Courses</h2>
-            <a href="add_course.php?section=junior" class="btn-main">+ Add Junior Course</a>
+
+        <div style="position:relative;display:inline-block;margin-bottom:16px;">
+          <button class="btn-main" onclick="toggleJuniorMenu(event)" type="button">
+            Select Junior Module <i class="fas fa-chevron-down ms-2" id="junior-chevron"></i>
+          </button>
+          <div id="junior-dropdown" style="
+            display:none; position:absolute; top:calc(100% + 8px); left:0;
+            background:white; border:1px solid #dbeafe; border-radius:16px;
+            box-shadow:0 12px 32px rgba(15,23,42,0.12); min-width:220px; z-index:100;
+            overflow:hidden;
+          ">
+            <button class="kids-drop-item active" onclick="switchJuniorCat('game',   this)" type="button">Game Development</button>
+            <button class="kids-drop-item"        onclick="switchJuniorCat('python', this)" type="button">Python Introduction</button>
+            <button class="kids-drop-item"        onclick="switchJuniorCat('vm',     this)" type="button">Virtual Machine</button>
           </div>
-          <?= renderCourseTable($juniorResult) ?>
-        </section>
+        </div>
+
+        <div id="junior-game" class="junior-cat-section active">
+          <section class="panel-card">
+            <div class="panel-header">
+              <h2 class="panel-title">Game Development</h2>
+              <a href="add_course.php?section=junior&category=Game+Development" class="btn-main">+ Add Course</a>
+            </div>
+            <?= renderCourseTable($juniorGame) ?>
+          </section>
+        </div>
+
+        <div id="junior-python" class="junior-cat-section">
+          <section class="panel-card">
+            <div class="panel-header">
+              <h2 class="panel-title">Python Introduction</h2>
+              <a href="add_course.php?section=junior&category=Python+Introduction" class="btn-main">+ Add Course</a>
+            </div>
+            <?= renderCourseTable($juniorPython) ?>
+          </section>
+        </div>
+
+        <div id="junior-vm" class="junior-cat-section">
+          <section class="panel-card">
+            <div class="panel-header">
+              <h2 class="panel-title">Virtual Machine</h2>
+              <a href="add_course.php?section=junior&category=Virtual+Machine" class="btn-main">+ Add Course</a>
+            </div>
+            <?= renderCourseTable($juniorVM) ?>
+          </section>
+        </div>
+
       </div>
 
       <!-- Demo Section -->
@@ -597,12 +800,102 @@ function renderCourseTable($result) {
             <h2 class="panel-title" style="color:#166634;">Demo Courses</h2>
             <a href="add_course.php?section=demo" class="btn-main">+ Add Demo Course</a>
           </div>
+
+          <!-- Little -->
+          <div class="grade-group">
+            <div class="grade-group-header">
+              <span class="grade-group-label">Little <span style="font-weight:400;color:#64748b;">Grade 1 – Grade 3</span></span>
+            </div>
+            <div class="grade-cards">
+              <div class="grade-card">
+                <a href="https://studio.code.org/courses/courseb-2025/units/1/lessons/3/levels/2" target="_blank" class="grade-link">
+                  <i class="fas fa-external-link-alt"></i> Code.org — Course B
+                </a>
+              </div>
+              <div class="grade-card">
+                <a href="https://studio.code.org/flappy/1" target="_blank" class="grade-link">
+                  <i class="fas fa-external-link-alt"></i> Code.org — Flappy
+                </a>
+              </div>
+              <div class="grade-card">
+                <a href="https://scratch.mit.edu/projects/889441020/" target="_blank" class="grade-link">
+                  <i class="fas fa-external-link-alt"></i> Scratch Project
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <!-- Junior -->
+          <div class="grade-group">
+            <div class="grade-group-header">
+              <span class="grade-group-label">Junior</span>
+            </div>
+            <div class="grade-cards">
+              <div class="grade-card">
+                <a href="https://scratch.mit.edu/projects/889441020/" target="_blank" class="grade-link">
+                  <i class="fas fa-external-link-alt"></i> Scratch Project
+                </a>
+              </div>
+              <div class="grade-card">
+                <a href="https://x.thunkable.com/projectPage/65d61cf59f6fe10a3cc8ea2f" target="_blank" class="grade-link">
+                  <i class="fas fa-external-link-alt"></i> Thunkable Project
+                </a>
+              </div>
+              <div class="grade-card">
+                <a href="https://www.onlinegdb.com/EIipF2SoF" target="_blank" class="grade-link">
+                  <i class="fas fa-external-link-alt"></i> OnlineGDB
+                </a>
+              </div>
+            </div>
+          </div>
+
           <?= renderCourseTable($demoResult) ?>
         </section>
       </div>
     </main>
   </div>
 <script>
+function toggleJuniorMenu(e) {
+  e.stopPropagation();
+  const d = document.getElementById('junior-dropdown');
+  const open = d.style.display === 'block';
+  d.style.display = open ? 'none' : 'block';
+  document.getElementById('junior-chevron').className = open ? 'fas fa-chevron-down ms-2' : 'fas fa-chevron-up ms-2';
+}
+
+function switchJuniorCat(cat, btn) {
+  document.querySelectorAll('.junior-cat-section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('#junior-dropdown .kids-drop-item').forEach(b => b.classList.remove('active'));
+  document.getElementById('junior-' + cat).classList.add('active');
+  btn.classList.add('active');
+  document.getElementById('junior-dropdown').style.display = 'none';
+  document.getElementById('junior-chevron').className = 'fas fa-chevron-down ms-2';
+}
+
+function toggleKidsMenu(e) {
+  e.stopPropagation();
+  const d = document.getElementById('kids-dropdown');
+  const open = d.style.display === 'block';
+  d.style.display = open ? 'none' : 'block';
+  document.getElementById('kids-chevron').className = open ? 'fas fa-chevron-down ms-2' : 'fas fa-chevron-up ms-2';
+}
+
+document.addEventListener('click', function() {
+  document.getElementById('kids-dropdown').style.display = 'none';
+  document.getElementById('kids-chevron').className = 'fas fa-chevron-down ms-2';
+  document.getElementById('junior-dropdown').style.display = 'none';
+  document.getElementById('junior-chevron').className = 'fas fa-chevron-down ms-2';
+});
+
+function switchKidsCat(cat, btn) {
+  document.querySelectorAll('.kids-cat-section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.kids-drop-item').forEach(b => b.classList.remove('active'));
+  document.getElementById('kids-' + cat).classList.add('active');
+  btn.classList.add('active');
+  document.getElementById('kids-dropdown').style.display = 'none';
+  document.getElementById('kids-chevron').className = 'fas fa-chevron-down ms-2';
+}
+
 function switchTab(tab) {
   document.querySelectorAll('.tab-section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));

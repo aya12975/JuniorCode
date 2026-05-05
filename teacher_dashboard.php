@@ -178,9 +178,9 @@ $currentYear = date("Y");
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
   <style>
     :root {
-      --primary:      #1d4ed8;
-      --primary-dark: #1e3a8a;
-      --secondary:    #0ea5e9;
+      --primary:      #3e5077;
+      --primary-dark: #152c6b;
+      --secondary:    #143674;
       --accent:       #38bdf8;
       --dark:         #0f172a;
       --muted:        #64748b;
@@ -202,7 +202,7 @@ $currentYear = date("Y");
       top: 0; left: 0;
       width: 260px;
       height: 100vh;
-      background: linear-gradient(180deg, #0f172a 0%, #1e3a8a 55%, #0c4a8a 100%);
+      background: linear-gradient(180deg, #0f172a 0%, #172554 100%);
       display: flex;
       flex-direction: column;
       justify-content: space-between;
@@ -295,7 +295,7 @@ $currentYear = date("Y");
     .nav-link-custom.active {
       background: linear-gradient(135deg, var(--primary), var(--secondary));
       color: #ffffff;
-      box-shadow: 0 8px 20px rgba(29,78,216,0.35);
+      box-shadow: 0 8px 20px rgba(30,50,100,0.35);
     }
 
     .nav-icon {
@@ -327,79 +327,54 @@ $currentYear = date("Y");
     }
 
     .hero {
-      background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 50%, var(--secondary) 100%);
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
       color: white;
-      border-radius: 24px;
-      padding: 26px 28px;
+      border-radius: 22px;
+      padding: 18px 20px;
       margin-bottom: 22px;
-      box-shadow: 0 16px 40px rgba(29,78,216,0.22);
+      box-shadow: 0 12px 28px rgba(37, 99, 235, 0.3);
       display: flex;
       justify-content: space-between;
       align-items: center;
       flex-wrap: wrap;
       gap: 16px;
-      position: relative;
-      overflow: hidden;
     }
 
-    .hero::before {
-      content: "";
-      position: absolute;
-      width: 260px; height: 260px;
-      border-radius: 50%;
-      background: rgba(255,255,255,0.06);
-      top: -80px; right: -60px;
-      pointer-events: none;
-    }
-
-    .hero::after {
-      content: "";
-      position: absolute;
-      width: 180px; height: 180px;
-      border-radius: 50%;
-      background: rgba(255,255,255,0.05);
-      bottom: -60px; left: -40px;
-      pointer-events: none;
-    }
 
     .hero h2 {
       margin: 0;
-      font-size: 1.7rem;
+      font-size: 1.5rem;
       font-weight: 900;
-      position: relative;
-      z-index: 1;
     }
 
     .hero p {
-      margin: 5px 0 0;
-      opacity: 0.88;
-      position: relative;
-      z-index: 1;
+      margin: 4px 0 0;
+      color: rgba(255,255,255,0.8);
     }
 
     .month-box {
       background: rgba(255,255,255,0.15);
-      border: 1px solid rgba(255,255,255,0.22);
-      padding: 10px 18px;
-      border-radius: 14px;
-      font-weight: 700;
-      position: relative;
-      z-index: 1;
-      backdrop-filter: blur(4px);
+      color: white;
+      border-radius: 999px;
+      padding: 10px 16px;
+      font-weight: 800;
+      white-space: nowrap;
     }
 
     .panel-card {
       background: white;
-      border: 1px solid #e5e7eb;
-      border-radius: 20px;
-      padding: 20px;
+      border: 1px solid #edf4ff;
+      border-top: 3px solid var(--primary);
+      border-radius: 22px;
+      padding: 22px;
       margin-bottom: 22px;
-      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+      box-shadow: 0 18px 45px rgba(37, 99, 235, 0.08);
     }
 
     .panel-title {
       font-size: 1.05rem;
-      font-weight: bold;
+      font-weight: 800;
+      color: var(--primary);
       margin-bottom: 14px;
     }
 
@@ -655,6 +630,13 @@ $currentYear = date("Y");
 
   <!-- ══ VIEW: MY CLASSES ══ -->
   <div class="view" id="view-classes" style="display:none">
+    <section class="hero">
+      <div>
+        <h2>My Classes</h2>
+        <p>All your assigned teaching sessions</p>
+      </div>
+      <div class="month-box"><?php echo count($classSessions); ?> total</div>
+    </section>
     <div class="panel-card">
       <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <div class="panel-title mb-0">My Classes</div>
@@ -713,6 +695,13 @@ $currentYear = date("Y");
 
   <!-- ══ VIEW: MY SCHEDULE ══ -->
   <div class="view" id="view-schedule" style="display:none">
+    <section class="hero">
+      <div>
+        <h2>My Schedule</h2>
+        <p>Upcoming and past sessions</p>
+      </div>
+      <div class="month-box"><?php echo date("d F Y"); ?></div>
+    </section>
     <div class="panel-card">
       <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <div class="panel-title mb-0">My Schedule</div>
@@ -755,8 +744,14 @@ $currentYear = date("Y");
 
   <!-- ══ VIEW: MY EARNINGS ══ -->
   <div class="view" id="view-earnings" style="display:none">
+    <section class="hero">
+      <div>
+        <h2>My Earnings</h2>
+        <p>Your payment and session summary</p>
+      </div>
+      <div class="month-box"><?php echo $currentMonth . " " . $currentYear; ?></div>
+    </section>
     <div class="panel-card">
-      <div class="panel-title">My Earnings</div>
       <div class="row g-4 mb-3">
         <div class="col-md-4"><div class="soft-stat soft-green"><div>Total Earnings</div><div class="big-stat">$<?php echo number_format($totalEarnings, 2); ?></div></div></div>
         <div class="col-md-4"><div class="soft-stat soft-blue"><div>Paid Sessions</div><div class="big-stat"><?php echo $totalPaidSessions; ?></div></div></div>
@@ -787,6 +782,13 @@ $currentYear = date("Y");
 
   <!-- ══ VIEW: MY STUDENTS ══ -->
   <div class="view" id="view-students" style="display:none">
+    <section class="hero">
+      <div>
+        <h2>My Students</h2>
+        <p>All students assigned to you</p>
+      </div>
+      <div class="month-box"><?php echo count($students); ?> students</div>
+    </section>
     <div class="panel-card">
       <div class="panel-title">My Students</div>
       <?php if (!empty($students)): ?>

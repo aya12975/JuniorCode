@@ -60,11 +60,22 @@ if ($result2) {
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
   <style>
+    :root {
+      --primary:      #3e5077;
+      --secondary:    #143674;
+      --dark:         #0f172a;
+      --muted:        #64748b;
+      --shadow:       0 18px 45px rgba(37,99,235,0.08);
+    }
+
     body {
       margin: 0;
-      background: #f4f7fb;
-      font-family: Arial, sans-serif;
-      color: #1e293b;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--dark);
+      background:
+        radial-gradient(circle at top left,  rgba(37,99,235,0.08), transparent 22%),
+        radial-gradient(circle at bottom right, rgba(56,189,248,0.08), transparent 22%),
+        linear-gradient(180deg, #f8fbff 0%, #eef6ff 100%);
     }
 
     .sidebar {
@@ -73,85 +84,87 @@ if ($result2) {
       left: 0;
       width: 255px;
       height: 100vh;
-      background: #ffffff;
-      border-right: 1px solid #e5e7eb;
+      background: linear-gradient(180deg, #0f172a 0%, #172554 100%);
       display: flex;
       flex-direction: column;
       justify-content: space-between;
       z-index: 1000;
+      overflow-y: auto;
     }
 
     .sidebar-top {
-      padding: 18px;
+      padding: 20px 16px;
     }
 
     .brand {
       display: flex;
       align-items: center;
       gap: 12px;
-      padding: 6px 8px 18px 8px;
-      border-bottom: 1px solid #eef2f7;
-      margin-bottom: 18px;
+      padding: 10px 10px 18px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      margin-bottom: 16px;
     }
 
-    .brand-logo {
-      width: 44px;
-      height: 44px;
+    .brand-logo-img {
+      width: 55px;
+      height: 55px;
+      object-fit: contain;
       border-radius: 12px;
-      background: linear-gradient(135deg, #2563eb, #4f46e5);
-      color: white;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      font-size: 18px;
+      background: none;
+      padding: 4px;
+      flex-shrink: 0;
     }
 
     .brand-title {
-      font-size: 1.1rem;
-      font-weight: bold;
+      font-size: 1.05rem;
+      font-weight: 900;
       margin: 0;
+      color: #ffffff;
+      line-height: 1.2;
     }
 
     .brand-subtitle {
-      font-size: 0.85rem;
-      color: #64748b;
-      margin: 0;
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.55);
+      margin: 3px 0 0;
+      letter-spacing: 1px;
     }
 
     .student-box {
       display: flex;
       align-items: center;
       gap: 12px;
-      background: #f8fafc;
-      border: 1px solid #e5e7eb;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
       border-radius: 16px;
       padding: 14px;
       margin-bottom: 18px;
     }
 
     .student-avatar {
-      width: 46px;
-      height: 46px;
+      width: 44px;
+      height: 44px;
       border-radius: 50%;
-      background: #dbeafe;
-      color: #1d4ed8;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: white;
       font-weight: bold;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 18px;
+      flex-shrink: 0;
     }
 
     .student-name {
-      font-weight: bold;
+      font-weight: 800;
       margin: 0;
+      color: #ffffff;
     }
 
     .student-role {
       margin: 0;
-      color: #64748b;
-      font-size: 0.9rem;
+      color: rgba(255,255,255,0.55);
+      font-size: 0.85rem;
     }
 
     .nav-link-custom {
@@ -159,29 +172,39 @@ if ($result2) {
       align-items: center;
       gap: 12px;
       text-decoration: none;
-      color: #334155;
-      padding: 13px 14px;
-      border-radius: 12px;
-      margin: 6px 4px;
-      font-weight: 600;
-      transition: 0.25s;
+      color: rgba(255,255,255,0.78);
+      padding: 12px 14px;
+      border-radius: 14px;
+      margin: 4px 0;
+      font-weight: 700;
+      transition: all 0.22s ease;
     }
 
-    .nav-link-custom:hover,
+    .nav-link-custom:hover {
+      background: rgba(255,255,255,0.09);
+      color: #ffffff;
+    }
+
     .nav-link-custom.active {
-      background: #e8f0ff;
-      color: #1d4ed8;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: #ffffff;
     }
 
     .nav-icon {
-      width: 20px;
-      text-align: center;
-      font-size: 16px;
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      flex-shrink: 0;
     }
 
     .sidebar-bottom {
-      padding: 18px;
-      border-top: 1px solid #eef2f7;
+      padding: 16px;
+      border-top: 1px solid rgba(255,255,255,0.1);
     }
 
     .main {
@@ -190,14 +213,27 @@ if ($result2) {
     }
 
     .topbar {
-      background: white;
-      border: 1px solid #e5e7eb;
-      border-radius: 18px;
-      padding: 14px 18px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      border-radius: 22px;
+      padding: 18px 22px;
       margin-bottom: 22px;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      box-shadow: var(--shadow);
+    }
+
+    .topbar h1 {
+      color: white;
+      margin: 0;
+      font-weight: 900;
+      font-size: 1.4rem;
+    }
+
+    .topbar p {
+      margin: 4px 0 0;
+      color: rgba(255,255,255,0.8);
+      font-size: 0.9rem;
     }
 
     .topbar-user {
@@ -205,13 +241,14 @@ if ($result2) {
       align-items: center;
       gap: 10px;
       font-weight: bold;
+      color: white;
     }
 
     .small-avatar {
       width: 38px;
       height: 38px;
       border-radius: 50%;
-      background: #1d4ed8;
+      background: rgba(255,255,255,0.2);
       color: white;
       display: flex;
       align-items: center;
@@ -220,12 +257,12 @@ if ($result2) {
     }
 
     .hero {
-      background: linear-gradient(135deg, #0f4fd6, #1d4ed8);
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
       color: white;
       border-radius: 22px;
       padding: 22px 24px;
       margin-bottom: 22px;
-      box-shadow: 0 12px 30px rgba(29, 78, 216, 0.18);
+      box-shadow: 0 12px 30px rgba(30, 50, 100, 0.18);
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -246,7 +283,7 @@ if ($result2) {
 
     .panel-card {
       background: white;
-      border: 1px solid #e5e7eb;
+      border: 1px solid #edf4ff;
       border-radius: 20px;
       padding: 20px;
       margin-bottom: 22px;
@@ -332,7 +369,7 @@ if ($result2) {
 <div class="sidebar">
   <div class="sidebar-top">
     <div class="brand">
-      <div class="brand-logo">JC</div>
+      <img src="images/robot2.png.png" class="brand-logo-img" alt="Logo">
       <div>
         <p class="brand-title">JuniorCode</p>
         <p class="brand-subtitle">Student Panel</p>
@@ -373,11 +410,14 @@ if ($result2) {
 
 <div class="main">
   <div class="topbar">
+    <div>
+      <h1>Student Dashboard</h1>
+      <p>Welcome back, <?php echo htmlspecialchars($studentName); ?></p>
+    </div>
     <div class="topbar-user">
       <div class="small-avatar"><?php echo strtoupper(substr($studentName, 0, 1)); ?></div>
       <span><?php echo htmlspecialchars($studentName); ?></span>
     </div>
-    <div class="text-muted fw-semibold">Student Dashboard</div>
   </div>
 
   <section id="dashboard" class="hero">
