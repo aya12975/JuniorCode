@@ -24,16 +24,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $_SESSION["username"] = $user["username"];
             $_SESSION["role"] = $user["role"];
 
-            if ($user["role"] === "admin") {
-                header("Location: admin_dashboard.php");
-                exit();
-            } elseif ($user["role"] === "teacher") {
-                header("Location: teacher_dashboard.php");
-                exit();
-            } elseif ($user["role"] === "student") {
-                header("Location: student_dashboard.php");
-                exit();
-            }
+            header("Location: login.php?success=1");
+            exit();
         } else {
             die("Wrong password");
         }

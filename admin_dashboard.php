@@ -403,10 +403,10 @@ require_once "admin_prefs.php";
       margin: 0;
     }
     .logo-img {
-  width: 30spx;
+  width: 55px;
   height: 55px;
   object-fit: contain;
-  border-radius: 5px;
+  border-radius: 12px;
   background: none;
   padding: 6px;
   weight:70px;
@@ -519,6 +519,7 @@ require_once "admin_prefs.php";
   </style>
 </head>
 <body>
+
   <div class="app-shell">
     <aside class="sidebar">
       <div class="brand-box">

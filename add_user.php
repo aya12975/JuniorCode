@@ -14,33 +14,31 @@ function isActive($page, $currentPage) {
     return $page === $currentPage ? "active" : "";
 }
 
+$newUser   = null;
+$formError = isset($_GET['error']);
+
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $username = trim($_POST["username"] ?? "");
     $password = trim($_POST["password"] ?? "");
-    $role = trim($_POST["role"] ?? "");
+    $role     = trim($_POST["role"] ?? "");
 
     if ($username === "" || $password === "" || $role === "") {
-        header("Location: add_user.php?error=1");
-        exit();
-    }
-
-    // Ensure plain_password column exists
-    $chk = $conn->query("SHOW COLUMNS FROM users LIKE 'plain_password'");
-    if ($chk && $chk->num_rows === 0) {
-        $conn->query("ALTER TABLE users ADD COLUMN plain_password VARCHAR(255) NOT NULL DEFAULT ''");
-    }
-
-    $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-
-    $stmt = $conn->prepare("INSERT INTO users (username, password, plain_password, role) VALUES (?, ?, ?, ?)");
-    $stmt->bind_param("ssss", $username, $hashedPassword, $password, $role);
-
-    if ($stmt->execute()) {
-        header("Location: manage_users.php?success=1");
-        exit();
+        $formError = true;
     } else {
-        header("Location: add_user.php?error=1");
-        exit();
+        $chk = $conn->query("SHOW COLUMNS FROM users LIKE 'plain_password'");
+        if ($chk && $chk->num_rows === 0) {
+            $conn->query("ALTER TABLE users ADD COLUMN plain_password VARCHAR(255) NOT NULL DEFAULT ''");
+        }
+
+        $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+        $stmt = $conn->prepare("INSERT INTO users (username, password, plain_password, role) VALUES (?, ?, ?, ?)");
+        $stmt->bind_param("ssss", $username, $hashedPassword, $password, $role);
+
+        if ($stmt->execute()) {
+            $newUser = ['username' => $username, 'password' => $password, 'role' => $role];
+        } else {
+            $formError = true;
+        }
     }
 }
 ?>
@@ -113,7 +111,10 @@ body {
   width: 55px;
   height: 55px;
   object-fit: contain;
-  border-radius: 8px;
+  border-radius: 12px;
+  background: none;
+  padding: 6px;
+  flex-shrink: 0;
 }
 
 .brand-title {
@@ -207,7 +208,7 @@ body {
   padding: 18px 20px;
   background: linear-gradient(135deg, var(--primary), var(--secondary));
   border-radius: 22px;
-  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.3);
+  box-shadow: var(--shadow);
 }
 
 .topbar h1 {
@@ -306,6 +307,90 @@ body {
 .btn-back:hover {
   color: white;
   background: #475569;
+}
+
+/* ── Credentials card ── */
+.credentials-card {
+  background: #f0fdf4;
+  border: 2px solid #86efac;
+  border-radius: 20px;
+  padding: 28px 28px 22px;
+  margin-bottom: 24px;
+}
+
+.cred-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 900;
+  font-size: 1.1rem;
+  color: #15803d;
+  margin-bottom: 10px;
+}
+
+.cred-note {
+  color: #166534;
+  font-size: 0.9rem;
+  margin-bottom: 20px;
+  font-weight: 600;
+}
+
+.cred-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fff;
+  border: 1px solid #bbf7d0;
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 10px;
+}
+
+.cred-label {
+  font-weight: 800;
+  color: #374151;
+  min-width: 90px;
+  font-size: 0.9rem;
+}
+
+.cred-value {
+  flex: 1;
+  font-family: 'Courier New', monospace;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0f172a;
+  word-break: break-all;
+}
+
+.copy-btn {
+  background: #dcfce7;
+  border: 1px solid #86efac;
+  border-radius: 8px;
+  padding: 6px 10px;
+  color: #15803d;
+  cursor: pointer;
+  transition: background 0.2s;
+  font-size: 0.85rem;
+}
+.copy-btn:hover { background: #bbf7d0; }
+.copy-btn.copied { background: #15803d; color: #fff; border-color: #15803d; }
+
+.role-badge {
+  font-family: Arial, sans-serif;
+  font-size: 0.85rem;
+  font-weight: 800;
+  padding: 4px 14px;
+  border-radius: 999px;
+}
+.role-admin   { background: #dbeafe; color: #1e40af; }
+.role-teacher { background: #fef9c3; color: #854d0e; }
+.role-student { background: #f3e8ff; color: #6b21a8; }
+
+.cred-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+  flex-wrap: wrap;
 }
 
 @media (max-width: 991px) {
@@ -416,9 +501,41 @@ body {
       <div class="card-box">
         <h2>Add User</h2>
 
-        <?php if (isset($_GET["error"])): ?>
+        <?php if ($formError): ?>
           <div class="alert alert-danger">Please fill all fields correctly.</div>
         <?php endif; ?>
+
+        <?php if ($newUser !== null): $nu = $newUser; ?>
+        <div class="credentials-card">
+          <div class="cred-header">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            User created successfully!
+          </div>
+          <p class="cred-note">Save these credentials — the password won't be shown again after you leave this page.</p>
+          <div class="cred-row">
+            <span class="cred-label">Username</span>
+            <span class="cred-value" id="cred-username"><?= htmlspecialchars($nu['username']) ?></span>
+            <button type="button" class="copy-btn" onclick="copyText('cred-username', this)"><i class="fas fa-copy"></i></button>
+          </div>
+          <div class="cred-row">
+            <span class="cred-label">Password</span>
+            <span class="cred-value" id="cred-password"><?= htmlspecialchars($nu['password']) ?></span>
+            <button type="button" class="copy-btn" onclick="copyText('cred-password', this)"><i class="fas fa-copy"></i></button>
+          </div>
+          <div class="cred-row">
+            <span class="cred-label">Role</span>
+            <span class="cred-value role-badge role-<?= htmlspecialchars($nu['role']) ?>"><?= ucfirst(htmlspecialchars($nu['role'])) ?></span>
+          </div>
+          <div class="cred-actions">
+            <a href="manage_users.php" class="btn-main" style="text-decoration:none;display:inline-flex;align-items:center;gap:8px;">
+              <i class="fas fa-users"></i> Go to Manage Users
+            </a>
+            <a href="add_user.php" class="btn-back" style="text-decoration:none;display:inline-flex;align-items:center;gap:8px;">
+              <i class="fas fa-plus"></i> Add Another User
+            </a>
+          </div>
+        </div>
+        <?php else: ?>
 
         <form method="POST">
           <div class="mb-4">
@@ -428,7 +545,12 @@ body {
 
           <div class="mb-4">
             <label class="form-label">Password</label>
-            <input type="password" name="password" class="form-control" required>
+            <div class="input-group">
+              <input type="password" name="password" id="passwordInput" class="form-control" required>
+              <button type="button" class="btn btn-outline-secondary" id="eyeToggleBtn" onclick="toggleAddUserPassword()" tabindex="-1">
+                <i class="fas fa-eye" id="eyeIcon"></i>
+              </button>
+            </div>
           </div>
 
           <div class="mb-4">
@@ -446,11 +568,37 @@ body {
             <a href="manage_users.php" class="btn-back">Back</a>
           </div>
         </form>
+        <?php endif; ?>
       </div>
     </div>
   </main>
 
 </div>
 
+<script>
+function toggleAddUserPassword() {
+  const input = document.getElementById('passwordInput');
+  const icon  = document.getElementById('eyeIcon');
+  if (input.type === 'password') {
+    input.type = 'text';
+    icon.classList.replace('fa-eye', 'fa-eye-slash');
+  } else {
+    input.type = 'password';
+    icon.classList.replace('fa-eye-slash', 'fa-eye');
+  }
+}
+
+function copyText(id, btn) {
+  const text = document.getElementById(id).textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.classList.add('copied');
+    btn.innerHTML = '<i class="fas fa-check"></i>';
+    setTimeout(() => {
+      btn.classList.remove('copied');
+      btn.innerHTML = '<i class="fas fa-copy"></i>';
+    }, 1800);
+  });
+}
+</script>
 </body>
 </html>

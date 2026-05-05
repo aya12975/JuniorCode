@@ -10,6 +10,28 @@ if (!isset($_SESSION["role"]) || $_SESSION["role"] !== "admin") {
 $currentPage = basename($_SERVER["PHP_SELF"]);
 $adminName = $_SESSION["username"] ?? "Admin";
 
+// Handle inline edit
+if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["edit_user_id"])) {
+    $editId   = (int)$_POST["edit_user_id"];
+    $username = trim($_POST["username"] ?? "");
+    $role     = trim($_POST["role"] ?? "");
+    $password = trim($_POST["password"] ?? "");
+
+    if ($username !== "" && $role !== "") {
+        if ($password !== "") {
+            $hashed = password_hash($password, PASSWORD_DEFAULT);
+            $stmt = $conn->prepare("UPDATE users SET username=?, password=?, plain_password=?, role=? WHERE id=?");
+            $stmt->bind_param("ssssi", $username, $hashed, $password, $role, $editId);
+        } else {
+            $stmt = $conn->prepare("UPDATE users SET username=?, role=? WHERE id=?");
+            $stmt->bind_param("ssi", $username, $role, $editId);
+        }
+        $stmt->execute();
+    }
+    header("Location: manage_users.php?success=1");
+    exit();
+}
+
 $filterRole = $_GET["role"] ?? "";
 $search = trim($_GET["search"] ?? "");
 
@@ -505,7 +527,8 @@ function isActive($page, $currentPage) {
                       </span>
                     </td>
                     <td>
-                      <a href="edit_user.php?id=<?php echo $user["id"]; ?>" class="action-btn edit-btn">Edit</a>
+                      <button class="action-btn edit-btn" style="background:none;border:none;padding:0;cursor:pointer;"
+                        onclick="openEditModal(<?= $user['id'] ?>, '<?= htmlspecialchars(addslashes($user['username'])) ?>', '<?= htmlspecialchars($user['role']) ?>')">Edit</button>
                       <a
                         href="delete_user.php?id=<?php echo $user["id"]; ?>"
                         class="action-btn delete-btn"
@@ -525,5 +548,119 @@ function isActive($page, $currentPage) {
       </section>
     </main>
   </div>
+<!-- Edit User Modal -->
+<div id="editModal" style="
+  display:none; position:fixed; inset:0; z-index:9999;
+  background:rgba(15,23,42,0.55); backdrop-filter:blur(4px);
+  align-items:center; justify-content:center;
+">
+  <div style="
+    background:#fff; border-radius:24px; padding:36px 32px;
+    width:100%; max-width:480px; margin:16px;
+    box-shadow:0 24px 60px rgba(15,23,42,0.2);
+    animation: modalIn .25s ease;
+  ">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+      <h2 style="margin:0;font-weight:900;font-size:1.35rem;color:#0f172a;">Edit User</h2>
+      <button onclick="closeEditModal()" style="background:none;border:none;cursor:pointer;font-size:1.4rem;color:#64748b;line-height:1;">&times;</button>
+    </div>
+
+    <form method="POST" id="editForm">
+      <input type="hidden" name="edit_user_id" id="modal_id">
+
+      <div style="margin-bottom:18px;">
+        <label style="font-weight:800;color:#334155;display:block;margin-bottom:8px;">Username</label>
+        <input type="text" name="username" id="modal_username" class="form-control" required>
+      </div>
+
+      <div style="margin-bottom:18px;">
+        <label style="font-weight:800;color:#334155;display:block;margin-bottom:8px;">New Password <span style="font-weight:400;color:#94a3b8;font-size:0.85rem;">(leave blank to keep current)</span></label>
+        <div class="input-group">
+          <input type="password" name="password" id="modal_password" class="form-control" placeholder="Enter new password">
+          <button type="button" class="btn btn-outline-secondary" onclick="toggleModalPassword()">
+            <i class="fas fa-eye" id="modal_eye"></i>
+          </button>
+        </div>
+      </div>
+
+      <div style="margin-bottom:28px;">
+        <label style="font-weight:800;color:#334155;display:block;margin-bottom:8px;">Role</label>
+        <select name="role" id="modal_role" class="form-select" required>
+          <option value="admin">Admin</option>
+          <option value="teacher">Teacher</option>
+          <option value="student">Student</option>
+        </select>
+      </div>
+
+      <div style="display:flex;gap:12px;">
+        <button type="submit" style="
+          flex:1; height:50px; border:none; border-radius:14px;
+          background:linear-gradient(135deg,#3e5077,#143674);
+          color:#fff; font-weight:900; font-size:1rem; cursor:pointer;
+        ">Save Changes</button>
+        <button type="button" onclick="closeEditModal()" style="
+          height:50px; padding:0 22px; border:2px solid #e2e8f0;
+          border-radius:14px; background:#fff; font-weight:700;
+          color:#64748b; cursor:pointer;
+        ">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+@keyframes modalIn {
+  from { opacity:0; transform:translateY(-16px) scale(.97); }
+  to   { opacity:1; transform:translateY(0)     scale(1);   }
+}
+</style>
+
+<script>
+function openEditModal(id, username, role) {
+  document.getElementById('modal_id').value       = id;
+  document.getElementById('modal_username').value = username;
+  document.getElementById('modal_role').value     = role;
+  document.getElementById('modal_password').value = '';
+  document.getElementById('modal_eye').className  = 'fas fa-eye';
+  document.getElementById('modal_password').type  = 'password';
+  const m = document.getElementById('editModal');
+  m.style.display = 'flex';
+}
+
+function closeEditModal() {
+  document.getElementById('editModal').style.display = 'none';
+}
+
+function toggleModalPassword() {
+  const input = document.getElementById('modal_password');
+  const icon  = document.getElementById('modal_eye');
+  if (input.type === 'password') {
+    input.type = 'text';
+    icon.classList.replace('fa-eye', 'fa-eye-slash');
+  } else {
+    input.type = 'password';
+    icon.classList.replace('fa-eye-slash', 'fa-eye');
+  }
+}
+
+// Close on backdrop click
+document.getElementById('editModal').addEventListener('click', function(e) {
+  if (e.target === this) closeEditModal();
+});
+
+function togglePwd(idx) {
+  const span = document.getElementById('pwd-' + idx);
+  const icon  = document.getElementById('eye-' + idx);
+  if (span.dataset.visible === '1') {
+    span.textContent = '••••••••';
+    span.dataset.visible = '0';
+    icon.classList.replace('fa-eye-slash', 'fa-eye');
+  } else {
+    span.textContent = span.dataset.val;
+    span.dataset.visible = '1';
+    icon.classList.replace('fa-eye', 'fa-eye-slash');
+  }
+}
+</script>
 </body>
 </html>

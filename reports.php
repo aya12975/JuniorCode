@@ -86,9 +86,9 @@ function isActive($page, $currentPage) {
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
   <style>
     :root {
-      --primary: #2563eb;
+      --primary: #3e5077;
       --primary-dark: #1d4ed8;
-      --secondary: #38bdf8;
+      --secondary: #143674;
       --dark: #0f172a;
       --muted: #64748b;
       --soft: #eff6ff;
@@ -139,7 +139,7 @@ function isActive($page, $currentPage) {
       height: 55px;
       object-fit: contain;
       border-radius: 12px;
-      background: white;
+      background: none;
       padding: 6px;
       flex-shrink: 0;
     }
@@ -218,8 +218,7 @@ function isActive($page, $currentPage) {
       gap: 16px;
       margin-bottom: 24px;
       padding: 18px 20px;
-      background: rgba(255,255,255,0.85);
-      border: 1px solid #edf4ff;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
       border-radius: 22px;
       box-shadow: var(--shadow);
     }
@@ -228,17 +227,17 @@ function isActive($page, $currentPage) {
       font-size: 1.8rem;
       font-weight: 900;
       margin: 0;
+      color: white;
     }
 
     .topbar p {
       margin: 4px 0 0;
-      color: var(--muted);
+      color: rgba(255,255,255,0.8);
     }
 
     .admin-badge {
-      background: var(--soft);
-      color: var(--primary-dark);
-      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.15);
+      color: #f6f8fc;
       border-radius: 999px;
       padding: 10px 16px;
       font-weight: 800;
@@ -315,7 +314,7 @@ function isActive($page, $currentPage) {
   <div class="app-shell">
     <aside class="sidebar">
       <div class="brand-box">
-        <img src="images/logo.png" class="logo-img" alt="Logo">
+        <img src="images/robot2.png.png" class="logo-img" alt="Logo">
         <div>
           <div class="brand-title">JuniorCode</div>
           <div class="brand-sub">Admin Panel</div>

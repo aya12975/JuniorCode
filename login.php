@@ -1,7 +1,9 @@
 <?php
 session_start();
 
-if (isset($_SESSION['role'])) {
+$loginSuccess = isset($_GET['success']) && isset($_SESSION['role']);
+
+if (isset($_SESSION['role']) && !$loginSuccess) {
     if ($_SESSION['role'] === 'student') {
         header("Location: student_dashboard.php"); exit();
     } elseif ($_SESSION['role'] === 'teacher') {
@@ -9,6 +11,13 @@ if (isset($_SESSION['role'])) {
     } elseif ($_SESSION['role'] === 'admin') {
         header("Location: admin_dashboard.php"); exit();
     }
+}
+
+$redirectUrl = '';
+if ($loginSuccess) {
+    if ($_SESSION['role'] === 'admin')   $redirectUrl = 'admin_dashboard.php';
+    elseif ($_SESSION['role'] === 'teacher') $redirectUrl = 'teacher_dashboard.php';
+    elseif ($_SESSION['role'] === 'student') $redirectUrl = 'student_dashboard.php';
 }
 ?>
 <!DOCTYPE html>
@@ -439,6 +448,26 @@ if (isset($_SESSION['role'])) {
     }
     .alert-box::before { font-family: "Font Awesome 6 Free"; font-weight: 900; content: "\f071"; }
 
+    /* ── Success alert ── */
+    .success-box {
+      background: #f0fdf4;
+      border: 1px solid #86efac;
+      color: #15803d;
+      border-radius: 14px;
+      padding: 13px 16px;
+      font-weight: 700;
+      font-size: 0.97rem;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      animation: successPop .4s ease;
+    }
+    @keyframes successPop {
+      from { opacity: 0; transform: translateY(-8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
     /* ── Helper box ── */
     .helper-box {
       margin-top: 24px;
@@ -567,6 +596,16 @@ if (isset($_SESSION['role'])) {
 
       <h2 class="form-title">Sign in to your account</h2>
       <p class="form-sub">Enter your credentials to access your dashboard and learning materials.</p>
+
+      <?php if ($loginSuccess): ?>
+        <div class="success-box" id="successBox">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          Login successful! Redirecting you now…
+        </div>
+        <script>
+          setTimeout(() => { window.location.href = "<?= htmlspecialchars($redirectUrl) ?>"; }, 1800);
+        </script>
+      <?php endif; ?>
 
       <?php if (isset($_GET['error'])): ?>
         <div class="alert-box">Invalid username or password. Please try again.</div>

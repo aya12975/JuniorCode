@@ -10,53 +10,89 @@ if (!isset($_SESSION["role"]) || $_SESSION["role"] !== "admin") {
 $currentPage = basename($_SERVER["PHP_SELF"]);
 $adminName = $_SESSION["username"] ?? "Admin";
 
-$search = trim($_GET["search"] ?? "");
-$filterCategory = trim($_GET["category"] ?? "");
-$filterType = trim($_GET["type"] ?? "");
+$search      = trim($_GET["search"] ?? "");
+$filterType  = trim($_GET["type"] ?? "");
+$activeTab   = $_GET["tab"] ?? "kids";
 
-$sql = "SELECT * FROM courses WHERE 1=1";
-$params = [];
-$types = "";
+function fetchCourses($conn, $section, $search, $filterType) {
+    $sql    = "SELECT * FROM courses WHERE section = ?";
+    $params = [$section];
+    $types  = "s";
 
-if ($search !== "") {
-    $sql .= " AND course_name LIKE ?";
-    $params[] = "%" . $search . "%";
-    $types .= "s";
-}
-
-if ($filterCategory !== "") {
-    $sql .= " AND category = ?";
-    $params[] = $filterCategory;
-    $types .= "s";
-}
-
-if ($filterType !== "") {
-    $sql .= " AND course_type = ?";
-    $params[] = $filterType;
-    $types .= "s";
-}
-
-$sql .= " ORDER BY id DESC";
-
-$stmt = $conn->prepare($sql);
-
-if (!empty($params)) {
-    $stmt->bind_param($types, ...$params);
-}
-
-$stmt->execute();
-$result = $stmt->get_result();
-
-$categories = [];
-$catResult = $conn->query("SELECT DISTINCT category FROM courses WHERE category IS NOT NULL AND category != '' ORDER BY category ASC");
-if ($catResult) {
-    while ($row = $catResult->fetch_assoc()) {
-        $categories[] = $row["category"];
+    if ($search !== "") {
+        $sql .= " AND course_name LIKE ?";
+        $params[] = "%" . $search . "%";
+        $types .= "s";
     }
+    if ($filterType !== "") {
+        $sql .= " AND course_type = ?";
+        $params[] = $filterType;
+        $types .= "s";
+    }
+    $sql .= " ORDER BY id DESC";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param($types, ...$params);
+    $stmt->execute();
+    return $stmt->get_result();
 }
+
+// Ensure section column exists
+$chk = $conn->query("SHOW COLUMNS FROM courses LIKE 'section'");
+if ($chk && $chk->num_rows === 0) {
+    $conn->query("ALTER TABLE courses ADD COLUMN section VARCHAR(50) NOT NULL DEFAULT 'kids'");
+}
+
+$kidsResult   = fetchCourses($conn, 'kids',   $search, $filterType);
+$juniorResult = fetchCourses($conn, 'junior', $search, $filterType);
+$demoResult   = fetchCourses($conn, 'demo',   $search, $filterType);
 
 function isActive($page, $currentPage) {
     return $page === $currentPage ? "active" : "";
+}
+
+function renderCourseTable($result) {
+    if (!$result || $result->num_rows === 0) {
+        return '<div class="empty-box">No courses found.</div>';
+    }
+    ob_start(); ?>
+    <div class="table-responsive">
+      <table class="table align-middle">
+        <thead>
+          <tr>
+            <th>ID</th><th>Image</th><th>Course Name</th><th>Category</th>
+            <th>Age Group</th><th>Level</th><th>Price</th><th>Type</th>
+            <th>Status</th><th>Duration</th><th style="width:180px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php while ($course = $result->fetch_assoc()): ?>
+          <tr>
+            <td><?= htmlspecialchars($course["id"]) ?></td>
+            <td>
+              <?php if (!empty($course["image"])): ?>
+                <img src="<?= htmlspecialchars($course["image"]) ?>" alt="Course" class="course-img">
+              <?php else: ?>
+                <div class="course-img d-flex align-items-center justify-content-center text-muted" style="font-size:.75rem;">No Img</div>
+              <?php endif; ?>
+            </td>
+            <td><?= htmlspecialchars($course["course_name"]) ?></td>
+            <td><?= htmlspecialchars($course["category"]) ?></td>
+            <td><?= htmlspecialchars($course["age_group"]) ?></td>
+            <td><?= htmlspecialchars($course["level"]) ?></td>
+            <td>$<?= number_format((float)$course["price"], 2) ?></td>
+            <td><span class="type-badge <?= $course["course_type"] === "demo" ? "type-demo" : "type-paid" ?>"><?= ucfirst(htmlspecialchars($course["course_type"])) ?></span></td>
+            <td><span class="status-badge <?= $course["status"] === "active" ? "status-active" : "status-inactive" ?>"><?= ucfirst(htmlspecialchars($course["status"])) ?></span></td>
+            <td><?= htmlspecialchars($course["duration"]) ?></td>
+            <td>
+              <a href="edit_course.php?id=<?= $course["id"] ?>" class="action-btn edit-btn">Edit</a>
+              <a href="delete_course.php?id=<?= $course["id"] ?>" class="action-btn delete-btn" onclick="return confirm('Delete this course?')">Delete</a>
+            </td>
+          </tr>
+          <?php endwhile; ?>
+        </tbody>
+      </table>
+    </div>
+    <?php return ob_get_clean();
 }
 ?>
 <!DOCTYPE html>
@@ -69,8 +105,8 @@ function isActive($page, $currentPage) {
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
   <style>
     :root {
-      --primary: #2563eb;
-      --secondary: #38bdf8;
+      --primary: #3e5077;
+      --secondary: #143674;
       --dark: #0f172a;
       --muted: #64748b;
       --soft: #eff6ff;
@@ -124,7 +160,7 @@ function isActive($page, $currentPage) {
       height: 55px;
       object-fit: contain;
       border-radius: 12px;
-      background: white;
+      background: none;
       padding: 6px;
       flex-shrink: 0;
     }
@@ -196,9 +232,8 @@ function isActive($page, $currentPage) {
       padding: 26px;
     }
 
-    .topbar,
     .panel-card {
-      background: rgba(255,255,255,0.92);
+      background: rgba(255,255,255,0.9);
       border: 1px solid #edf4ff;
       border-radius: 22px;
       box-shadow: var(--shadow);
@@ -211,23 +246,26 @@ function isActive($page, $currentPage) {
       gap: 16px;
       margin-bottom: 24px;
       padding: 18px 20px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      border-radius: 22px;
+      box-shadow: var(--shadow);
     }
 
     .topbar h1 {
       font-size: 1.8rem;
       font-weight: 900;
       margin: 0;
+      color: white;
     }
 
     .topbar p {
       margin: 4px 0 0;
-      color: var(--muted);
+      color: rgba(255,255,255,0.8);
     }
 
     .admin-badge {
-      background: var(--soft);
-      color: #1d4ed8;
-      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.15);
+      color: #f6f8fc;
       border-radius: 999px;
       padding: 10px 16px;
       font-weight: 800;
@@ -353,6 +391,55 @@ function isActive($page, $currentPage) {
       color: #dc2626;
     }
 
+    .tab-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .tab-btn {
+      padding: 12px 28px;
+      border-radius: 14px;
+      border: 2px solid transparent;
+      font-weight: 800;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: white;
+      color: var(--muted);
+      border-color: #e2e8f0;
+    }
+
+    .tab-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+    .tab-btn.active {
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: white;
+      border-color: transparent;
+      box-shadow: 0 6px 18px rgba(62,80,119,0.25);
+    }
+
+    .tab-section { display: none; }
+    .tab-section.active { display: block; }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+
+    .section-icon {
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem;
+    }
+
+    .kids-icon   { background: #fef9c3; color: #854d0e; }
+    .junior-icon { background: #ede9fe; color: #5b21b6; }
+    .demo-icon   { background: #dcfce7; color: #166534; }
+
     .empty-box {
       text-align: center;
       padding: 26px 18px;
@@ -387,7 +474,7 @@ function isActive($page, $currentPage) {
   <div class="app-shell">
     <aside class="sidebar">
       <div class="brand-box">
-        <img src="images/logo.png" class="logo-img" alt="Logo">
+        <img src="images/robot2.png.png" class="logo-img" alt="Logo">
         <div>
           <div class="brand-title">JuniorCode</div>
           <div class="brand-sub">Admin Panel</div>
@@ -462,110 +549,67 @@ function isActive($page, $currentPage) {
         <div class="alert alert-danger">Something went wrong. Please try again.</div>
       <?php endif; ?>
 
-      <section class="panel-card">
-        <div class="panel-header">
-          <h2 class="panel-title">Courses List</h2>
-          <a href="add_course.php" class="btn-main">+ Add Course</a>
-        </div>
+      <!-- Filter bar -->
+      <form method="GET" style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+        <input type="hidden" name="tab" id="activeTabInput" value="<?= htmlspecialchars($activeTab) ?>">
+        <input type="text" name="search" class="form-control" style="max-width:260px;" placeholder="Search by course name" value="<?= htmlspecialchars($search) ?>">
+        <select name="type" class="form-select" style="max-width:160px;">
+          <option value="">All Types</option>
+          <option value="demo" <?= $filterType === "demo" ? "selected" : "" ?>>Demo</option>
+          <option value="paid" <?= $filterType === "paid" ? "selected" : "" ?>>Paid</option>
+        </select>
+        <button type="submit" class="btn-main">Filter</button>
+      </form>
 
-        <form method="GET" class="filters">
-          <input
-            type="text"
-            name="search"
-            class="form-control"
-            placeholder="Search by course name"
-            value="<?php echo htmlspecialchars($search); ?>"
-          >
+      <!-- Tabs -->
+      <div class="tab-bar">
+        <button class="tab-btn <?= $activeTab === 'kids'   ? 'active' : '' ?>" onclick="switchTab('kids')">Kids</button>
+        <button class="tab-btn <?= $activeTab === 'junior' ? 'active' : '' ?>" onclick="switchTab('junior')">Junior</button>
+        <button class="tab-btn <?= $activeTab === 'demo'   ? 'active' : '' ?>" onclick="switchTab('demo')">Demo</button>
+      </div>
 
-          <select name="category" class="form-select">
-            <option value="">All Categories</option>
-            <?php foreach ($categories as $category): ?>
-              <option value="<?php echo htmlspecialchars($category); ?>" <?php echo $filterCategory === $category ? "selected" : ""; ?>>
-                <?php echo htmlspecialchars($category); ?>
-              </option>
-            <?php endforeach; ?>
-          </select>
-
-          <select name="type" class="form-select">
-            <option value="">All Types</option>
-            <option value="demo" <?php echo $filterType === "demo" ? "selected" : ""; ?>>Demo</option>
-            <option value="paid" <?php echo $filterType === "paid" ? "selected" : ""; ?>>Paid</option>
-          </select>
-
-          <button type="submit" class="btn-main">Filter</button>
-        </form>
-
-        <?php if ($result && $result->num_rows > 0): ?>
-          <div class="table-responsive">
-            <table class="table align-middle">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Image</th>
-                  <th>Course Name</th>
-                  <th>Category</th>
-                  <th>Age Group</th>
-                  <th>Level</th>
-                  <th>Price</th>
-                  <th>Type</th>
-                  <th>Status</th>
-                  <th>Duration</th>
-                  <th style="width: 180px;">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <?php while ($course = $result->fetch_assoc()): ?>
-                  <tr>
-                    <td><?php echo htmlspecialchars($course["id"]); ?></td>
-
-                    <td>
-                      <?php if (!empty($course["image"])): ?>
-                        <img src="<?php echo htmlspecialchars($course["image"]); ?>" alt="Course" class="course-img">
-                      <?php else: ?>
-                        <div class="course-img d-flex align-items-center justify-content-center text-muted">No Img</div>
-                      <?php endif; ?>
-                    </td>
-
-                    <td><?php echo htmlspecialchars($course["course_name"]); ?></td>
-                    <td><?php echo htmlspecialchars($course["category"]); ?></td>
-                    <td><?php echo htmlspecialchars($course["age_group"]); ?></td>
-                    <td><?php echo htmlspecialchars($course["level"]); ?></td>
-                    <td>$<?php echo number_format((float)$course["price"], 2); ?></td>
-
-                    <td>
-                      <span class="type-badge <?php echo ($course["course_type"] === "demo") ? "type-demo" : "type-paid"; ?>">
-                        <?php echo ucfirst(htmlspecialchars($course["course_type"])); ?>
-                      </span>
-                    </td>
-
-                    <td>
-                      <span class="status-badge <?php echo ($course["status"] === "active") ? "status-active" : "status-inactive"; ?>">
-                        <?php echo ucfirst(htmlspecialchars($course["status"])); ?>
-                      </span>
-                    </td>
-
-                    <td><?php echo htmlspecialchars($course["duration"]); ?></td>
-
-                    <td>
-                      <a href="edit_course.php?id=<?php echo $course["id"]; ?>" class="action-btn edit-btn">Edit</a>
-                      <a
-                        href="delete_course.php?id=<?php echo $course["id"]; ?>"
-                        class="action-btn delete-btn"
-                        onclick="return confirm('Are you sure you want to delete this course?');"
-                      >
-                        Delete
-                      </a>
-                    </td>
-                  </tr>
-                <?php endwhile; ?>
-              </tbody>
-            </table>
+      <!-- Kids Section -->
+      <div id="tab-kids" class="tab-section <?= $activeTab === 'kids' ? 'active' : '' ?>">
+        <section class="panel-card">
+          <div class="panel-header">
+            <h2 class="panel-title" style="color:#854d0e;">Kids Courses</h2>
+            <a href="add_course.php?section=kids" class="btn-main">+ Add Kids Course</a>
           </div>
-        <?php else: ?>
-          <div class="empty-box">No courses found.</div>
-        <?php endif; ?>
-      </section>
+          <?= renderCourseTable($kidsResult) ?>
+        </section>
+      </div>
+
+      <!-- Junior Section -->
+      <div id="tab-junior" class="tab-section <?= $activeTab === 'junior' ? 'active' : '' ?>">
+        <section class="panel-card">
+          <div class="panel-header">
+            <h2 class="panel-title" style="color:#5b21b6;">Junior Courses</h2>
+            <a href="add_course.php?section=junior" class="btn-main">+ Add Junior Course</a>
+          </div>
+          <?= renderCourseTable($juniorResult) ?>
+        </section>
+      </div>
+
+      <!-- Demo Section -->
+      <div id="tab-demo" class="tab-section <?= $activeTab === 'demo' ? 'active' : '' ?>">
+        <section class="panel-card">
+          <div class="panel-header">
+            <h2 class="panel-title" style="color:#166634;">Demo Courses</h2>
+            <a href="add_course.php?section=demo" class="btn-main">+ Add Demo Course</a>
+          </div>
+          <?= renderCourseTable($demoResult) ?>
+        </section>
+      </div>
     </main>
   </div>
+<script>
+function switchTab(tab) {
+  document.querySelectorAll('.tab-section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.getElementById('activeTabInput').value = tab;
+  event.currentTarget.classList.add('active');
+}
+</script>
 </body>
 </html>

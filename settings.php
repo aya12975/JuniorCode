@@ -143,7 +143,7 @@ function isActive($page, $cur) { return $page === $cur ? "active" : ""; }
       background: rgba(255,255,255,.07);
       border: 1px solid rgba(255,255,255,.08);
     }
-    .logo-img { width:55px; height:55px; object-fit:contain; border-radius:12px; flex-shrink:0; }
+    .logo-img { width:55px; height:55px; object-fit:contain; border-radius:12px; background:none; padding:6px; flex-shrink:0; }
     .brand-title { font-weight:900; font-size:1.1rem; line-height:1.15; }
     .brand-sub   { font-size:.78rem; color:rgba(255,255,255,.75); letter-spacing:1px; margin-top:3px; }
     .nav-title   { font-size:.8rem; text-transform:uppercase; letter-spacing:1.3px; color:rgba(255,255,255,.55); margin:18px 10px 10px; font-weight:700; }
