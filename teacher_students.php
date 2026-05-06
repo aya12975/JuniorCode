@@ -51,12 +51,13 @@ $withUpcoming   = count(array_filter($students, fn($s) => !empty($s["next_class"
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
   <style>
     :root {
-      --primary:      #2563eb;
-      --primary-dark: #1d4ed8;
-      --secondary:    #0ea5e9;
+      --primary:      #3e5077;
+      --primary-dark: #152c6b;
+      --secondary:    #143674;
       --dark:         #0f172a;
       --muted:        #64748b;
-      --border:       #e5e7eb;
+      --border:       #edf4ff;
+      --shadow:       0 18px 45px rgba(37,99,235,0.08);
     }
 
     * { box-sizing: border-box; }
@@ -77,7 +78,7 @@ $withUpcoming   = count(array_filter($students, fn($s) => !empty($s["next_class"
       top: 0; left: 0;
       width: 260px;
       height: 100vh;
-      background: linear-gradient(180deg, #0f172a 0%, #1e3a8a 55%, #0c4a8a 100%);
+      background: linear-gradient(180deg, #0f172a 0%, #172554 100%);
       display: flex;
       flex-direction: column;
       justify-content: space-between;
@@ -97,11 +98,11 @@ $withUpcoming   = count(array_filter($students, fn($s) => !empty($s["next_class"
     }
 
     .brand-logo-img {
-      width: 48px; height: 48px;
-      border-radius: 14px;
+      width: 55px; height: 55px;
+      border-radius: 0;
       object-fit: contain;
-      background: rgba(255,255,255,0.12);
-      padding: 4px;
+      background: none;
+      padding: 0;
       flex-shrink: 0;
     }
 
@@ -150,7 +151,7 @@ $withUpcoming   = count(array_filter($students, fn($s) => !empty($s["next_class"
     .nav-link-custom.active {
       background: linear-gradient(135deg, var(--primary), var(--secondary));
       color: #fff;
-      box-shadow: 0 8px 20px rgba(29,78,216,0.35);
+      box-shadow: 0 8px 20px rgba(30,50,100,0.35);
     }
 
     .nav-icon {
@@ -173,8 +174,8 @@ $withUpcoming   = count(array_filter($students, fn($s) => !empty($s["next_class"
 
     /* ── Topbar ── */
     .topbar {
-      background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 50%, #0ea5e9 100%);
-      border-radius: 20px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      border-radius: 22px;
       padding: 22px 26px;
       margin-bottom: 26px;
       display: flex;
@@ -183,6 +184,7 @@ $withUpcoming   = count(array_filter($students, fn($s) => !empty($s["next_class"
       flex-wrap: wrap;
       gap: 14px;
       color: #fff;
+      box-shadow: 0 12px 28px rgba(37,99,235,0.3);
     }
 
     .topbar h1 { font-size: 1.7rem; font-weight: 900; margin: 0; }
@@ -208,10 +210,21 @@ $withUpcoming   = count(array_filter($students, fn($s) => !empty($s["next_class"
     .stat-card {
       background: #fff;
       border: 1px solid var(--border);
-      border-radius: 18px;
+      border-radius: 22px;
       padding: 22px 20px;
       text-align: center;
-      box-shadow: 0 4px 14px rgba(15,23,42,0.04);
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+    .stat-card::before {
+      content: '';
+      display: block;
+      height: 5px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      border-radius: 22px 22px 0 0;
     }
 
     .stat-icon {
@@ -262,10 +275,21 @@ $withUpcoming   = count(array_filter($students, fn($s) => !empty($s["next_class"
     .student-card {
       background: #fff;
       border: 1px solid var(--border);
-      border-radius: 20px;
+      border-radius: 22px;
       padding: 22px;
-      box-shadow: 0 4px 16px rgba(15,23,42,0.05);
+      box-shadow: var(--shadow);
       transition: transform 0.2s, box-shadow 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+    .student-card::before {
+      content: '';
+      display: block;
+      height: 5px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      border-radius: 22px 22px 0 0;
     }
 
     .student-card:hover {
@@ -395,7 +419,7 @@ $withUpcoming   = count(array_filter($students, fn($s) => !empty($s["next_class"
     <div class="brand">
       <img src="images/robot2.png.png" class="brand-logo-img" alt="JuniorCode Logo">
       <div>
-        <p class="brand-title">JuniorCode <span style="opacity:.7">&lt;/&gt;</span></p>
+        <p class="brand-title">JuniorCode</p>
         <p class="brand-subtitle">TEACHER PORTAL</p>
       </div>
     </div>
@@ -422,6 +446,9 @@ $withUpcoming   = count(array_filter($students, fn($s) => !empty($s["next_class"
     </a>
     <a href="teacher_students.php" class="nav-link-custom active">
       <span class="nav-icon"><i class="fas fa-user-graduate"></i></span><span>My Students</span>
+    </a>
+    <a href="teacher_courses.php" class="nav-link-custom">
+      <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>Courses</span>
     </a>
   </div>
 

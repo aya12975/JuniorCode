@@ -33,12 +33,13 @@ if ($result && $row = $result->fetch_assoc()) {
     $latestClassDate = $row["latest_class_date"] ? $row["latest_class_date"] : "-";
 }
 
-/* Student classes */
+/* Student classes — upcoming only (today and future) */
 $stmt2 = $conn->prepare("
     SELECT id, teacher_name, class_date, class_time, type, details
     FROM classes
     WHERE student_name = ?
-    ORDER BY class_date DESC, class_time ASC
+      AND class_date >= CURDATE()
+    ORDER BY class_date ASC, class_time ASC
 ");
 $stmt2->bind_param("s", $studentName);
 $stmt2->execute();
@@ -109,9 +110,9 @@ if ($result2) {
       width: 55px;
       height: 55px;
       object-fit: contain;
-      border-radius: 12px;
+      border-radius: 0;
       background: none;
-      padding: 4px;
+      padding: 0;
       flex-shrink: 0;
     }
 
@@ -284,16 +285,32 @@ if ($result2) {
     .panel-card {
       background: white;
       border: 1px solid #edf4ff;
-      border-radius: 20px;
-      padding: 20px;
+      border-radius: 22px;
+      padding: 22px;
       margin-bottom: 22px;
-      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .panel-card::before {
+      content: '';
+      display: block;
+      height: 5px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      border-radius: 22px 22px 0 0;
     }
 
     .panel-title {
       font-size: 1.05rem;
-      font-weight: bold;
-      margin-bottom: 14px;
+      font-weight: 800;
+      color: #ffffff;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      margin: -22px -22px 18px -22px;
+      padding: 14px 22px;
+      border-radius: 22px 22px 0 0;
     }
 
     .soft-stat {
@@ -491,7 +508,7 @@ if ($result2) {
         </table>
       </div>
     <?php else: ?>
-      <div class="empty-box">No classes assigned yet.</div>
+      <div class="empty-box">No upcoming classes. All done for now!</div>
     <?php endif; ?>
   </section>
 

@@ -24,13 +24,14 @@ $stmt = $conn->prepare("
         COALESCE(SUM(amount), 0) AS total_earnings
     FROM teacher_earnings
     WHERE teacher_id = ?
+       OR (teacher_id IS NULL AND LOWER(teacher_name) = LOWER(?))
 ");
 
 if (!$stmt) {
     die("Prepare failed (earnings summary): " . $conn->error);
 }
 
-$stmt->bind_param("i", $teacherId);
+$stmt->bind_param("is", $teacherId, $teacherName);
 $stmt->execute();
 $result = $stmt->get_result();
 
@@ -68,6 +69,11 @@ if ($stmt2) {
     }
     $stmt2->close();
 }
+
+/* Upcoming classes only (today and future) — used for My Classes view */
+$upcomingClasses = array_values(array_filter($classSessions, function($c) {
+    return ($c["class_date"] ?? "") >= date("Y-m-d");
+}));
 
 /* =========================
    Stats from real classes
@@ -111,9 +117,10 @@ $students = array_values(array_unique(array_filter(array_column($classSessions, 
 $earnings = [];
 
 $stmt5 = $conn->prepare("
-    SELECT id, amount
+    SELECT id, amount, lesson_title, lesson_date, notes
     FROM teacher_earnings
     WHERE teacher_id = ?
+       OR (teacher_id IS NULL AND LOWER(teacher_name) = LOWER(?))
     ORDER BY id DESC
 ");
 
@@ -121,18 +128,18 @@ if (!$stmt5) {
     die("Prepare failed (earnings table): " . $conn->error);
 }
 
-$stmt5->bind_param("i", $teacherId);
+$stmt5->bind_param("is", $teacherId, $teacherName);
 $stmt5->execute();
 $result5 = $stmt5->get_result();
 
 if ($result5) {
     while ($row = $result5->fetch_assoc()) {
         $earnings[] = [
-            "id" => $row["id"],
-            "lesson_title" => "Session #" . $row["id"],
-            "amount" => $row["amount"],
-            "lesson_date" => "-",
-            "notes" => "-"
+            "id"           => $row["id"],
+            "lesson_title" => $row["lesson_title"] ?: "Session #" . $row["id"],
+            "amount"       => $row["amount"],
+            "lesson_date"  => $row["lesson_date"] ?: "-",
+            "notes"        => $row["notes"] ?: "-"
         ];
     }
 }
@@ -166,6 +173,75 @@ if ($stmt6) {
 
 $currentMonth = date("F");
 $currentYear = date("Y");
+
+function renderCrsTable(array $rows): string {
+    if (empty($rows)) return '<div class="empty-box">No courses found.</div>';
+    ob_start(); ?>
+    <div class="table-responsive">
+      <table class="table align-middle">
+        <thead>
+          <tr><th>ID</th><th>Image</th><th>Course Name</th><th>Category</th>
+              <th>Age Group</th><th>Level</th><th>Price</th><th>Type</th>
+              <th>Status</th><th>Duration</th></tr>
+        </thead>
+        <tbody>
+          <?php foreach ($rows as $c): ?>
+          <tr>
+            <td><?= htmlspecialchars($c["id"]) ?></td>
+            <td>
+              <?php if (!empty($c["image"])): ?>
+                <img src="<?= htmlspecialchars($c["image"]) ?>" alt="Course" style="width:48px;height:48px;object-fit:cover;border-radius:10px;border:1px solid #e5edf9;">
+              <?php else: ?><span style="color:#94a3b8;font-size:.75rem;">No Img</span><?php endif; ?>
+            </td>
+            <td><strong><?= htmlspecialchars($c["course_name"]) ?></strong></td>
+            <td><?= htmlspecialchars($c["category"]) ?></td>
+            <td><?= htmlspecialchars($c["age_group"]) ?></td>
+            <td><?= htmlspecialchars($c["level"]) ?></td>
+            <td>$<?= number_format((float)$c["price"], 2) ?></td>
+            <td><span style="display:inline-block;padding:5px 11px;border-radius:999px;font-size:.78rem;font-weight:700;<?= $c['course_type']==='demo' ? 'background:#dbeafe;color:#1d4ed8' : 'background:#dcfce7;color:#166534' ?>"><?= ucfirst(htmlspecialchars($c["course_type"])) ?></span></td>
+            <td><span style="display:inline-block;padding:5px 11px;border-radius:999px;font-size:.78rem;font-weight:700;<?= $c['status']==='active' ? 'background:#dcfce7;color:#166534' : 'background:#fee2e2;color:#991b1b' ?>"><?= ucfirst(htmlspecialchars($c["status"])) ?></span></td>
+            <td><?= htmlspecialchars($c["duration"]) ?></td>
+          </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
+    <?php return ob_get_clean();
+}
+
+/* =========================
+   Courses (read-only)
+========================= */
+// Ensure section column exists
+$chkSec = $conn->query("SHOW COLUMNS FROM courses LIKE 'section'");
+if ($chkSec && $chkSec->num_rows === 0) {
+    $conn->query("ALTER TABLE courses ADD COLUMN section VARCHAR(50) NOT NULL DEFAULT 'kids'");
+}
+
+function fetchCoursesByCat($conn, $section, $category = null) {
+    if ($category) {
+        $stmt = $conn->prepare("SELECT * FROM courses WHERE section = ? AND category = ? ORDER BY id DESC");
+        if (!$stmt) return [];
+        $stmt->bind_param("ss", $section, $category);
+    } else {
+        $stmt = $conn->prepare("SELECT * FROM courses WHERE section = ? ORDER BY id DESC");
+        if (!$stmt) return [];
+        $stmt->bind_param("s", $section);
+    }
+    $stmt->execute();
+    $res = $stmt->get_result();
+    $rows = [];
+    while ($r = $res->fetch_assoc()) $rows[] = $r;
+    return $rows;
+}
+
+$crsKidsGame    = fetchCoursesByCat($conn, 'kids',   'Game Development');
+$crsKidsPython  = fetchCoursesByCat($conn, 'kids',   'Python Introduction');
+$crsKidsVM      = fetchCoursesByCat($conn, 'kids',   'Virtual Machine');
+$crsJuniorGame  = fetchCoursesByCat($conn, 'junior', 'Game Development');
+$crsJuniorPython= fetchCoursesByCat($conn, 'junior', 'Python Introduction');
+$crsJuniorVM    = fetchCoursesByCat($conn, 'junior', 'Virtual Machine');
+$crsDemo        = fetchCoursesByCat($conn, 'demo');
 ?>
 
 <!DOCTYPE html>
@@ -222,12 +298,12 @@ $currentYear = date("Y");
     }
 
     .brand-logo-img {
-      width: 48px;
-      height: 48px;
-      border-radius: 14px;
+      width: 55px;
+      height: 55px;
+      border-radius: 0;
       object-fit: contain;
-      background: rgba(255,255,255,0.12);
-      padding: 4px;
+      background: none;
+      padding: 0;
       flex-shrink: 0;
     }
 
@@ -364,11 +440,22 @@ $currentYear = date("Y");
     .panel-card {
       background: white;
       border: 1px solid #edf4ff;
-      border-top: 3px solid var(--primary);
       border-radius: 22px;
       padding: 22px;
       margin-bottom: 22px;
       box-shadow: 0 18px 45px rgba(37, 99, 235, 0.08);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .panel-card::before {
+      content: '';
+      display: block;
+      height: 5px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      border-radius: 22px 22px 0 0;
     }
 
     .panel-title {
@@ -398,10 +485,11 @@ $currentYear = date("Y");
     }
 
     .table thead th {
-      background: #f8fafc;
-      color: #475569;
+      background: #f8fbff;
+      color: var(--dark);
+      font-weight: 800;
       font-size: 0.9rem;
-      border-bottom: 1px solid #e5e7eb;
+      border-bottom: 1px solid #e6eefb;
     }
 
     .badge-paid {
@@ -493,6 +581,37 @@ $currentYear = date("Y");
       font-size: 0.92rem;
     }
 
+    .crs-tab-btn {
+      padding: 11px 26px; border-radius: 14px;
+      border: 2px solid #e2e8f0; font-weight: 800; font-size: 0.95rem;
+      cursor: pointer; transition: all 0.2s;
+      background: white; color: var(--muted);
+    }
+    .crs-tab-btn:hover { border-color: var(--primary); color: var(--primary); }
+    .crs-tab-btn.active {
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: white; border-color: transparent;
+      box-shadow: 0 6px 18px rgba(62,80,119,0.25);
+    }
+
+    .crs-drop-item {
+      display: block; width: 100%; padding: 12px 18px;
+      border: none; background: none; text-align: left;
+      font-weight: 700; color: #0f172a; cursor: pointer;
+      border-bottom: 1px solid #f1f5f9; transition: background 0.15s;
+    }
+    .crs-drop-item:last-child { border-bottom: none; }
+    .crs-drop-item:hover  { background: #f0f7ff; color: var(--primary); }
+    .crs-drop-item.active { background: #eff6ff; color: var(--primary); font-weight: 900; }
+
+    .grade-link {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 0.85rem; font-weight: 700; color: #2563eb;
+      text-decoration: none; background: #dbeafe;
+      padding: 7px 13px; border-radius: 9px; transition: background 0.2s;
+    }
+    .grade-link:hover { background: #bfdbfe; color: #1d4ed8; }
+
     html { scroll-behavior: smooth; }
 
     section[id] { scroll-margin-top: 20px; }
@@ -512,7 +631,7 @@ $currentYear = date("Y");
     <div class="brand">
       <img src="images/robot2.png.png" class="brand-logo-img" alt="JuniorCode Logo">
       <div>
-        <p class="brand-title">JuniorCode <span style="color:var(--secondary)">&lt;/&gt;</span></p>
+        <p class="brand-title">JuniorCode</p>
         <p class="brand-subtitle">TEACHER PORTAL</p>
       </div>
     </div>
@@ -540,7 +659,7 @@ $currentYear = date("Y");
       <span>My Schedule</span>
     </a>
 
-    <a href="#earnings" class="nav-link-custom nav-item">
+    <a href="teacher_monthly_earnings.php" class="nav-link-custom nav-item">
       <span class="nav-icon"><i class="fas fa-dollar-sign"></i></span>
       <span>My Earnings</span>
     </a>
@@ -548,6 +667,11 @@ $currentYear = date("Y");
     <a href="teacher_students.php" class="nav-link-custom nav-item">
       <span class="nav-icon"><i class="fas fa-user-graduate"></i></span>
       <span>My Students</span>
+    </a>
+
+    <a href="#courses" class="nav-link-custom nav-item">
+      <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span>
+      <span>Courses</span>
     </a>
   </div>
 
@@ -617,7 +741,7 @@ $currentYear = date("Y");
                 <span class="ms-2" style="font-size:0.82rem;color:#64748b"><?php echo htmlspecialchars($class["type"]); ?></span>
               </div>
               <?php if (!empty($class["zoom_link"])): ?>
-                <a href="<?php echo htmlspecialchars($class["zoom_link"]); ?>" target="_blank" rel="noopener" class="btn-zoom"><i class="fas fa-video"></i> Start Class</a>
+                <a href="<?php echo htmlspecialchars($class["zoom_link"]); ?>" target="_blank" rel="noopener" class="btn-zoom"><i class="fas fa-video"></i> Join Zoom</a>
               <?php endif; ?>
             </li>
           <?php endforeach; ?>
@@ -635,14 +759,14 @@ $currentYear = date("Y");
         <h2>My Classes</h2>
         <p>All your assigned teaching sessions</p>
       </div>
-      <div class="month-box"><?php echo count($classSessions); ?> total</div>
+      <div class="month-box"><?php echo count($upcomingClasses); ?> upcoming</div>
     </section>
     <div class="panel-card">
       <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <div class="panel-title mb-0">My Classes</div>
-        <span class="badge bg-primary rounded-pill"><?php echo count($classSessions); ?> total</span>
+        <span class="badge bg-primary rounded-pill"><?php echo count($upcomingClasses); ?> upcoming</span>
       </div>
-      <?php if (!empty($classSessions)): ?>
+      <?php if (!empty($upcomingClasses)): ?>
         <div class="table-responsive">
           <table class="table align-middle">
             <thead>
@@ -656,7 +780,7 @@ $currentYear = date("Y");
               </tr>
             </thead>
             <tbody>
-              <?php foreach ($classSessions as $class):
+              <?php foreach ($upcomingClasses as $class):
                 $isToday = ($class["class_date"] ?? "") === date("Y-m-d");
                 $t = strtolower(trim($class["type"] ?? ""));
                 if ($t === "paid")                   $badgeClass = "badge-paid";
@@ -674,7 +798,7 @@ $currentYear = date("Y");
                   <td><?php echo htmlspecialchars($class["details"] ?? "—"); ?></td>
                   <td>
                     <?php if (!empty($class["zoom_link"])): ?>
-                      <a href="<?php echo htmlspecialchars($class["zoom_link"]); ?>" target="_blank" rel="noopener" class="btn-zoom"><i class="fas fa-video"></i> Start Class</a>
+                      <a href="<?php echo htmlspecialchars($class["zoom_link"]); ?>" target="_blank" rel="noopener" class="btn-zoom"><i class="fas fa-video"></i> Join Zoom</a>
                     <?php else: ?>
                       <span class="zoom-none">— No link</span>
                     <?php endif; ?>
@@ -687,7 +811,7 @@ $currentYear = date("Y");
       <?php else: ?>
         <div class="empty-box">
           <div style="font-size:2rem;margin-bottom:8px"><i class="fas fa-book-open" style="color:#94a3b8"></i></div>
-          No classes assigned yet. The admin will add your classes here.
+          No upcoming classes. All done for now!
         </div>
       <?php endif; ?>
     </div>
@@ -698,23 +822,23 @@ $currentYear = date("Y");
     <section class="hero">
       <div>
         <h2>My Schedule</h2>
-        <p>Upcoming and past sessions</p>
+        <p>Upcoming sessions from today onwards</p>
       </div>
-      <div class="month-box"><?php echo date("d F Y"); ?></div>
+      <div class="month-box"><?php echo count($upcomingClasses); ?> upcoming</div>
     </section>
     <div class="panel-card">
       <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <div class="panel-title mb-0">My Schedule</div>
         <span class="text-muted" style="font-size:0.9rem"><?php echo date("l, d F Y"); ?></span>
       </div>
-      <?php if (!empty($classSessions)): ?>
+      <?php if (!empty($upcomingClasses)): ?>
         <div class="table-responsive">
           <table class="table align-middle">
             <thead>
               <tr><th>Student</th><th>Date</th><th>Time</th><th>Type</th><th>Zoom</th></tr>
             </thead>
             <tbody>
-              <?php foreach ($classSessions as $class):
+              <?php foreach ($upcomingClasses as $class):
                 $isToday = ($class["class_date"] ?? "") === date("Y-m-d");
               ?>
                 <tr class="<?php echo $isToday ? 'row-today' : ''; ?>">
@@ -726,7 +850,7 @@ $currentYear = date("Y");
                   <td><?php echo htmlspecialchars($class["type"]); ?></td>
                   <td>
                     <?php if (!empty($class["zoom_link"])): ?>
-                      <a href="<?php echo htmlspecialchars($class["zoom_link"]); ?>" target="_blank" rel="noopener" class="btn-zoom"><i class="fas fa-video"></i> Start Class</a>
+                      <a href="<?php echo htmlspecialchars($class["zoom_link"]); ?>" target="_blank" rel="noopener" class="btn-zoom"><i class="fas fa-video"></i> Join Zoom</a>
                     <?php else: ?>
                       <span class="zoom-none">— No link</span>
                     <?php endif; ?>
@@ -737,7 +861,7 @@ $currentYear = date("Y");
           </table>
         </div>
       <?php else: ?>
-        <div class="empty-box">No scheduled classes yet.</div>
+        <div class="empty-box">No upcoming classes. All done for now!</div>
       <?php endif; ?>
     </div>
   </div>
@@ -802,36 +926,202 @@ $currentYear = date("Y");
       <?php endif; ?>
     </div>
   </div>
+
+  <!-- ══ VIEW: COURSES ══ -->
+  <div class="view" id="view-courses" style="display:none">
+    <section class="hero">
+      <div>
+        <h2>Courses</h2>
+        <p>Browse all academy courses and programs</p>
+      </div>
+      <div class="month-box">Read Only</div>
+    </section>
+
+    <!-- Tab bar -->
+    <div style="display:flex;gap:10px;margin-bottom:20px;" id="crs-tab-bar">
+      <button class="crs-tab-btn active" onclick="crsTab('kids',this)">Kids</button>
+      <button class="crs-tab-btn"        onclick="crsTab('junior',this)">Junior</button>
+      <button class="crs-tab-btn"        onclick="crsTab('demo',this)">Demo</button>
+    </div>
+
+    <!-- Kids -->
+    <div id="crs-tab-kids" class="crs-tab-section">
+      <div style="position:relative;display:inline-block;margin-bottom:16px;">
+        <button class="btn-zoom" style="background:linear-gradient(135deg,var(--primary),var(--secondary));font-size:0.9rem;padding:10px 16px;border-radius:14px;border:none;" onclick="crsToggleMenu('kids',event)" type="button">
+          Select Kids Module <i class="fas fa-chevron-down ms-2" id="crs-kids-chevron"></i>
+        </button>
+        <div id="crs-kids-dropdown" style="display:none;position:absolute;top:calc(100% + 8px);left:0;background:white;border:1px solid #dbeafe;border-radius:16px;box-shadow:0 12px 32px rgba(15,23,42,0.12);min-width:220px;z-index:100;overflow:hidden;">
+          <button class="crs-drop-item active" onclick="crsCat('kids','game',this)"   type="button">Game Development</button>
+          <button class="crs-drop-item"        onclick="crsCat('kids','python',this)" type="button">Python Introduction</button>
+          <button class="crs-drop-item"        onclick="crsCat('kids','vm',this)"     type="button">Virtual Machine</button>
+        </div>
+      </div>
+
+      <div id="crs-kids-game" class="crs-kids-cat active">
+        <div class="panel-card">
+          <div class="panel-title">Kids — Game Development</div>
+          <?php if (!empty($crsKidsGame)): ?>
+            <?php echo renderCrsTable($crsKidsGame); ?>
+          <?php else: ?><div class="empty-box">No courses found.</div><?php endif; ?>
+        </div>
+      </div>
+      <div id="crs-kids-python" class="crs-kids-cat" style="display:none">
+        <div class="panel-card">
+          <div class="panel-title">Kids — Python Introduction</div>
+          <?php if (!empty($crsKidsPython)): ?>
+            <?php echo renderCrsTable($crsKidsPython); ?>
+          <?php else: ?><div class="empty-box">No courses found.</div><?php endif; ?>
+        </div>
+      </div>
+      <div id="crs-kids-vm" class="crs-kids-cat" style="display:none">
+        <div class="panel-card">
+          <div class="panel-title">Kids — Virtual Machine</div>
+          <?php if (!empty($crsKidsVM)): ?>
+            <?php echo renderCrsTable($crsKidsVM); ?>
+          <?php else: ?><div class="empty-box">No courses found.</div><?php endif; ?>
+        </div>
+      </div>
+    </div>
+
+    <!-- Junior -->
+    <div id="crs-tab-junior" class="crs-tab-section" style="display:none">
+      <div style="position:relative;display:inline-block;margin-bottom:16px;">
+        <button class="btn-zoom" style="background:linear-gradient(135deg,var(--primary),var(--secondary));font-size:0.9rem;padding:10px 16px;border-radius:14px;border:none;" onclick="crsToggleMenu('junior',event)" type="button">
+          Select Junior Module <i class="fas fa-chevron-down ms-2" id="crs-junior-chevron"></i>
+        </button>
+        <div id="crs-junior-dropdown" style="display:none;position:absolute;top:calc(100% + 8px);left:0;background:white;border:1px solid #dbeafe;border-radius:16px;box-shadow:0 12px 32px rgba(15,23,42,0.12);min-width:220px;z-index:100;overflow:hidden;">
+          <button class="crs-drop-item active" onclick="crsCat('junior','game',this)"   type="button">Game Development</button>
+          <button class="crs-drop-item"        onclick="crsCat('junior','python',this)" type="button">Python Introduction</button>
+          <button class="crs-drop-item"        onclick="crsCat('junior','vm',this)"     type="button">Virtual Machine</button>
+        </div>
+      </div>
+
+      <div id="crs-junior-game" class="crs-junior-cat active">
+        <div class="panel-card">
+          <div class="panel-title">Junior — Game Development</div>
+          <?php if (!empty($crsJuniorGame)): ?>
+            <?php echo renderCrsTable($crsJuniorGame); ?>
+          <?php else: ?><div class="empty-box">No courses found.</div><?php endif; ?>
+        </div>
+      </div>
+      <div id="crs-junior-python" class="crs-junior-cat" style="display:none">
+        <div class="panel-card">
+          <div class="panel-title">Junior — Python Introduction</div>
+          <?php if (!empty($crsJuniorPython)): ?>
+            <?php echo renderCrsTable($crsJuniorPython); ?>
+          <?php else: ?><div class="empty-box">No courses found.</div><?php endif; ?>
+        </div>
+      </div>
+      <div id="crs-junior-vm" class="crs-junior-cat" style="display:none">
+        <div class="panel-card">
+          <div class="panel-title">Junior — Virtual Machine</div>
+          <?php if (!empty($crsJuniorVM)): ?>
+            <?php echo renderCrsTable($crsJuniorVM); ?>
+          <?php else: ?><div class="empty-box">No courses found.</div><?php endif; ?>
+        </div>
+      </div>
+    </div>
+
+    <!-- Demo -->
+    <div id="crs-tab-demo" class="crs-tab-section" style="display:none">
+      <div class="panel-card">
+        <div class="panel-title">Demo Courses</div>
+
+        <div style="margin-bottom:20px;">
+          <div style="font-weight:900;margin-bottom:10px;">Little <span style="font-weight:400;color:#64748b;">Grade 1–3</span></div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;">
+            <a href="https://studio.code.org/courses/courseb-2025/units/1/lessons/3/levels/2" target="_blank" class="grade-link">
+              <i class="fas fa-external-link-alt"></i> Code.org — Course B</a>
+            <a href="https://studio.code.org/flappy/1" target="_blank" class="grade-link">
+              <i class="fas fa-external-link-alt"></i> Code.org — Flappy</a>
+            <a href="https://scratch.mit.edu/projects/889441020/" target="_blank" class="grade-link">
+              <i class="fas fa-external-link-alt"></i> Scratch Project</a>
+          </div>
+        </div>
+
+        <div style="margin-bottom:20px;">
+          <div style="font-weight:900;margin-bottom:10px;">Junior</div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;">
+            <a href="https://scratch.mit.edu/projects/889441020/" target="_blank" class="grade-link">
+              <i class="fas fa-external-link-alt"></i> Scratch Project</a>
+            <a href="https://x.thunkable.com/projectPage/65d61cf59f6fe10a3cc8ea2f" target="_blank" class="grade-link">
+              <i class="fas fa-external-link-alt"></i> Thunkable Project</a>
+            <a href="https://www.onlinegdb.com/EIipF2SoF" target="_blank" class="grade-link">
+              <i class="fas fa-external-link-alt"></i> OnlineGDB</a>
+          </div>
+        </div>
+
+        <?php if (!empty($crsDemo)): ?>
+          <?php echo renderCrsTable($crsDemo); ?>
+        <?php else: ?><div class="empty-box">No demo courses added yet.</div><?php endif; ?>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
+  /* ── View map: anchor → view id ── */
+  const VIEW_MAP = {
+    '#dashboard': 'view-dashboard',
+    '#schedule':  'view-schedule',
+    '#courses':   'view-courses',
+  };
+
   const navItems = document.querySelectorAll('.nav-item');
+  const allViews = document.querySelectorAll('.view');
+
+  function showView(viewId) {
+    allViews.forEach(v => v.style.display = 'none');
+    const target = document.getElementById(viewId);
+    if (target) target.style.display = '';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
 
   navItems.forEach(link => {
     link.addEventListener('click', e => {
       const href = link.getAttribute('href');
-      if (href && href.startsWith('#')) {
+      if (href && VIEW_MAP[href]) {
         e.preventDefault();
-        const target = document.getElementById(href.slice(1));
-        if (target) {
-          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+        showView(VIEW_MAP[href]);
+        navItems.forEach(n => n.classList.remove('active'));
+        link.classList.add('active');
       }
-      navItems.forEach(n => n.classList.remove('active'));
-      link.classList.add('active');
+      // External links (teacher_classes.php etc.) navigate normally
     });
   });
 
-  // Highlight nav based on scroll position
-  const sections = ['dashboard','classes','schedule','earnings','students'];
-  window.addEventListener('scroll', () => {
-    let current = 'dashboard';
-    sections.forEach(id => {
-      const el = document.getElementById(id);
-      if (el && window.scrollY >= el.offsetTop - 120) current = id;
-    });
-    navItems.forEach(n => {
-      n.classList.toggle('active', n.getAttribute('href') === '#' + current);
+  /* ── Courses tab switching ── */
+  function crsTab(name, btn) {
+    document.querySelectorAll('.crs-tab-section').forEach(s => s.style.display = 'none');
+    document.querySelectorAll('.crs-tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('crs-tab-' + name).style.display = '';
+    btn.classList.add('active');
+  }
+
+  function crsToggleMenu(prefix, e) {
+    e.stopPropagation();
+    const d = document.getElementById('crs-' + prefix + '-dropdown');
+    const open = d.style.display === 'block';
+    d.style.display = open ? 'none' : 'block';
+    document.getElementById('crs-' + prefix + '-chevron').className =
+      (open ? 'fas fa-chevron-down' : 'fas fa-chevron-up') + ' ms-2';
+  }
+
+  function crsCat(prefix, cat, btn) {
+    document.querySelectorAll('.crs-' + prefix + '-cat').forEach(s => s.style.display = 'none');
+    document.querySelectorAll('#crs-' + prefix + '-dropdown .crs-drop-item').forEach(b => b.classList.remove('active'));
+    document.getElementById('crs-' + prefix + '-' + cat).style.display = '';
+    btn.classList.add('active');
+    document.getElementById('crs-' + prefix + '-dropdown').style.display = 'none';
+    document.getElementById('crs-' + prefix + '-chevron').className = 'fas fa-chevron-down ms-2';
+  }
+
+  document.addEventListener('click', function() {
+    ['kids','junior'].forEach(p => {
+      const d = document.getElementById('crs-' + p + '-dropdown');
+      if (d) d.style.display = 'none';
+      const c = document.getElementById('crs-' + p + '-chevron');
+      if (c) c.className = 'fas fa-chevron-down ms-2';
     });
   });
 </script>

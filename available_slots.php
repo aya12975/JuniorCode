@@ -7,6 +7,49 @@ if (!isset($_SESSION["role"]) || $_SESSION["role"] !== "admin") {
     exit();
 }
 
+/* ── Inline AJAX: create class from slot ── */
+if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["action"] ?? "") === "create_class") {
+    header("Content-Type: application/json");
+    $slotId = (int)($_POST["slot_id"] ?? 0);
+
+    $stmt = $conn->prepare("
+        SELECT ta.id, ta.teacher_id, ta.available_date, ta.available_time, u.username AS teacher_name
+        FROM teacher_availability ta
+        JOIN users u ON ta.teacher_id = u.id
+        WHERE ta.id = ?
+    ");
+    if (!$stmt) { echo json_encode(["success" => false, "message" => $conn->error]); exit(); }
+    $stmt->bind_param("i", $slotId);
+    $stmt->execute();
+    $slot = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    if (!$slot) { echo json_encode(["success" => false, "message" => "Slot not found"]); exit(); }
+
+    $student = "TBD";
+    $type    = "Demo";
+    $details = "";
+    $zoom    = "";
+
+    $ins = $conn->prepare("
+        INSERT INTO classes (teacher_id, teacher_name, student_name, class_date, class_time, type, details, zoom_link)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ");
+    if (!$ins) { echo json_encode(["success" => false, "message" => $conn->error]); exit(); }
+    $ins->bind_param("isssssss", $slot["teacher_id"], $slot["teacher_name"], $student, $slot["available_date"], $slot["available_time"], $type, $details, $zoom);
+    $ins->execute();
+    $classId = $conn->insert_id;
+    $ins->close();
+
+    $del = $conn->prepare("DELETE FROM teacher_availability WHERE id = ?");
+    $del->bind_param("i", $slotId);
+    $del->execute();
+    $del->close();
+
+    echo json_encode(["success" => true, "class_id" => $classId]);
+    exit();
+}
+
 $currentPage = basename($_SERVER["PHP_SELF"]);
 $adminName = $_SESSION["username"] ?? "Admin";
 
@@ -391,9 +434,9 @@ function isActive($page, $currentPage) {
                       <span class="slot-badge"><?php echo htmlspecialchars(ucfirst($slot["status"])); ?></span>
                     </td>
                     <td>
-                      <a href="create_class.php?id=<?php echo $slot["id"]; ?>" class="btn-main">
-                        Create Class
-                      </a>
+                      <button onclick="createClass(<?php echo $slot['id']; ?>, this)" class="btn-main">
+                        <i class="fas fa-plus"></i> Create Class
+                      </button>
                     </td>
                   </tr>
                 <?php endforeach; ?>
@@ -406,5 +449,41 @@ function isActive($page, $currentPage) {
       </section>
     </main>
   </div>
+<script>
+function createClass(slotId, btn) {
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
+
+  fetch("available_slots.php", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: "action=create_class&slot_id=" + slotId
+  })
+  .then(r => r.json())
+  .then(data => {
+    const row = btn.closest("tr");
+    if (data.success) {
+      row.style.transition = "background 0.3s";
+      row.style.background = "#dcfce7";
+      row.cells[row.cells.length - 1].innerHTML =
+        '<span style="color:#166534;font-weight:800"><i class="fas fa-check-circle"></i> Class Created</span>';
+      setTimeout(() => {
+        row.style.transition = "opacity 0.4s";
+        row.style.opacity = "0";
+        setTimeout(() => row.remove(), 400);
+      }, 1200);
+    } else {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-plus"></i> Create Class';
+      alert("Error: " + (data.message || "Unknown error"));
+    }
+  })
+  .catch(() => {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-plus"></i> Create Class';
+    alert("Request failed. Please try again.");
+  });
+}
+</script>
 </body>
 </html>

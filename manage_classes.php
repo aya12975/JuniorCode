@@ -11,6 +11,9 @@ $currentPage = basename($_SERVER["PHP_SELF"]);
 $adminName = $_SESSION["username"] ?? "Admin";
 $message = "";
 
+/* Remove any auto-generated Jitsi links left over from previous version */
+$conn->query("UPDATE classes SET zoom_link = NULL WHERE zoom_link LIKE '%meet.jit.si%'");
+
 /* Auto-add missing columns */
 $colCheck = $conn->query("SHOW COLUMNS FROM classes LIKE 'zoom_link'");
 if ($colCheck && $colCheck->num_rows === 0) {

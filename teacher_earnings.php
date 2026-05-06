@@ -7,17 +7,69 @@ if (!isset($_SESSION["role"]) || $_SESSION["role"] !== "admin") {
     exit();
 }
 
+/* ── Ensure required columns exist ── */
+foreach ([
+    "teacher_id   INT DEFAULT NULL",
+    "class_id     INT DEFAULT NULL",
+    "teacher_name VARCHAR(255) DEFAULT NULL",
+    "lesson_title VARCHAR(500) DEFAULT NULL",
+    "lesson_date  DATE DEFAULT NULL",
+    "notes        TEXT DEFAULT NULL",
+    "amount       DECIMAL(10,2) DEFAULT 0"
+] as $col) {
+    $colName = explode(" ", $col)[0];
+    $chk = $conn->query("SHOW COLUMNS FROM teacher_earnings LIKE '$colName'");
+    if ($chk && $chk->num_rows === 0) {
+        $conn->query("ALTER TABLE teacher_earnings ADD COLUMN $col");
+    }
+}
+
+/* ── AJAX: add earning from a class ── */
+if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["action"] ?? "") === "add_earning") {
+    header("Content-Type: application/json");
+    $classId    = (int)($_POST["class_id"]    ?? 0);
+    $teacherId  = (int)($_POST["teacher_id"]  ?? 0);
+    $teacherName = trim($_POST["teacher_name"] ?? "");
+    $lessonTitle = trim($_POST["lesson_title"] ?? "");
+    $lessonDate  = trim($_POST["lesson_date"]  ?? "");
+    $amount      = (float)($_POST["amount"]    ?? 0);
+    $notes       = trim($_POST["notes"]        ?? "");
+
+    if ($amount <= 0) {
+        echo json_encode(["success" => false, "message" => "Amount must be greater than 0"]);
+        exit();
+    }
+
+    $stmt = $conn->prepare("INSERT INTO teacher_earnings (teacher_id, teacher_name, lesson_title, amount, lesson_date, notes, class_id) VALUES (?, ?, ?, ?, ?, ?, ?)");
+    if (!$stmt) { echo json_encode(["success" => false, "message" => $conn->error]); exit(); }
+    $stmt->bind_param("issdssi", $teacherId, $teacherName, $lessonTitle, $amount, $lessonDate, $notes, $classId);
+    $stmt->execute();
+    $newId = $conn->insert_id;
+    $stmt->close();
+
+    echo json_encode(["success" => true, "id" => $newId, "amount" => number_format($amount, 2)]);
+    exit();
+}
+
 $currentPage = basename($_SERVER["PHP_SELF"]);
 $adminName = $_SESSION["username"] ?? "Admin";
 
 $earnings = [];
-
 $result = $conn->query("SELECT * FROM teacher_earnings ORDER BY id DESC");
-
 if ($result) {
-    while ($row = $result->fetch_assoc()) {
-        $earnings[] = $row;
-    }
+    while ($row = $result->fetch_assoc()) $earnings[] = $row;
+}
+
+/* ── Load all classes for the "Add Earning" panel ── */
+$classes = [];
+$result2 = $conn->query("
+    SELECT c.id, c.teacher_id, c.teacher_name, c.student_name, c.class_date, c.class_time, c.type,
+           (SELECT COUNT(*) FROM teacher_earnings te WHERE te.class_id = c.id) AS has_earning
+    FROM classes c
+    ORDER BY c.class_date DESC, c.class_time ASC
+");
+if ($result2) {
+    while ($row = $result2->fetch_assoc()) $classes[] = $row;
 }
 
 function isActive($page, $currentPage) {
@@ -161,7 +213,7 @@ function isActive($page, $currentPage) {
 
     .topbar,
     .panel-card {
-      background: rgba(255,255,255,0.9);
+      background: white;
       border: 1px solid #edf4ff;
       border-radius: 22px;
       box-shadow: var(--shadow);
@@ -199,6 +251,7 @@ function isActive($page, $currentPage) {
 
     .panel-card {
       padding: 22px;
+      border-top: 3px solid var(--primary);
     }
 
     .panel-header {
@@ -213,6 +266,7 @@ function isActive($page, $currentPage) {
     .panel-title {
       font-size: 1.2rem;
       font-weight: 900;
+      color: var(--primary);
       margin: 0;
     }
 
@@ -272,6 +326,37 @@ function isActive($page, $currentPage) {
     .delete-btn {
       color: #dc2626;
     }
+
+    .badge-paid  { background:#dcfce7;color:#166534;padding:5px 11px;border-radius:999px;font-size:0.8rem;font-weight:800; }
+    .badge-demo  { background:#fef3c7;color:#92400e;padding:5px 11px;border-radius:999px;font-size:0.8rem;font-weight:800; }
+    .badge-other { background:#e0e7ff;color:#3730a3;padding:5px 11px;border-radius:999px;font-size:0.8rem;font-weight:800; }
+
+    .modal-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(15,23,42,0.55);
+      backdrop-filter: blur(4px);
+      z-index: 9000;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      background: white;
+      border-radius: 24px;
+      padding: 32px;
+      width: 100%;
+      max-width: 460px;
+      box-shadow: 0 32px 80px rgba(15,23,42,0.22);
+    }
+    .modal-title { font-size: 1.2rem; font-weight: 900; color: var(--primary); margin: 0 0 20px; }
+    .info-row { background: #f8fbff; border-radius: 12px; padding: 10px 14px; margin-bottom: 10px; font-size: 0.9rem; }
+    .info-row strong { color: var(--primary); }
+    .modal-input { border-radius: 14px; padding: 12px 14px; border: 1px solid #dbe4f0; width: 100%; font-size: 1rem; margin-bottom: 12px; box-sizing: border-box; }
+    .modal-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(62,80,119,0.12); }
+    .modal-btns { display: flex; gap: 10px; margin-top: 4px; }
+    .btn-cancel { background: #f1f5f9; color: #334155; border: none; border-radius: 14px; padding: 11px 20px; font-weight: 800; cursor: pointer; }
+    .btn-cancel:hover { background: #e2e8f0; }
 
     .empty-box {
       text-align: center;
@@ -389,10 +474,69 @@ function isActive($page, $currentPage) {
         <div class="alert alert-success">Earning added successfully.</div>
       <?php endif; ?>
 
+      <!-- Classes panel: add earning from a class -->
+      <section class="panel-card" style="margin-bottom:24px;">
+        <div class="panel-header">
+          <h2 class="panel-title">Add Earning from Class</h2>
+          <span class="text-muted" style="font-size:0.9rem"><?php echo count($classes); ?> classes</span>
+        </div>
+        <?php if (!empty($classes)): ?>
+          <div class="table-responsive">
+            <table class="table align-middle">
+              <thead>
+                <tr>
+                  <th>Teacher</th>
+                  <th>Student</th>
+                  <th>Date</th>
+                  <th>Time</th>
+                  <th>Type</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                <?php foreach ($classes as $cls): ?>
+                  <tr id="class-row-<?php echo $cls['id']; ?>">
+                    <td><strong><?php echo htmlspecialchars($cls['teacher_name']); ?></strong></td>
+                    <td><?php echo htmlspecialchars($cls['student_name']); ?></td>
+                    <td><?php echo htmlspecialchars($cls['class_date']); ?></td>
+                    <td><?php echo htmlspecialchars($cls['class_time']); ?></td>
+                    <td>
+                      <?php
+                        $t = strtolower($cls['type']);
+                        $bc = $t === 'paid' ? 'badge-paid' : ($t === 'demo' ? 'badge-demo' : 'badge-other');
+                        echo '<span class="' . $bc . '">' . htmlspecialchars($cls['type']) . '</span>';
+                      ?>
+                    </td>
+                    <td>
+                      <?php if ($cls['has_earning'] > 0): ?>
+                        <span style="color:#166534;font-weight:800;font-size:0.85rem"><i class="fas fa-check-circle"></i> Earning Added</span>
+                      <?php else: ?>
+                        <button class="btn-main" style="padding:7px 14px;font-size:0.85rem"
+                          onclick="openEarningModal(
+                            <?php echo $cls['id']; ?>,
+                            <?php echo (int)$cls['teacher_id']; ?>,
+                            '<?php echo addslashes($cls['teacher_name']); ?>',
+                            '<?php echo addslashes($cls['student_name']); ?>',
+                            '<?php echo $cls['class_date']; ?>',
+                            '<?php echo addslashes($cls['type']); ?>'
+                          )">
+                          <i class="fas fa-plus"></i> Add Earning
+                        </button>
+                      <?php endif; ?>
+                    </td>
+                  </tr>
+                <?php endforeach; ?>
+              </tbody>
+            </table>
+          </div>
+        <?php else: ?>
+          <div class="empty-box">No classes found. Add classes in Manage Classes first.</div>
+        <?php endif; ?>
+      </section>
+
       <section class="panel-card">
         <div class="panel-header">
           <h2 class="panel-title">All Teacher Earnings</h2>
-          <a href="add_earning.php" class="btn-main">+ Add New Earning</a>
         </div>
 
         <?php if (!empty($earnings)): ?>
@@ -409,7 +553,7 @@ function isActive($page, $currentPage) {
                   <th style="width: 180px;">Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody id="earnings-tbody">
                 <?php foreach ($earnings as $earning): ?>
                   <tr>
                     <td><?php echo htmlspecialchars($earning["id"]); ?></td>
@@ -437,5 +581,116 @@ function isActive($page, $currentPage) {
       </section>
     </main>
   </div>
+<!-- Add Earning Modal -->
+<div class="modal-overlay" id="earningModal" onclick="if(event.target===this)closeEarningModal()">
+  <div class="modal-box">
+    <div class="modal-title"><i class="fas fa-dollar-sign"></i> Add Earning</div>
+    <div class="info-row"><strong>Teacher:</strong> <span id="m-teacher"></span></div>
+    <div class="info-row"><strong>Student:</strong> <span id="m-student"></span></div>
+    <div class="info-row"><strong>Date:</strong> <span id="m-date"></span> &nbsp;|&nbsp; <strong>Type:</strong> <span id="m-type"></span></div>
+    <input type="hidden" id="m-class-id">
+    <input type="hidden" id="m-teacher-id">
+    <label style="font-weight:800;color:#334155;display:block;margin-bottom:6px">Amount ($) <span style="color:#ef4444">*</span></label>
+    <input type="number" id="m-amount" class="modal-input" step="0.01" min="0.01" placeholder="e.g. 25.00">
+    <label style="font-weight:800;color:#334155;display:block;margin-bottom:6px">Notes <span style="font-weight:400;color:#64748b">(optional)</span></label>
+    <input type="text" id="m-notes" class="modal-input" placeholder="e.g. Paid class - Python basics">
+    <div id="m-error" style="color:#ef4444;font-size:0.88rem;margin-bottom:8px;display:none"></div>
+    <div class="modal-btns">
+      <button class="btn-main" id="m-save-btn" onclick="saveEarning()"><i class="fas fa-check"></i> Save Earning</button>
+      <button class="btn-cancel" onclick="closeEarningModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function openEarningModal(classId, teacherId, teacherName, studentName, classDate, classType) {
+  document.getElementById('m-class-id').value   = classId;
+  document.getElementById('m-teacher-id').value = teacherId;
+  document.getElementById('m-teacher').textContent = teacherName;
+  document.getElementById('m-student').textContent = studentName;
+  document.getElementById('m-date').textContent    = classDate;
+  document.getElementById('m-type').textContent    = classType;
+  document.getElementById('m-amount').value = '';
+  document.getElementById('m-notes').value  = '';
+  document.getElementById('m-error').style.display = 'none';
+  document.getElementById('earningModal').classList.add('open');
+  setTimeout(() => document.getElementById('m-amount').focus(), 100);
+}
+
+function closeEarningModal() {
+  document.getElementById('earningModal').classList.remove('open');
+}
+
+function saveEarning() {
+  const classId    = document.getElementById('m-class-id').value;
+  const teacherId  = document.getElementById('m-teacher-id').value;
+  const teacherName = document.getElementById('m-teacher').textContent;
+  const amount     = parseFloat(document.getElementById('m-amount').value);
+  const notes      = document.getElementById('m-notes').value;
+  const date       = document.getElementById('m-date').textContent;
+  const type       = document.getElementById('m-type').textContent;
+  const errEl      = document.getElementById('m-error');
+
+  if (!amount || amount <= 0) {
+    errEl.textContent = 'Please enter a valid amount.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const btn = document.getElementById('m-save-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+
+  const lessonTitle = teacherName + ' — ' + type + ' (' + date + ')';
+
+  fetch('teacher_earnings.php', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: new URLSearchParams({
+      action: 'add_earning',
+      class_id: classId,
+      teacher_id: teacherId,
+      teacher_name: teacherName,
+      lesson_title: lessonTitle,
+      lesson_date: date,
+      amount: amount,
+      notes: notes
+    })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      closeEarningModal();
+      /* Mark the class row as earned */
+      const cell = document.querySelector('#class-row-' + classId + ' td:last-child');
+      if (cell) cell.innerHTML = '<span style="color:#166534;font-weight:800;font-size:0.85rem"><i class="fas fa-check-circle"></i> Earning Added</span>';
+      /* Prepend to earnings table */
+      const tbody = document.querySelector('#earnings-tbody');
+      if (tbody) {
+        const tr = document.createElement('tr');
+        tr.style.background = '#f0fdf4';
+        tr.innerHTML = `<td>${data.id}</td><td>${teacherName}</td><td>${lessonTitle}</td>
+          <td><span class="money-badge">$${data.amount}</span></td>
+          <td>${date}</td><td>${notes || '—'}</td>
+          <td><a href="edit_earning.php?id=${data.id}" class="action-btn edit-btn">Edit</a>
+              <a href="delete_earning.php?id=${data.id}" class="action-btn delete-btn" onclick="return confirm('Delete?')">Delete</a></td>`;
+        tbody.insertBefore(tr, tbody.firstChild);
+        setTimeout(() => tr.style.background = '', 1500);
+      }
+    } else {
+      errEl.textContent = data.message || 'Error saving earning.';
+      errEl.style.display = 'block';
+    }
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-check"></i> Save Earning';
+  })
+  .catch(() => {
+    errEl.textContent = 'Request failed. Please try again.';
+    errEl.style.display = 'block';
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-check"></i> Save Earning';
+  });
+}
+</script>
 </body>
 </html>

@@ -442,11 +442,27 @@ if ($loginSuccess) {
       font-weight: 600;
       font-size: 0.93rem;
       margin-bottom: 20px;
-      display: flex;
+      display: none;
       align-items: center;
       gap: 8px;
+      animation: errorPop .3s ease;
     }
+    .alert-box.visible { display: flex; }
     .alert-box::before { font-family: "Font Awesome 6 Free"; font-weight: 900; content: "\f071"; }
+
+    @keyframes errorPop {
+      0%   { opacity: 0; transform: translateY(-6px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      20%      { transform: translateX(-8px); }
+      40%      { transform: translateX(8px); }
+      60%      { transform: translateX(-5px); }
+      80%      { transform: translateX(5px); }
+    }
+    .shake { animation: shake .4s ease; }
 
     /* ── Success alert ── */
     .success-box {
@@ -607,11 +623,9 @@ if ($loginSuccess) {
         </script>
       <?php endif; ?>
 
-      <?php if (isset($_GET['error'])): ?>
-        <div class="alert-box">Invalid username or password. Please try again.</div>
-      <?php endif; ?>
+      <div class="alert-box" id="errorBox"></div>
 
-      <form action="authenticate.php" method="POST" id="loginForm">
+      <form id="loginForm">
 
         <!-- Username -->
         <div class="field-wrap">
@@ -717,11 +731,54 @@ if ($loginSuccess) {
     closed.style.display = showing ? "none"  : "";
   }
 
-  /* ── Submit loading state ── */
-  document.getElementById("loginForm").addEventListener("submit", function () {
-    const btn = document.getElementById("loginBtn");
+  /* ── AJAX login ── */
+  document.getElementById("loginForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+
+    const btn      = document.getElementById("loginBtn");
+    const errorBox = document.getElementById("errorBox");
+    const form     = this;
+
+    // Reset error
+    errorBox.classList.remove("visible");
+    errorBox.textContent = "";
+
+    // Loading state
     btn.classList.add("loading");
     btn.disabled = true;
+
+    const body = new URLSearchParams({
+      username: document.getElementById("username").value,
+      password: document.getElementById("password").value,
+    });
+
+    fetch("authenticate.php", { method: "POST", body })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Redirecting…';
+          btn.classList.remove("loading");
+          setTimeout(() => { window.location.href = data.redirect; }, 800);
+        } else {
+          btn.classList.remove("loading");
+          btn.disabled = false;
+          errorBox.textContent = data.message || "Invalid credentials. Please try again.";
+          errorBox.classList.add("visible");
+          // Shake the password field
+          const pwd = document.getElementById("password");
+          pwd.classList.remove("shake");
+          void pwd.offsetWidth; // reflow
+          pwd.classList.add("shake");
+          pwd.focus();
+          pwd.select();
+        }
+      })
+      .catch(() => {
+        btn.classList.remove("loading");
+        btn.disabled = false;
+        errorBox.textContent = "Connection error. Please try again.";
+        errorBox.classList.add("visible");
+      });
   });
 </script>
 

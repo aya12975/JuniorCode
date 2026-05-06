@@ -43,6 +43,31 @@ if ($stmt) {
     $stmt->close();
 }
 
+/* ── Load scheduled classes for this week ── */
+$scheduledClasses = [];
+$weekClasses      = [];
+
+$stmt2 = $conn->prepare("
+    SELECT id, student_name, class_date, class_time, type, zoom_link
+    FROM classes
+    WHERE (teacher_id = ? OR LOWER(teacher_name) = LOWER(?))
+      AND class_date BETWEEN ? AND ?
+    ORDER BY class_date ASC, class_time ASC
+");
+if ($stmt2) {
+    $stmt2->bind_param("isss", $teacherId, $teacherName, $days[0], $days[6]);
+    $stmt2->execute();
+    $r2 = $stmt2->get_result();
+    while ($row = $r2->fetch_assoc()) {
+        $weekClasses[] = $row;
+        // Round to nearest grid hour for cell lookup
+        $hour = date("H:00:00", strtotime($row["class_time"]));
+        $key  = $row["class_date"] . "_" . $hour;
+        $scheduledClasses[$key] = $row;
+    }
+    $stmt2->close();
+}
+
 $prevWeek = date("Y-m-d", strtotime("-7 days", $startTimestamp));
 $nextWeek = date("Y-m-d", strtotime("+7 days", $startTimestamp));
 ?>
@@ -56,12 +81,13 @@ $nextWeek = date("Y-m-d", strtotime("+7 days", $startTimestamp));
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
   <style>
     :root {
-      --primary:      #2563eb;
-      --primary-dark: #1d4ed8;
-      --secondary:    #0ea5e9;
+      --primary:      #3e5077;
+      --primary-dark: #152c6b;
+      --secondary:    #143674;
       --dark:         #0f172a;
       --muted:        #64748b;
-      --border:       #e5e7eb;
+      --border:       #edf4ff;
+      --shadow:       0 18px 45px rgba(37,99,235,0.08);
     }
 
     * { box-sizing: border-box; }
@@ -82,7 +108,7 @@ $nextWeek = date("Y-m-d", strtotime("+7 days", $startTimestamp));
       top: 0; left: 0;
       width: 260px;
       height: 100vh;
-      background: linear-gradient(180deg, #0f172a 0%, #1e3a8a 55%, #0c4a8a 100%);
+      background: linear-gradient(180deg, #0f172a 0%, #172554 100%);
       display: flex;
       flex-direction: column;
       justify-content: space-between;
@@ -102,11 +128,11 @@ $nextWeek = date("Y-m-d", strtotime("+7 days", $startTimestamp));
     }
 
     .brand-logo-img {
-      width: 48px; height: 48px;
-      border-radius: 14px;
+      width: 55px; height: 55px;
+      border-radius: 0;
       object-fit: contain;
-      background: rgba(255,255,255,0.12);
-      padding: 4px;
+      background: none;
+      padding: 0;
       flex-shrink: 0;
     }
 
@@ -178,7 +204,7 @@ $nextWeek = date("Y-m-d", strtotime("+7 days", $startTimestamp));
 
     /* ── Topbar ── */
     .topbar {
-      background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 50%, #0ea5e9 100%);
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
       border-radius: 20px;
       padding: 22px 26px;
       margin-bottom: 26px;
@@ -206,9 +232,20 @@ $nextWeek = date("Y-m-d", strtotime("+7 days", $startTimestamp));
     .card-box {
       background: #fff;
       border: 1px solid var(--border);
-      border-radius: 20px;
+      border-radius: 22px;
       padding: 24px;
-      box-shadow: 0 4px 16px rgba(15,23,42,0.05);
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+    .card-box::before {
+      content: '';
+      display: block;
+      height: 5px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      border-radius: 22px 22px 0 0;
     }
 
     /* ── Week nav ── */
@@ -316,6 +353,47 @@ $nextWeek = date("Y-m-d", strtotime("+7 days", $startTimestamp));
 
     .dot-available { background: #dcfce7; border: 1px solid #bbf7d0; }
     .dot-empty     { background: #ffffff; border: 1px solid #e5e7eb; }
+    .dot-booked    { background: linear-gradient(135deg, var(--primary), var(--secondary)); border: none; }
+
+    .slot.booked {
+      background: linear-gradient(135deg, var(--primary), var(--secondary)) !important;
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.78rem;
+      cursor: default;
+      padding: 6px 4px;
+    }
+
+    .slot.booked:hover { background: linear-gradient(135deg, var(--primary), var(--secondary)) !important; }
+
+    .booked-student { font-weight: 800; display: block; font-size: 0.8rem; }
+    .booked-time    { opacity: 0.85; font-size: 0.72rem; display: block; }
+    .booked-type    { display: inline-block; background: rgba(255,255,255,0.2); border-radius: 999px; padding: 1px 7px; font-size: 0.7rem; margin-top: 3px; }
+
+    .btn-zoom-sm {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: rgba(255,255,255,0.25); color: #fff;
+      border-radius: 6px; padding: 3px 8px; font-size: 0.7rem;
+      font-weight: 700; text-decoration: none; margin-top: 4px;
+      transition: background 0.2s;
+    }
+    .btn-zoom-sm:hover { background: rgba(255,255,255,0.4); color: #fff; }
+
+    .week-classes-card {
+      background: white; border: 1px solid var(--border);
+      border-radius: 22px; padding: 22px; margin-bottom: 22px;
+      box-shadow: var(--shadow); position: relative; overflow: hidden;
+    }
+    .week-classes-card::before {
+      content: ''; display: block; height: 5px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      position: absolute; top: 0; left: 0; right: 0;
+      border-radius: 22px 22px 0 0;
+    }
+    .week-classes-title {
+      font-size: 1.05rem; font-weight: 800;
+      color: var(--primary); margin-bottom: 14px;
+    }
 
     @media (max-width: 991px) {
       .sidebar { position: static; width: 100%; height: auto; }
@@ -337,7 +415,7 @@ $nextWeek = date("Y-m-d", strtotime("+7 days", $startTimestamp));
     <div class="brand">
       <img src="images/robot2.png.png" class="brand-logo-img" alt="JuniorCode Logo">
       <div>
-        <p class="brand-title">JuniorCode <span style="opacity:.7">&lt;/&gt;</span></p>
+        <p class="brand-title">JuniorCode</p>
         <p class="brand-subtitle">TEACHER PORTAL</p>
       </div>
     </div>
@@ -365,6 +443,9 @@ $nextWeek = date("Y-m-d", strtotime("+7 days", $startTimestamp));
     <a href="teacher_students.php" class="nav-link-custom">
       <span class="nav-icon"><i class="fas fa-user-graduate"></i></span><span>My Students</span>
     </a>
+    <a href="teacher_courses.php" class="nav-link-custom">
+      <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>Courses</span>
+    </a>
   </div>
 
   <div class="sidebar-bottom">
@@ -386,6 +467,66 @@ $nextWeek = date("Y-m-d", strtotime("+7 days", $startTimestamp));
     <div class="topbar-date">
       <?php echo date("l, d F Y"); ?>
     </div>
+  </div>
+
+  <!-- Scheduled classes this week -->
+  <div class="week-classes-card">
+    <div class="week-classes-title">
+      <i class="fas fa-calendar-check me-2"></i>Scheduled Classes This Week
+    </div>
+    <?php if (!empty($weekClasses)): ?>
+      <div class="table-responsive">
+        <table class="table align-middle mb-0">
+          <thead>
+            <tr>
+              <th>Student</th>
+              <th>Date</th>
+              <th>Time</th>
+              <th>Type</th>
+              <th>Zoom</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php foreach ($weekClasses as $cls):
+              $isToday = $cls["class_date"] === date("Y-m-d");
+              $t = strtolower(trim($cls["type"] ?? ""));
+              $typeStyle = $t === "paid"
+                ? "background:#dcfce7;color:#166534"
+                : ($t === "demo" || strpos($t,"demo") !== false
+                  ? "background:#fef3c7;color:#92400e"
+                  : "background:#e0e7ff;color:#3730a3");
+            ?>
+              <tr style="<?php echo $isToday ? 'background:#f0f9ff' : ''; ?>">
+                <td>
+                  <strong><?php echo htmlspecialchars($cls["student_name"]); ?></strong>
+                  <?php if ($isToday): ?>
+                    <span style="background:#2563eb;color:#fff;border-radius:999px;font-size:0.68rem;padding:2px 8px;font-weight:700;margin-left:6px">Today</span>
+                  <?php endif; ?>
+                </td>
+                <td><?php echo date("D, d M Y", strtotime($cls["class_date"])); ?></td>
+                <td><?php echo date("h:i A", strtotime($cls["class_time"])); ?></td>
+                <td><span style="display:inline-block;padding:4px 10px;border-radius:999px;font-size:0.78rem;font-weight:700;<?php echo $typeStyle; ?>"><?php echo htmlspecialchars($cls["type"]); ?></span></td>
+                <td>
+                  <?php if (!empty($cls["zoom_link"])): ?>
+                    <a href="<?php echo htmlspecialchars($cls["zoom_link"]); ?>" target="_blank" rel="noopener"
+                       style="display:inline-flex;align-items:center;gap:6px;background:#2D8CFF;color:white;font-weight:700;border-radius:10px;padding:6px 12px;font-size:0.82rem;text-decoration:none;">
+                      <i class="fas fa-video"></i> Join Zoom
+                    </a>
+                  <?php else: ?>
+                    <span style="color:#cbd5e1;font-size:0.85rem">— No link</span>
+                  <?php endif; ?>
+                </td>
+              </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+    <?php else: ?>
+      <div style="text-align:center;color:#94a3b8;padding:24px 10px">
+        <i class="fas fa-calendar-xmark" style="font-size:1.8rem;margin-bottom:8px;display:block"></i>
+        No classes scheduled this week.
+      </div>
+    <?php endif; ?>
   </div>
 
   <!-- Schedule card -->
@@ -429,17 +570,26 @@ $nextWeek = date("Y-m-d", strtotime("+7 days", $startTimestamp));
             <tr>
               <td class="time-col"><?php echo date("g:i A", strtotime($time)); ?></td>
               <?php foreach ($days as $day):
-                $key    = $day . "_" . $time;
-                $status = $availability[$key] ?? "";
+                $key      = $day . "_" . $time;
+                $status   = $availability[$key] ?? "";
                 $isAvailable = $status === "available";
-                $isToday = $day === date("Y-m-d");
+                $isToday  = $day === date("Y-m-d");
+                $bookedClass = $scheduledClasses[$key] ?? null;
               ?>
                 <td
-                  class="slot <?php echo $isAvailable ? 'available' : ''; ?> <?php echo $isToday ? 'today-col' : ''; ?>"
+                  class="slot <?php echo $bookedClass ? 'booked' : ($isAvailable ? 'available' : ''); ?> <?php echo $isToday ? 'today-col' : ''; ?>"
                   data-date="<?php echo $day; ?>"
                   data-time="<?php echo $time; ?>"
+                  <?php echo $bookedClass ? 'title="Class with ' . htmlspecialchars($bookedClass['student_name']) . '"' : ''; ?>
                 >
-                  <?php if ($isAvailable): ?>
+                  <?php if ($bookedClass): ?>
+                    <span class="booked-student"><?php echo htmlspecialchars($bookedClass["student_name"]); ?></span>
+                    <span class="booked-time"><?php echo date("h:i A", strtotime($bookedClass["class_time"])); ?></span>
+                    <span class="booked-type"><?php echo htmlspecialchars($bookedClass["type"]); ?></span>
+                    <?php if (!empty($bookedClass["zoom_link"])): ?>
+                      <br><a href="<?php echo htmlspecialchars($bookedClass["zoom_link"]); ?>" target="_blank" rel="noopener" class="btn-zoom-sm" onclick="event.stopPropagation()"><i class="fas fa-video"></i> Zoom</a>
+                    <?php endif; ?>
+                  <?php elseif ($isAvailable): ?>
                     <i class="fas fa-check" style="margin-right:4px"></i>Available
                   <?php endif; ?>
                 </td>
@@ -453,8 +603,12 @@ $nextWeek = date("Y-m-d", strtotime("+7 days", $startTimestamp));
     <!-- Legend -->
     <div class="legend">
       <div class="legend-item">
+        <div class="legend-dot dot-booked"></div>
+        <span>Scheduled class</span>
+      </div>
+      <div class="legend-item">
         <div class="legend-dot dot-available"></div>
-        <span>Available — admin can book this slot</span>
+        <span>Available — admin can book</span>
       </div>
       <div class="legend-item">
         <div class="legend-dot dot-empty"></div>
@@ -468,6 +622,7 @@ $nextWeek = date("Y-m-d", strtotime("+7 days", $startTimestamp));
 <script>
 document.querySelectorAll(".slot").forEach(slot => {
   slot.addEventListener("click", function () {
+    if (this.classList.contains("booked")) return;
     const date      = this.dataset.date;
     const time      = this.dataset.time;
     const isAvail   = this.classList.contains("available");
