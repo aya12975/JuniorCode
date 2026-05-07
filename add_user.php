@@ -18,9 +18,11 @@ $newUser   = null;
 $formError = isset($_GET['error']);
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    $username = trim($_POST["username"] ?? "");
-    $password = trim($_POST["password"] ?? "");
-    $role     = trim($_POST["role"] ?? "");
+    $username          = trim($_POST["username"]          ?? "");
+    $password          = trim($_POST["password"]          ?? "");
+    $role              = trim($_POST["role"]              ?? "");
+    $email             = trim($_POST["email"]             ?? "");
+    $zoom_personal_link = trim($_POST["zoom_personal_link"] ?? "");
 
     if ($username === "" || $password === "" || $role === "") {
         $formError = true;
@@ -29,13 +31,17 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         if ($chk && $chk->num_rows === 0) {
             $conn->query("ALTER TABLE users ADD COLUMN plain_password VARCHAR(255) NOT NULL DEFAULT ''");
         }
+        $chk2 = $conn->query("SHOW COLUMNS FROM users LIKE 'zoom_personal_link'");
+        if ($chk2 && $chk2->num_rows === 0) {
+            $conn->query("ALTER TABLE users ADD COLUMN zoom_personal_link TEXT NOT NULL DEFAULT ''");
+        }
 
         $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-        $stmt = $conn->prepare("INSERT INTO users (username, password, plain_password, role) VALUES (?, ?, ?, ?)");
-        $stmt->bind_param("ssss", $username, $hashedPassword, $password, $role);
+        $stmt = $conn->prepare("INSERT INTO users (username, password, plain_password, role, email, zoom_personal_link) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("ssssss", $username, $hashedPassword, $password, $role, $email, $zoom_personal_link);
 
         if ($stmt->execute()) {
-            $newUser = ['username' => $username, 'password' => $password, 'role' => $role];
+            $newUser = ['username' => $username, 'password' => $password, 'role' => $role, 'email' => $email];
         } else {
             $formError = true;
         }
@@ -555,12 +561,28 @@ body {
 
           <div class="mb-4">
             <label class="form-label">Role</label>
-            <select name="role" class="form-select" required>
+            <select name="role" class="form-select" required id="roleSelect" onchange="toggleEmailField(this.value)">
               <option value="">Select role</option>
               <option value="admin">Admin</option>
               <option value="teacher">Teacher</option>
               <option value="student">Student</option>
             </select>
+          </div>
+
+          <div id="teacherFields" style="display:none;">
+            <div class="mb-4">
+              <label class="form-label">Teacher Email</label>
+              <input type="email" name="email" class="form-control" placeholder="teacher@example.com">
+            </div>
+            <div class="mb-4">
+              <label class="form-label">
+                Personal Zoom Link
+                <span style="background:#d1fae5;color:#065f46;border-radius:999px;padding:2px 10px;font-size:0.78rem;font-weight:700;margin-left:6px;">
+                  Auto-filled when creating a class
+                </span>
+              </label>
+              <input type="url" name="zoom_personal_link" class="form-control" placeholder="https://zoom.us/j/your-room-link">
+            </div>
           </div>
 
           <div class="form-actions">
@@ -576,6 +598,10 @@ body {
 </div>
 
 <script>
+function toggleEmailField(role) {
+  document.getElementById('teacherFields').style.display = role === 'teacher' ? '' : 'none';
+}
+
 function toggleAddUserPassword() {
   const input = document.getElementById('passwordInput');
   const icon  = document.getElementById('eyeIcon');

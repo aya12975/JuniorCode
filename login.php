@@ -116,30 +116,24 @@ if ($loginSuccess) {
     }
 
     .lp-brand {
-      display: inline-flex;
+      display: flex;
       align-items: center;
-      gap: 12px;
-      background: rgba(255,255,255,0.1);
-      border: 1px solid rgba(255,255,255,0.18);
-      border-radius: 999px;
-      padding: 10px 18px;
+      gap: 14px;
       margin-bottom: 40px;
       text-decoration: none;
-      transition: background 0.25s;
     }
-    .lp-brand:hover { background: rgba(255,255,255,0.16); }
 
     .lp-brand-logo {
-      width: 36px;
-      height: 36px;
-      border-radius: 10px;
+      width: 64px;
+      height: 64px;
       object-fit: contain;
-      background: rgba(255,255,255,0.15);
+      background: none;
+      flex-shrink: 0;
     }
 
     .lp-brand-name {
-      font-weight: 800;
-      font-size: 0.95rem;
+      font-weight: 900;
+      font-size: 1.2rem;
       color: #fff;
       line-height: 1.2;
     }
@@ -148,6 +142,7 @@ if ($loginSuccess) {
       font-size: 0.75rem;
       color: rgba(255,255,255,0.65);
       letter-spacing: 1px;
+      margin-top: 3px;
     }
 
     .lp-headline {
@@ -623,6 +618,11 @@ if ($loginSuccess) {
         </script>
       <?php endif; ?>
 
+      <div class="success-box" id="successBox" style="display:none;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        Login successful! Redirecting you now…
+      </div>
+
       <div class="alert-box" id="errorBox"></div>
 
       <form id="loginForm">
@@ -756,9 +756,10 @@ if ($loginSuccess) {
       .then(r => r.json())
       .then(data => {
         if (data.success) {
-          btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Redirecting…';
           btn.classList.remove("loading");
-          setTimeout(() => { window.location.href = data.redirect; }, 800);
+          btn.disabled = true;
+          document.getElementById("successBox").style.display = "flex";
+          setTimeout(() => { window.location.href = data.redirect; }, 1800);
         } else {
           btn.classList.remove("loading");
           btn.disabled = false;

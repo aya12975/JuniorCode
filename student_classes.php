@@ -9,12 +9,12 @@ if (!isset($_SESSION["role"]) || $_SESSION["role"] !== "student") {
 
 $studentName = $_SESSION["username"] ?? "Student";
 
-/* ── Fetch all classes for this student ── */
+/* ── Fetch today + future classes only ── */
 $classSessions = [];
 $stmt = $conn->prepare("
     SELECT id, teacher_name, student_name, class_date, class_time, type, details, zoom_link
     FROM classes
-    WHERE student_name = ?
+    WHERE student_name = ? AND class_date >= CURDATE()
     ORDER BY class_date ASC, class_time ASC
 ");
 if ($stmt) {
@@ -31,13 +31,11 @@ $today         = date("Y-m-d");
 $total         = count($classSessions);
 $todayCount    = 0;
 $upcomingCount = 0;
-$pastCount     = 0;
 
 foreach ($classSessions as $c) {
     $d = $c["class_date"] ?? "";
-    if ($d === $today)      $todayCount++;
-    elseif ($d > $today)    $upcomingCount++;
-    else                    $pastCount++;
+    if ($d === $today)   $todayCount++;
+    else                 $upcomingCount++;
 }
 ?>
 <!DOCTYPE html>
@@ -187,7 +185,7 @@ foreach ($classSessions as $c) {
     /* ── Stat cards ── */
     .stat-grid {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(3, 1fr);
       gap: 16px; margin-bottom: 26px;
     }
 
@@ -304,6 +302,23 @@ foreach ($classSessions as $c) {
     }
     .btn-zoom:hover { background: #1a6fd4; color: #fff; transform: translateY(-2px); }
 
+    .zoom-url-row {
+      display: flex; align-items: center; gap: 8px;
+      background: #f0f7ff; border: 1px solid #bfdbfe;
+      border-radius: 10px; padding: 8px 12px; margin-top: 6px;
+    }
+    .zoom-url-text {
+      flex: 1; font-size: 0.78rem; color: #2563eb;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .zoom-copy-btn {
+      border: none; background: #2D8CFF; color: #fff;
+      border-radius: 8px; padding: 4px 10px; font-size: 0.78rem;
+      font-weight: 700; cursor: pointer; white-space: nowrap; flex-shrink: 0;
+      transition: background 0.2s;
+    }
+    .zoom-copy-btn:hover { background: #1a6fd4; }
+
     .no-zoom {
       display: flex; align-items: center; justify-content: center; gap: 8px;
       background: #f1f5f9; color: #94a3b8; font-weight: 700; font-size: 0.88rem;
@@ -333,10 +348,10 @@ foreach ($classSessions as $c) {
 <div class="sidebar">
   <div class="sidebar-top">
     <div class="brand">
-      <div class="brand-logo">JC</div>
+      <img src="images/robot2.png.png" class="brand-logo-img" alt="JuniorCode Logo">
       <div>
         <p class="brand-title">JuniorCode</p>
-        <p class="brand-subtitle">Student Panel</p>
+        <p class="brand-subtitle">STUDENT PANEL</p>
       </div>
     </div>
 
@@ -354,7 +369,7 @@ foreach ($classSessions as $c) {
     <a href="student_classes.php" class="nav-link-custom active">
       <span class="nav-icon"><i class="fas fa-book"></i></span><span>My Classes</span>
     </a>
-    <a href="student_dashboard.php#contact" class="nav-link-custom">
+    <a href="student_contact.php" class="nav-link-custom">
       <span class="nav-icon"><i class="fas fa-comments"></i></span><span>Contact Admin</span>
     </a>
   </div>
@@ -394,10 +409,6 @@ foreach ($classSessions as $c) {
       <div class="stat-num c-orange"><?php echo $upcomingCount; ?></div>
       <div class="stat-label">Upcoming</div>
     </div>
-    <div class="stat-card">
-      <div class="stat-num c-gray"><?php echo $pastCount; ?></div>
-      <div class="stat-label">Past</div>
-    </div>
   </div>
 
   <!-- Filter tabs -->
@@ -405,7 +416,6 @@ foreach ($classSessions as $c) {
     <button class="filter-btn active" onclick="filterClasses('all', this)">All (<?php echo $total; ?>)</button>
     <button class="filter-btn" onclick="filterClasses('today', this)">Today (<?php echo $todayCount; ?>)</button>
     <button class="filter-btn" onclick="filterClasses('upcoming', this)">Upcoming (<?php echo $upcomingCount; ?>)</button>
-    <button class="filter-btn" onclick="filterClasses('past', this)">Past (<?php echo $pastCount; ?>)</button>
   </div>
 
   <!-- Classes grid -->
@@ -488,6 +498,10 @@ foreach ($classSessions as $c) {
             </svg>
             Join Class on Zoom
           </a>
+          <div class="zoom-url-row">
+            <span class="zoom-url-text"><?php echo htmlspecialchars($cZoom); ?></span>
+            <button class="zoom-copy-btn" onclick="copyZoom(this, <?php echo json_encode($cZoom); ?>)">Copy</button>
+          </div>
         <?php else: ?>
           <div class="no-zoom">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -505,6 +519,15 @@ foreach ($classSessions as $c) {
 </div>
 
 <script>
+  function copyZoom(btn, url) {
+    navigator.clipboard.writeText(url).then(() => {
+      const orig = btn.textContent;
+      btn.textContent = "Copied!";
+      btn.style.background = "#16a34a";
+      setTimeout(() => { btn.textContent = orig; btn.style.background = ""; }, 2000);
+    });
+  }
+
   function filterClasses(filter, btn) {
     document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");

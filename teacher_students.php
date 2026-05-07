@@ -441,7 +441,7 @@ $withUpcoming   = count(array_filter($students, fn($s) => !empty($s["next_class"
     <a href="teacher_schedule.php" class="nav-link-custom">
       <span class="nav-icon"><i class="fas fa-calendar-days"></i></span><span>My Schedule</span>
     </a>
-    <a href="teacher_dashboard.php#earnings" class="nav-link-custom">
+    <a href="teacher_monthly_earnings.php" class="nav-link-custom">
       <span class="nav-icon"><i class="fas fa-dollar-sign"></i></span><span>My Earnings</span>
     </a>
     <a href="teacher_students.php" class="nav-link-custom active">

@@ -364,7 +364,7 @@ function renderReadOnlyTable($result) {
       <span>My Classes</span>
     </a>
 
-    <a href="teacher_dashboard.php#schedule" class="nav-link-custom">
+    <a href="teacher_schedule.php" class="nav-link-custom">
       <span class="nav-icon"><i class="fas fa-calendar-days"></i></span>
       <span>My Schedule</span>
     </a>

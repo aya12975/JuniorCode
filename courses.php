@@ -69,6 +69,33 @@ $kidsGame   = fetchKidsByCategory($conn, 'Game Development',     $search, $filte
 $kidsPython = fetchKidsByCategory($conn, 'Python Introduction',  $search, $filterType);
 $kidsVM     = fetchKidsByCategory($conn, 'Virtual Machine',      $search, $filterType);
 
+// Auto-create course_projects table if missing
+$conn->query("CREATE TABLE IF NOT EXISTS course_projects (
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    section    VARCHAR(50)  NOT NULL DEFAULT 'kids',
+    category   VARCHAR(100) NOT NULL DEFAULT 'Game Development',
+    title      VARCHAR(255) NOT NULL,
+    url        TEXT         NOT NULL,
+    image      TEXT         NOT NULL DEFAULT '',
+    sort_order INT          NOT NULL DEFAULT 0,
+    created_at TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$conn->query("ALTER TABLE course_projects ADD COLUMN IF NOT EXISTS image TEXT NOT NULL DEFAULT ''");
+
+function fetchProjects($conn, $section, $category) {
+    $stmt = $conn->prepare("SELECT * FROM course_projects WHERE section = ? AND category = ? ORDER BY sort_order ASC, id ASC");
+    $stmt->bind_param("ss", $section, $category);
+    $stmt->execute();
+    return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+}
+
+$kidsGameProjects   = fetchProjects($conn, 'kids',   'Game Development');
+$kidsPythonProjects = fetchProjects($conn, 'kids',   'Python Introduction');
+$kidsVMProjects     = fetchProjects($conn, 'kids',   'Virtual Machine');
+$juniorGameProjects   = fetchProjects($conn, 'junior', 'Game Development');
+$juniorPythonProjects = fetchProjects($conn, 'junior', 'Python Introduction');
+$juniorVMProjects     = fetchProjects($conn, 'junior', 'Virtual Machine');
+
 function fetchJuniorByCategory($conn, $category, $search, $filterType) {
     $sql    = "SELECT * FROM courses WHERE section = 'junior' AND category = ?";
     $params = [$category];
@@ -89,6 +116,45 @@ $juniorVM     = fetchJuniorByCategory($conn, 'Virtual Machine',     $search, $fi
 
 function isActive($page, $currentPage) {
     return $page === $currentPage ? "active" : "";
+}
+
+function renderProjectLinks($projects, $section, $category) {
+    $manageUrl = "manage_projects.php?section=" . urlencode($section) . "&category=" . urlencode($category);
+    ob_start(); ?>
+    <div class="proj-section-header">
+      <span class="proj-section-label"><i class="fas fa-link" style="color:#2563eb;margin-right:6px;"></i>Project Links</span>
+      <a href="<?= htmlspecialchars($manageUrl) ?>" class="btn-manage-proj">
+        <i class="fas fa-pen-to-square"></i> Manage Links
+      </a>
+    </div>
+    <?php if (empty($projects)): ?>
+      <div class="empty-box" style="margin-bottom:18px;">
+        No project links added yet.
+        <a href="<?= htmlspecialchars($manageUrl) ?>" style="color:#2563eb;font-weight:700;margin-left:6px;">Add one</a>
+      </div>
+    <?php else: ?>
+      <div class="proj-list">
+        <?php foreach ($projects as $p): ?>
+          <div class="proj-item">
+            <?php if (!empty($p["image"])): ?>
+              <div class="proj-icon">
+                <img src="<?= htmlspecialchars($p["image"]) ?>" alt="<?= htmlspecialchars($p["title"]) ?>">
+              </div>
+            <?php else: ?>
+              <div class="proj-icon-fallback"><i class="fas fa-gamepad"></i></div>
+            <?php endif; ?>
+            <div style="flex:1;min-width:0;">
+              <div class="proj-title"><?= htmlspecialchars($p["title"]) ?></div>
+              <div class="proj-url"><?= htmlspecialchars($p["url"]) ?></div>
+            </div>
+            <a href="<?= htmlspecialchars($p["url"]) ?>" target="_blank" class="proj-link-btn">
+              <i class="fas fa-external-link-alt"></i> Open
+            </a>
+          </div>
+        <?php endforeach; ?>
+      </div>
+    <?php endif; ?>
+    <?php return ob_get_clean();
 }
 
 function renderCourseTable($result) {
@@ -562,6 +628,95 @@ function renderCourseTable($result) {
       font-style: italic;
     }
 
+    .proj-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .proj-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: #f0f7ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 14px;
+      padding: 13px 16px;
+    }
+
+    .proj-icon {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .proj-icon img {
+      max-height: 140px;
+      max-width: 200px;
+      width: auto;
+      height: auto;
+      border-radius: 12px;
+      display: block;
+    }
+
+    .proj-icon-fallback {
+      width: 54px; height: 54px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: white;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem;
+      flex-shrink: 0;
+    }
+
+    .proj-title {
+      font-weight: 800;
+      color: #0f172a;
+      font-size: 0.92rem;
+    }
+
+    .proj-url {
+      font-size: 0.8rem;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 320px;
+    }
+
+    .proj-link-btn {
+      margin-left: auto;
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 0.82rem; font-weight: 700;
+      color: #2563eb; text-decoration: none;
+      background: white; border: 1px solid #bfdbfe;
+      padding: 6px 12px; border-radius: 8px;
+      white-space: nowrap; flex-shrink: 0;
+      transition: background 0.15s;
+    }
+    .proj-link-btn:hover { background: #dbeafe; color: #1d4ed8; }
+
+    .proj-section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 12px; flex-wrap: wrap; gap: 8px;
+    }
+
+    .proj-section-label {
+      font-size: 1rem; font-weight: 800; color: #0f172a;
+    }
+
+    .btn-manage-proj {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 0.82rem; font-weight: 800;
+      color: #5b21b6; background: #ede9fe;
+      border: none; border-radius: 10px;
+      padding: 7px 14px; text-decoration: none;
+      transition: background 0.15s;
+    }
+    .btn-manage-proj:hover { background: #ddd6fe; color: #4c1d95; }
+
     .empty-box {
       text-align: center;
       padding: 26px 18px;
@@ -716,6 +871,7 @@ function renderCourseTable($result) {
               <h2 class="panel-title">Game Development</h2>
               <a href="add_course.php?section=kids&category=Game+Development" class="btn-main">+ Add Course</a>
             </div>
+            <?= renderProjectLinks($kidsGameProjects, 'kids', 'Game Development') ?>
             <?= renderCourseTable($kidsGame) ?>
           </section>
         </div>
@@ -726,6 +882,7 @@ function renderCourseTable($result) {
               <h2 class="panel-title">Python Introduction</h2>
               <a href="add_course.php?section=kids&category=Python+Introduction" class="btn-main">+ Add Course</a>
             </div>
+            <?= renderProjectLinks($kidsPythonProjects, 'kids', 'Python Introduction') ?>
             <?= renderCourseTable($kidsPython) ?>
           </section>
         </div>
@@ -736,6 +893,7 @@ function renderCourseTable($result) {
               <h2 class="panel-title">Virtual Machine</h2>
               <a href="add_course.php?section=kids&category=Virtual+Machine" class="btn-main">+ Add Course</a>
             </div>
+            <?= renderProjectLinks($kidsVMProjects, 'kids', 'Virtual Machine') ?>
             <?= renderCourseTable($kidsVM) ?>
           </section>
         </div>
@@ -767,6 +925,7 @@ function renderCourseTable($result) {
               <h2 class="panel-title">Game Development</h2>
               <a href="add_course.php?section=junior&category=Game+Development" class="btn-main">+ Add Course</a>
             </div>
+            <?= renderProjectLinks($juniorGameProjects, 'junior', 'Game Development') ?>
             <?= renderCourseTable($juniorGame) ?>
           </section>
         </div>
@@ -777,6 +936,7 @@ function renderCourseTable($result) {
               <h2 class="panel-title">Python Introduction</h2>
               <a href="add_course.php?section=junior&category=Python+Introduction" class="btn-main">+ Add Course</a>
             </div>
+            <?= renderProjectLinks($juniorPythonProjects, 'junior', 'Python Introduction') ?>
             <?= renderCourseTable($juniorPython) ?>
           </section>
         </div>
@@ -787,6 +947,7 @@ function renderCourseTable($result) {
               <h2 class="panel-title">Virtual Machine</h2>
               <a href="add_course.php?section=junior&category=Virtual+Machine" class="btn-main">+ Add Course</a>
             </div>
+            <?= renderProjectLinks($juniorVMProjects, 'junior', 'Virtual Machine') ?>
             <?= renderCourseTable($juniorVM) ?>
           </section>
         </div>

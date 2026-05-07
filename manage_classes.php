@@ -375,6 +375,49 @@ function isActive($page, $currentPage) {
       font-size: 0.85rem;
     }
 
+    .filter-tab {
+      border: 2px solid var(--border);
+      background: white;
+      border-radius: 999px;
+      padding: 7px 16px;
+      font-weight: 700;
+      font-size: 0.85rem;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .filter-tab:hover { border-color: var(--primary); color: var(--primary); }
+    .filter-tab.active { background: var(--primary); border-color: var(--primary); color: white; }
+    .filter-tab.past-tab.active { background: #64748b; border-color: #64748b; }
+    .tab-count {
+      background: rgba(0,0,0,0.12);
+      border-radius: 999px;
+      padding: 1px 7px;
+      font-size: 0.78rem;
+    }
+    .filter-tab.active .tab-count { background: rgba(255,255,255,0.25); }
+
+    .btn-gen-zoom {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: #f0fdf4;
+      border: 1px solid #86efac;
+      color: #16a34a;
+      font-weight: 700;
+      border-radius: 10px;
+      padding: 5px 11px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .btn-gen-zoom:hover { background: #dcfce7; }
+    .btn-gen-zoom:disabled { opacity: 0.6; cursor: not-allowed; }
+
     @media (max-width: 991px) {
       .app-shell {
         flex-direction: column;
@@ -551,7 +594,25 @@ function isActive($page, $currentPage) {
       </section>
 
       <section class="panel-card">
-        <h2 class="panel-title">All Classes</h2>
+        <?php
+          $today = date("Y-m-d");
+          $counts = ['all' => count($classes), 'upcoming' => 0, 'today' => 0, 'past' => 0];
+          foreach ($classes as $c) {
+              $d = $c["class_date"] ?? "";
+              if ($d === $today)        $counts['today']++;
+              elseif ($d > $today)      $counts['upcoming']++;
+              else                      $counts['past']++;
+          }
+        ?>
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3">
+          <h2 class="panel-title mb-0">All Classes</h2>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="filter-tab active" onclick="filterTab('all',this)">All <span class="tab-count"><?php echo $counts['all']; ?></span></button>
+            <button class="filter-tab" onclick="filterTab('today',this)">Today <span class="tab-count"><?php echo $counts['today']; ?></span></button>
+            <button class="filter-tab" onclick="filterTab('upcoming',this)">Upcoming <span class="tab-count"><?php echo $counts['upcoming']; ?></span></button>
+            <button class="filter-tab past-tab" onclick="filterTab('past',this)">Past <span class="tab-count"><?php echo $counts['past']; ?></span></button>
+          </div>
+        </div>
 
         <?php if (!empty($classes)): ?>
           <div class="table-responsive">
@@ -570,12 +631,24 @@ function isActive($page, $currentPage) {
                 </tr>
               </thead>
               <tbody>
-                <?php foreach ($classes as $class): ?>
-                  <tr>
+                <?php foreach ($classes as $class):
+                  $cd = $class["class_date"] ?? "";
+                  if ($cd === $today)   $when = "today";
+                  elseif ($cd > $today) $when = "upcoming";
+                  else                  $when = "past";
+                ?>
+                  <tr data-when="<?php echo $when; ?>" <?php echo $when === 'past' ? 'style="opacity:0.72"' : ''; ?>>
                     <td><?php echo htmlspecialchars($class["id"]); ?></td>
                     <td><?php echo htmlspecialchars($class["teacher_name"]); ?></td>
                     <td><?php echo htmlspecialchars($class["student_name"]); ?></td>
-                    <td><?php echo htmlspecialchars($class["class_date"]); ?></td>
+                    <td>
+                      <?php echo htmlspecialchars($class["class_date"]); ?>
+                      <?php if ($when === 'today'): ?>
+                        <span style="background:#2563eb;color:#fff;border-radius:999px;font-size:0.68rem;padding:2px 7px;font-weight:700;margin-left:4px;">Today</span>
+                      <?php elseif ($when === 'past'): ?>
+                        <span style="background:#f1f5f9;color:#94a3b8;border-radius:999px;font-size:0.68rem;padding:2px 7px;font-weight:700;margin-left:4px;">Past</span>
+                      <?php endif; ?>
+                    </td>
                     <td><?php echo htmlspecialchars($class["class_time"]); ?></td>
                     <td>
                       <?php
@@ -590,13 +663,15 @@ function isActive($page, $currentPage) {
                       ?>
                     </td>
                     <td><?php echo htmlspecialchars($class["details"]); ?></td>
-                    <td>
+                    <td id="zoom-cell-<?php echo $class['id']; ?>">
                       <?php if (!empty($class["zoom_link"])): ?>
                         <a href="<?php echo htmlspecialchars($class["zoom_link"]); ?>" target="_blank" rel="noopener" class="btn-zoom">
                           <i class="fas fa-video"></i> Open Zoom
                         </a>
                       <?php else: ?>
-                        <span class="zoom-empty">— No link</span>
+                        <button class="btn-gen-zoom" onclick="generateZoom(<?php echo $class['id']; ?>, this)">
+                          <i class="fas fa-wand-magic-sparkles"></i> Generate
+                        </button>
                       <?php endif; ?>
                     </td>
                     <td>
@@ -619,6 +694,41 @@ function isActive($page, $currentPage) {
   function syncTeacherName(select) {
     const opt = select.options[select.selectedIndex];
     document.getElementById('teacher_name_hidden').value = opt.dataset.name || '';
+  }
+
+  function filterTab(filter, btn) {
+    document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('tbody tr[data-when]').forEach(row => {
+      row.style.display = (filter === 'all' || row.dataset.when === filter) ? '' : 'none';
+    });
+  }
+
+  function generateZoom(classId, btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating…';
+
+    fetch('update_class_zoom.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'class_id=' + classId
+    })
+    .then(r => r.json())
+    .then(data => {
+      const cell = document.getElementById('zoom-cell-' + classId);
+      if (data.success) {
+        cell.innerHTML = '<a href="' + data.join_url + '" target="_blank" rel="noopener" class="btn-zoom"><i class="fas fa-video"></i> Open Zoom</a>';
+      } else {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-wand-magic-sparkles"></i> Generate';
+        alert('Error: ' + (data.message || 'Could not generate link'));
+      }
+    })
+    .catch(() => {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-wand-magic-sparkles"></i> Generate';
+      alert('Network error. Please try again.');
+    });
   }
 </script>
 

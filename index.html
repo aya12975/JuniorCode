@@ -221,15 +221,14 @@
     .age-pill {
       display: inline-flex;
       align-items: center;
-      padding: 8px 14px;
+      gap: 8px;
+      padding: 8px 16px;
       border-radius: 999px;
       background: #eff6ff;
       border: 1px solid #bfdbfe;
       color: #1d4ed8;
       font-size: 0.9rem;
       font-weight: 800;
-      margin-right: 8px;
-      margin-bottom: 10px;
       transition: transform 0.3s ease;
     }
 
@@ -1170,14 +1169,14 @@
                 real projects, and step-by-step learning paths tailored to every age group.
               </p>
 
-              <div className="mb-2">
+              <div className="mb-2 d-flex flex-wrap justify-content-center gap-2">
                 {tracks.map((t, i) => (
                   <span
                     key={i}
                     className={`age-pill ${activeTrack === i ? "active" : ""}`}
                     onClick={() => setActiveTrack(i)}
                   >
-                    <i className={t.icon}></i> {t.label}
+                    <i className={t.icon}></i>{t.label}
                   </span>
                 ))}
               </div>

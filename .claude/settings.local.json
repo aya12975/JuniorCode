@@ -6,7 +6,15 @@
       "Bash(awk '{print $NF}')",
       "Bash(python3 *)",
       "Bash(python -c \"print\\('hello'\\)\")",
-      "Bash(py -c \"print\\('hello'\\)\")"
+      "Bash(py -c \"print\\('hello'\\)\")",
+      "Bash(C:\\\\xampp\\\\mysql\\\\bin\\\\mysql.exe *)",
+      "Bash(C:\\\\xampp\\\\mysql\\\\bin\\\\mysql.exe)",
+      "Bash(php *)",
+      "Bash(where php *)",
+      "Bash(where xampp *)",
+      "Bash(C:/xampp/php/php.exe -r ' *)",
+      "PowerShell(& \"C:\\\\xampp\\\\mysql\\\\bin\\\\mysql.exe\" -u root -e \"INSERT INTO juniorcode.settings \\(setting_key, setting_value\\) VALUES \\('whatsapp', '96179108683'\\) ON DUPLICATE KEY UPDATE setting_value = '96179108683';\")",
+      "PowerShell(& \"C:\\\\xampp\\\\mysql\\\\bin\\\\mysql.exe\" -u root -e \"INSERT INTO juniorcode_db2.settings \\(setting_key, setting_value\\) VALUES \\('whatsapp', '96179108683'\\) ON DUPLICATE KEY UPDATE setting_value = '96179108683';\")"
     ]
   }
 }

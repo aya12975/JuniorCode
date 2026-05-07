@@ -624,8 +624,6 @@ $crsDemo        = fetchCoursesByCat($conn, 'demo');
 </head>
 <body>
 
-
-
 <div class="sidebar">
   <div class="sidebar-top">
     <div class="brand">
@@ -644,32 +642,32 @@ $crsDemo        = fetchCoursesByCat($conn, 'demo');
       </div>
     </div>
 
-    <a href="#dashboard" class="nav-link-custom nav-item active">
+    <a href="teacher_dashboard.php" class="nav-link-custom active">
       <span class="nav-icon"><i class="fas fa-house"></i></span>
       <span>Dashboard</span>
     </a>
 
-    <a href="teacher_classes.php" class="nav-link-custom nav-item">
+    <a href="teacher_classes.php" class="nav-link-custom">
       <span class="nav-icon"><i class="fas fa-chalkboard-user"></i></span>
       <span>My Classes</span>
     </a>
 
-    <a href="#schedule" class="nav-link-custom nav-item">
+    <a href="teacher_schedule.php" class="nav-link-custom">
       <span class="nav-icon"><i class="fas fa-calendar-days"></i></span>
       <span>My Schedule</span>
     </a>
 
-    <a href="teacher_monthly_earnings.php" class="nav-link-custom nav-item">
+    <a href="teacher_monthly_earnings.php" class="nav-link-custom">
       <span class="nav-icon"><i class="fas fa-dollar-sign"></i></span>
       <span>My Earnings</span>
     </a>
 
-    <a href="teacher_students.php" class="nav-link-custom nav-item">
+    <a href="teacher_students.php" class="nav-link-custom">
       <span class="nav-icon"><i class="fas fa-user-graduate"></i></span>
       <span>My Students</span>
     </a>
 
-    <a href="#courses" class="nav-link-custom nav-item">
+    <a href="teacher_courses.php" class="nav-link-custom">
       <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span>
       <span>Courses</span>
     </a>

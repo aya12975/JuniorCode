@@ -166,7 +166,7 @@ $monthNames = ['','January','February','March','April','May','June','July','Augu
 <div class="sidebar">
   <div class="sidebar-top">
     <div class="brand">
-      <img src="images/robot2.png.png" class="brand-logo-img" alt="Logo">
+      <img src="images/robot2.png.png" class="brand-logo-img" alt="JuniorCode Logo">
       <div>
         <p class="brand-title">JuniorCode</p>
         <p class="brand-subtitle">TEACHER PORTAL</p>
@@ -179,12 +179,12 @@ $monthNames = ['','January','February','March','April','May','June','July','Augu
         <p class="teacher-role">Teacher</p>
       </div>
     </div>
-    <a href="teacher_dashboard.php"            class="nav-link-custom"><span class="nav-icon"><i class="fas fa-house"></i></span><span>Dashboard</span></a>
-    <a href="teacher_dashboard.php#classes"    class="nav-link-custom"><span class="nav-icon"><i class="fas fa-chalkboard-user"></i></span><span>My Classes</span></a>
-    <a href="teacher_dashboard.php#schedule"   class="nav-link-custom"><span class="nav-icon"><i class="fas fa-calendar-days"></i></span><span>My Schedule</span></a>
-    <a href="teacher_monthly_earnings.php"     class="nav-link-custom active"><span class="nav-icon"><i class="fas fa-dollar-sign"></i></span><span>My Earnings</span></a>
-    <a href="teacher_students.php"             class="nav-link-custom"><span class="nav-icon"><i class="fas fa-user-graduate"></i></span><span>My Students</span></a>
-    <a href="teacher_courses.php"              class="nav-link-custom"><span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>Courses</span></a>
+    <a href="teacher_dashboard.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-house"></i></span><span>Dashboard</span></a>
+    <a href="teacher_classes.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-chalkboard-user"></i></span><span>My Classes</span></a>
+    <a href="teacher_schedule.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-calendar-days"></i></span><span>My Schedule</span></a>
+    <a href="teacher_monthly_earnings.php" class="nav-link-custom active"><span class="nav-icon"><i class="fas fa-dollar-sign"></i></span><span>My Earnings</span></a>
+    <a href="teacher_students.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-user-graduate"></i></span><span>My Students</span></a>
+    <a href="teacher_courses.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>Courses</span></a>
   </div>
   <div class="sidebar-bottom">
     <a href="logout.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-right-from-bracket"></i></span><span>Logout</span></a>

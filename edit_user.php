@@ -13,7 +13,12 @@ if (!$id) {
     exit();
 }
 
-$stmt = $conn->prepare("SELECT id, username, role FROM users WHERE id = ?");
+$chkZoom = $conn->query("SHOW COLUMNS FROM users LIKE 'zoom_personal_link'");
+if ($chkZoom && $chkZoom->num_rows === 0) {
+    $conn->query("ALTER TABLE users ADD COLUMN zoom_personal_link TEXT NOT NULL DEFAULT ''");
+}
+
+$stmt = $conn->prepare("SELECT id, username, role, email, zoom_personal_link FROM users WHERE id = ?");
 $stmt->bind_param("i", $id);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -25,9 +30,11 @@ if (!$user) {
 }
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    $username = trim($_POST["username"] ?? "");
-    $role = trim($_POST["role"] ?? "");
-    $password = trim($_POST["password"] ?? "");
+    $username           = trim($_POST["username"]           ?? "");
+    $role               = trim($_POST["role"]               ?? "");
+    $password           = trim($_POST["password"]           ?? "");
+    $email              = trim($_POST["email"]              ?? "");
+    $zoom_personal_link = trim($_POST["zoom_personal_link"] ?? "");
 
     if ($username === "" || $role === "") {
         header("Location: edit_user.php?id=" . $id . "&error=1");
@@ -36,11 +43,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     if ($password !== "") {
         $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-        $stmt = $conn->prepare("UPDATE users SET username = ?, password = ?, plain_password = ?, role = ? WHERE id = ?");
-        $stmt->bind_param("ssssi", $username, $hashedPassword, $password, $role, $id);
+        $stmt = $conn->prepare("UPDATE users SET username = ?, password = ?, plain_password = ?, role = ?, email = ?, zoom_personal_link = ? WHERE id = ?");
+        $stmt->bind_param("ssssssi", $username, $hashedPassword, $password, $role, $email, $zoom_personal_link, $id);
     } else {
-        $stmt = $conn->prepare("UPDATE users SET username = ?, role = ? WHERE id = ?");
-        $stmt->bind_param("ssi", $username, $role, $id);
+        $stmt = $conn->prepare("UPDATE users SET username = ?, role = ?, email = ?, zoom_personal_link = ? WHERE id = ?");
+        $stmt->bind_param("ssssi", $username, $role, $email, $zoom_personal_link, $id);
     }
 
     if ($stmt->execute()) {
@@ -112,6 +119,29 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             <option value="student" <?php echo $user["role"] === "student" ? "selected" : ""; ?>>Student</option>
           </select>
         </div>
+
+        <?php if ($user["role"] === "teacher"): ?>
+        <div class="mb-3">
+          <label class="form-label">Teacher Email</label>
+          <input type="email" name="email" class="form-control"
+                 value="<?= htmlspecialchars($user["email"] ?? "") ?>"
+                 placeholder="teacher@example.com">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">
+            Personal Zoom Link
+            <span style="background:#d1fae5;color:#065f46;border-radius:999px;padding:2px 10px;font-size:0.75rem;font-weight:700;margin-left:6px;">
+              Auto-filled when creating a class
+            </span>
+          </label>
+          <input type="url" name="zoom_personal_link" class="form-control"
+                 value="<?= htmlspecialchars($user["zoom_personal_link"] ?? "") ?>"
+                 placeholder="https://zoom.us/j/your-room-link">
+        </div>
+        <?php else: ?>
+          <input type="hidden" name="email" value="<?= htmlspecialchars($user["email"] ?? "") ?>">
+          <input type="hidden" name="zoom_personal_link" value="<?= htmlspecialchars($user["zoom_personal_link"] ?? "") ?>">
+        <?php endif; ?>
 
         <button type="submit" class="btn-main">Update User</button>
         <a href="manage_users.php" class="btn btn-secondary ms-2">Back</a>

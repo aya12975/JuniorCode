@@ -16,11 +16,12 @@ if ($colCheck && $colCheck->num_rows === 0) {
     $conn->query("ALTER TABLE classes ADD COLUMN teacher_id INT DEFAULT NULL");
 }
 
-/* ── Fetch all classes for this teacher ── */
+/* ── Fetch upcoming classes for this teacher (today and future only) ── */
 $classSessions = [];
 $stmt = $conn->prepare("
     SELECT * FROM classes
-    WHERE teacher_id = ? OR LOWER(teacher_name) = LOWER(?)
+    WHERE (teacher_id = ? OR LOWER(teacher_name) = LOWER(?))
+      AND class_date >= CURDATE()
     ORDER BY class_date ASC, class_time ASC
 ");
 if ($stmt) {
@@ -33,17 +34,15 @@ if ($stmt) {
     $stmt->close();
 }
 
-$today    = date("Y-m-d");
-$total    = count($classSessions);
+$today         = date("Y-m-d");
+$total         = count($classSessions);
 $todayCount    = 0;
 $upcomingCount = 0;
-$pastCount     = 0;
 
 foreach ($classSessions as $c) {
     $d = $c["class_date"] ?? "";
-    if ($d === $today)      $todayCount++;
-    elseif ($d > $today)    $upcomingCount++;
-    else                    $pastCount++;
+    if ($d === $today)   $todayCount++;
+    else                 $upcomingCount++;
 }
 ?>
 <!DOCTYPE html>
@@ -208,7 +207,7 @@ foreach ($classSessions as $c) {
     /* ── Stat cards ── */
     .stat-grid {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(3, 1fr);
       gap: 16px;
       margin-bottom: 26px;
     }
@@ -426,6 +425,41 @@ foreach ($classSessions as $c) {
       box-shadow: 0 10px 24px rgba(45,140,255,0.35);
     }
 
+    .zoom-url-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #f0f9ff;
+      border: 1px solid #bae6fd;
+      border-radius: 10px;
+      padding: 8px 12px;
+      margin-top: 8px;
+    }
+
+    .zoom-url-text {
+      flex: 1;
+      font-size: 0.78rem;
+      color: #0369a1;
+      word-break: break-all;
+      font-family: monospace;
+      line-height: 1.4;
+    }
+
+    .zoom-copy-btn {
+      background: #e0f2fe;
+      border: 1px solid #bae6fd;
+      border-radius: 7px;
+      padding: 4px 10px;
+      color: #0369a1;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .zoom-copy-btn:hover { background: #bae6fd; }
+    .zoom-copy-btn.copied { background: #0369a1; color: #fff; border-color: #0369a1; }
+
     .no-zoom {
       display: flex;
       align-items: center;
@@ -496,7 +530,7 @@ foreach ($classSessions as $c) {
     <a href="teacher_schedule.php" class="nav-link-custom">
       <span class="nav-icon"><i class="fas fa-calendar-days"></i></span><span>My Schedule</span>
     </a>
-    <a href="teacher_dashboard.php#earnings" class="nav-link-custom">
+    <a href="teacher_monthly_earnings.php" class="nav-link-custom">
       <span class="nav-icon"><i class="fas fa-dollar-sign"></i></span><span>My Earnings</span>
     </a>
     <a href="teacher_students.php" class="nav-link-custom">
@@ -532,7 +566,7 @@ foreach ($classSessions as $c) {
   <div class="stat-grid">
     <div class="stat-card">
       <div class="stat-num c-blue"><?php echo $total; ?></div>
-      <div class="stat-label">Total Classes</div>
+      <div class="stat-label">Total</div>
     </div>
     <div class="stat-card">
       <div class="stat-num c-green"><?php echo $todayCount; ?></div>
@@ -542,10 +576,6 @@ foreach ($classSessions as $c) {
       <div class="stat-num c-orange"><?php echo $upcomingCount; ?></div>
       <div class="stat-label">Upcoming</div>
     </div>
-    <div class="stat-card">
-      <div class="stat-num c-gray"><?php echo $pastCount; ?></div>
-      <div class="stat-label">Past</div>
-    </div>
   </div>
 
   <!-- Filter tabs -->
@@ -553,7 +583,6 @@ foreach ($classSessions as $c) {
     <button class="filter-btn active" onclick="filterClasses('all', this)">All (<?php echo $total; ?>)</button>
     <button class="filter-btn" onclick="filterClasses('today', this)">Today (<?php echo $todayCount; ?>)</button>
     <button class="filter-btn" onclick="filterClasses('upcoming', this)">Upcoming (<?php echo $upcomingCount; ?>)</button>
-    <button class="filter-btn" onclick="filterClasses('past', this)">Past (<?php echo $pastCount; ?>)</button>
   </div>
 
   <!-- Classes grid -->
@@ -626,14 +655,23 @@ foreach ($classSessions as $c) {
 
         <!-- Zoom button -->
         <?php if (!empty($cZoom)): ?>
-          <a href="<?php echo htmlspecialchars($cZoom); ?>"
-             target="_blank" rel="noopener"
-             class="btn-zoom">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4z"/>
-            </svg>
-            Start Class on Zoom
-          </a>
+          <div style="margin-top:auto;">
+            <a href="<?php echo htmlspecialchars($cZoom); ?>"
+               target="_blank" rel="noopener"
+               class="btn-zoom">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4z"/>
+              </svg>
+              Start Class on Zoom
+            </a>
+            <div class="zoom-url-row">
+              <span class="zoom-url-text"><?php echo htmlspecialchars($cZoom); ?></span>
+              <button type="button" class="zoom-copy-btn"
+                      onclick="copyZoom(this, <?php echo json_encode($cZoom); ?>)">
+                <i class="fas fa-copy"></i> Copy
+              </button>
+            </div>
+          </div>
         <?php else: ?>
           <div class="no-zoom">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -651,6 +689,17 @@ foreach ($classSessions as $c) {
 </div>
 
 <script>
+  function copyZoom(btn, url) {
+    navigator.clipboard.writeText(url).then(() => {
+      btn.classList.add('copied');
+      btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+      setTimeout(() => {
+        btn.classList.remove('copied');
+        btn.innerHTML = '<i class="fas fa-copy"></i> Copy';
+      }, 2000);
+    });
+  }
+
   function filterClasses(filter, btn) {
     // Update active button
     document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));

@@ -90,9 +90,23 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         }
     }
 
+    // ── Zoom API Credentials ───────────────────────────────────
+    elseif ($action === 'zoom') {
+        saveAdminSetting($conn, 'zoom_account_id',    trim($_POST['zoom_account_id']    ?? ''));
+        saveAdminSetting($conn, 'zoom_client_id',     trim($_POST['zoom_client_id']     ?? ''));
+        saveAdminSetting($conn, 'zoom_client_secret', trim($_POST['zoom_client_secret'] ?? ''));
+        saveAdminSetting($conn, 'zoom_timezone',      trim($_POST['zoom_timezone']      ?? 'UTC'));
+        $message     = 'Zoom credentials saved.';
+        $messageType = 'success';
+    }
+
 }
 
-$admin_email = getAdminSetting($conn, "admin_email", "admin@juniorcode.com");
+$admin_email       = getAdminSetting($conn, "admin_email",       "admin@juniorcode.com");
+$zoom_account_id   = getAdminSetting($conn, 'zoom_account_id',   '');
+$zoom_client_id    = getAdminSetting($conn, 'zoom_client_id',    '');
+$zoom_client_secret= getAdminSetting($conn, 'zoom_client_secret','');
+$zoom_timezone     = getAdminSetting($conn, 'zoom_timezone',     'UTC');
 
 function isActive($page, $cur) { return $page === $cur ? "active" : ""; }
 ?>
@@ -354,6 +368,9 @@ function isActive($page, $cur) { return $page === $cur ? "active" : ""; }
       <button class="settings-tab-btn" onclick="showTab('account',this)">
         <i class="fas fa-shield-halved me-1"></i><?= t('tab_account') ?>
       </button>
+      <button class="settings-tab-btn" onclick="showTab('zoom',this)" id="zoom-tab-btn">
+        <i class="fab fa-zoom me-1"></i> Zoom API
+      </button>
     </div>
 
     <!-- ════════════════════════════════════
@@ -472,13 +489,74 @@ function isActive($page, $cur) { return $page === $cur ? "active" : ""; }
       </form>
     </div>
 
+    <!-- ════════════════════════════════════
+         TAB 3 — Zoom API
+    ════════════════════════════════════ -->
+    <div id="tab-zoom" style="display:none">
+      <form method="POST">
+        <input type="hidden" name="action" value="zoom">
+
+        <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:18px;padding:22px 24px;margin-bottom:22px;">
+          <h5 style="font-weight:900;color:#15803d;margin-bottom:6px;"><i class="fas fa-video me-2"></i>Zoom Server-to-Server OAuth</h5>
+          <p style="color:#166534;font-size:0.9rem;margin:0;line-height:1.7;">
+            These credentials are used to automatically create Zoom meetings when a class is scheduled.
+            Get them from <strong>Zoom Marketplace → Develop → Build App → Server-to-Server OAuth</strong>.
+          </p>
+        </div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="form-label fw-bold">Account ID</label>
+            <input type="text" name="zoom_account_id" class="form-control"
+                   value="<?= htmlspecialchars($zoom_account_id) ?>" placeholder="xxxxxxxxxxxxxxxxxx">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-bold">Client ID</label>
+            <input type="text" name="zoom_client_id" class="form-control"
+                   value="<?= htmlspecialchars($zoom_client_id) ?>" placeholder="xxxxxxxxxxxxxxxxxx">
+          </div>
+        </div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label class="form-label fw-bold">Client Secret</label>
+            <input type="password" name="zoom_client_secret" class="form-control"
+                   value="<?= htmlspecialchars($zoom_client_secret) ?>" placeholder="••••••••••••••••••">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label fw-bold">Timezone</label>
+            <select name="zoom_timezone" class="form-select">
+              <?php
+              $timezones = ['UTC','Asia/Beirut','Asia/Riyadh','Asia/Dubai','Europe/London','Europe/Paris','America/New_York','America/Los_Angeles'];
+              foreach ($timezones as $tz):
+              ?>
+                <option value="<?= $tz ?>" <?= $zoom_timezone === $tz ? 'selected' : '' ?>><?= $tz ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+        </div>
+
+        <?php if ($zoom_account_id && $zoom_client_id && $zoom_client_secret): ?>
+          <div style="background:#dcfce7;border:1px solid #86efac;border-radius:12px;padding:12px 16px;margin-bottom:16px;font-weight:700;color:#15803d;font-size:0.9rem;">
+            <i class="fas fa-circle-check me-1"></i> Zoom credentials are configured. Meetings will be auto-created when scheduling classes.
+          </div>
+        <?php else: ?>
+          <div style="background:#fef9c3;border:1px solid #fde047;border-radius:12px;padding:12px 16px;margin-bottom:16px;font-weight:700;color:#854d0e;font-size:0.9rem;">
+            <i class="fas fa-triangle-exclamation me-1"></i> Zoom credentials not set. Fill in all fields above to enable auto-generation.
+          </div>
+        <?php endif; ?>
+
+        <button type="submit" class="btn-main">Save Zoom Settings</button>
+      </form>
+    </div>
+
   </main>
 </div>
 
 <script>
 // ── Tab switching ──────────────────────────────────────────────
 function showTab(id, btn) {
-  ['appearance','account'].forEach(function(t) {
+  ['appearance','account','zoom'].forEach(function(t) {
     document.getElementById('tab-' + t).style.display = (t === id) ? '' : 'none';
   });
   document.querySelectorAll('.settings-tab-btn').forEach(function(b) {
