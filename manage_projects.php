@@ -21,7 +21,8 @@ $conn->query("CREATE TABLE IF NOT EXISTS course_projects (
     created_at TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 // Add image column if upgrading from old table
-$conn->query("ALTER TABLE course_projects ADD COLUMN IF NOT EXISTS image TEXT NOT NULL DEFAULT ''");
+$conn->query("ALTER TABLE course_projects ADD COLUMN IF NOT EXISTS image   TEXT NOT NULL DEFAULT ''");
+$conn->query("ALTER TABLE course_projects ADD COLUMN IF NOT EXISTS pdf_url TEXT NOT NULL DEFAULT ''");
 
 $section  = trim($_GET["section"]  ?? "kids");
 $category = trim($_GET["category"] ?? "Game Development");
@@ -34,18 +35,19 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $action = $_POST["action"] ?? "";
 
     if ($action === "add") {
-        $title = trim($_POST["title"] ?? "");
-        $url   = trim($_POST["url"]   ?? "");
-        $image = trim($_POST["image"] ?? "");
-        $sec   = trim($_POST["section"]   ?? $section);
-        $cat   = trim($_POST["category"]  ?? $category);
+        $title   = trim($_POST["title"]   ?? "");
+        $url     = trim($_POST["url"]     ?? "");
+        $image   = trim($_POST["image"]   ?? "");
+        $pdf_url = trim($_POST["pdf_url"] ?? "");
+        $sec     = trim($_POST["section"]   ?? $section);
+        $cat     = trim($_POST["category"]  ?? $category);
 
-        if ($title === "" || $url === "") {
-            $error = "Title and URL are required.";
+        if ($title === "") {
+            $error = "Title is required.";
         } else {
-            $stmt = $conn->prepare("INSERT INTO course_projects (section, category, title, url, image) VALUES (?, ?, ?, ?, ?)");
-            $stmt->bind_param("sssss", $sec, $cat, $title, $url, $image);
-            $stmt->execute() ? $success = "Project link added." : $error = "Failed to add link.";
+            $stmt = $conn->prepare("INSERT INTO course_projects (section, category, title, url, image, pdf_url) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt->bind_param("ssssss", $sec, $cat, $title, $url, $image, $pdf_url);
+            $stmt->execute() ? $success = "Project added." : $error = "Failed to add.";
             $section  = $sec;
             $category = $cat;
         }
@@ -61,14 +63,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     }
 
     if ($action === "edit") {
-        $id    = (int)($_POST["id"]    ?? 0);
-        $title = trim($_POST["title"]  ?? "");
-        $url   = trim($_POST["url"]    ?? "");
-        $image = trim($_POST["image"]  ?? "");
-        if ($id > 0 && $title !== "" && $url !== "") {
-            $stmt = $conn->prepare("UPDATE course_projects SET title = ?, url = ?, image = ? WHERE id = ?");
-            $stmt->bind_param("sssi", $title, $url, $image, $id);
-            $stmt->execute() ? $success = "Project link updated." : $error = "Failed to update.";
+        $id      = (int)($_POST["id"]      ?? 0);
+        $title   = trim($_POST["title"]    ?? "");
+        $url     = trim($_POST["url"]      ?? "");
+        $image   = trim($_POST["image"]    ?? "");
+        $pdf_url = trim($_POST["pdf_url"]  ?? "");
+        if ($id > 0 && $title !== "") {
+            $stmt = $conn->prepare("UPDATE course_projects SET title = ?, url = ?, image = ?, pdf_url = ? WHERE id = ?");
+            $stmt->bind_param("ssssi", $title, $url, $image, $pdf_url, $id);
+            $stmt->execute() ? $success = "Project updated." : $error = "Failed to update.";
         }
     }
 }
@@ -205,6 +208,30 @@ body {
   text-align: center; padding: 26px; border-radius: 16px;
   background: #f8fbff; color: var(--muted); border: 1px dashed #d9e9ff; font-weight: 700;
 }
+.action-boxes {
+  display: flex; flex-direction: column; gap: 8px; flex-shrink: 0;
+  background: #f8fbff;
+  border: 1px solid #dbeafe;
+  border-radius: 14px;
+  padding: 12px 14px;
+  min-width: 148px;
+}
+.action-box {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  border-radius: 10px; padding: 9px 14px;
+  font-size: 0.82rem; font-weight: 800; text-decoration: none;
+  white-space: nowrap; color: white; text-align: center;
+  transition: filter 0.2s;
+}
+.action-box:hover { filter: brightness(1.1); color: white; }
+.action-box-pdf  { background: linear-gradient(135deg, #f97316, #ea580c); box-shadow: 0 4px 12px rgba(249,115,22,0.28); }
+.action-box-link { background: linear-gradient(135deg, #3b82f6, #1d4ed8); box-shadow: 0 4px 12px rgba(59,130,246,0.28); }
+.action-box-empty {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  border-radius: 10px; padding: 9px 14px;
+  font-size: 0.8rem; font-weight: 600; color: #94a3b8;
+  border: 1.5px dashed #e2e8f0; white-space: nowrap; text-align: center;
+}
 /* Edit modal */
 .modal-backdrop-custom {
   display: none; position: fixed; inset: 0;
@@ -283,23 +310,26 @@ body {
         <input type="hidden" name="section"  value="<?= htmlspecialchars($section) ?>">
         <input type="hidden" name="category" value="<?= htmlspecialchars($category) ?>">
         <div class="row g-3 mb-3">
-          <div class="col-md-4">
-            <label class="form-label fw-bold">Link Title</label>
-            <input type="text" name="title" class="form-control" placeholder="e.g. Scratch Project — Dino Run" required>
+          <div class="col-md-3">
+            <label class="form-label fw-bold">Title</label>
+            <input type="text" name="title" class="form-control" placeholder="e.g. Dino Run" required>
           </div>
-          <div class="col-md-4">
-            <label class="form-label fw-bold">URL</label>
-            <input type="url" name="url" class="form-control" placeholder="https://..." required>
+          <div class="col-md-2">
+            <label class="form-label fw-bold">Image URL <span style="font-weight:400;color:var(--muted);">(opt.)</span></label>
+            <input type="text" name="image" id="addImageInput" class="form-control" placeholder="images/photo.png">
           </div>
           <div class="col-md-3">
-            <label class="form-label fw-bold">Image URL <span style="font-weight:400;color:var(--muted);">(optional)</span></label>
-            <input type="text" name="image" id="addImageInput" class="form-control" placeholder="images/photo.png or https://...">
+            <label class="form-label fw-bold">View Project Link</label>
+            <input type="url" name="url" class="form-control" placeholder="https://scratch.mit.edu/...">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label fw-bold">Check Course PDF</label>
+            <input type="url" name="pdf_url" class="form-control" placeholder="https://drive.google.com/...">
           </div>
           <div class="col-md-1 d-flex align-items-end">
             <button type="submit" class="btn-main w-100">Add</button>
           </div>
         </div>
-        <!-- Image preview for add form -->
         <div id="addImagePreview" style="display:none;margin-bottom:8px;">
           <img id="addImagePreviewImg" src="" alt="Preview" style="height:60px;border-radius:10px;border:1px solid #dbeafe;object-fit:cover;">
         </div>
@@ -323,14 +353,34 @@ body {
             <?php else: ?>
               <div class="proj-thumb-placeholder"><i class="fas fa-gamepad"></i></div>
             <?php endif; ?>
+
             <div class="project-row-info">
               <div class="project-title"><?= htmlspecialchars($p["title"]) ?></div>
-              <div class="project-url"><a href="<?= htmlspecialchars($p["url"]) ?>" target="_blank"><?= htmlspecialchars($p["url"]) ?></a></div>
             </div>
-            <button class="btn-edit-soft" onclick="openEdit(<?= $p['id'] ?>, <?= htmlspecialchars(json_encode($p['title'])) ?>, <?= htmlspecialchars(json_encode($p['url'])) ?>, <?= htmlspecialchars(json_encode($p['image'] ?? '')) ?>)">
+
+            <!-- Action boxes -->
+            <div class="action-boxes">
+              <?php if (!empty($p["pdf_url"])): ?>
+                <a href="<?= htmlspecialchars($p["pdf_url"]) ?>" target="_blank" class="action-box action-box-pdf">
+                  <i class="fas fa-file-pdf"></i> Check Course
+                </a>
+              <?php else: ?>
+                <div class="action-box-empty"><i class="fas fa-file-pdf"></i> No PDF yet</div>
+              <?php endif; ?>
+
+              <?php if (!empty($p["url"])): ?>
+                <a href="<?= htmlspecialchars($p["url"]) ?>" target="_blank" class="action-box action-box-link">
+                  <i class="fas fa-arrow-up-right-from-square"></i> View Project
+                </a>
+              <?php else: ?>
+                <div class="action-box-empty"><i class="fas fa-arrow-up-right-from-square"></i> No link yet</div>
+              <?php endif; ?>
+            </div>
+
+            <button class="btn-edit-soft" onclick="openEdit(<?= $p['id'] ?>, <?= htmlspecialchars(json_encode($p['title'])) ?>, <?= htmlspecialchars(json_encode($p['url'] ?? '')) ?>, <?= htmlspecialchars(json_encode($p['image'] ?? '')) ?>, <?= htmlspecialchars(json_encode($p['pdf_url'] ?? '')) ?>)">
               <i class="fas fa-pen"></i> Edit
             </button>
-            <form method="POST" onsubmit="return confirm('Delete this link?')" style="margin:0;">
+            <form method="POST" onsubmit="return confirm('Delete this project?')" style="margin:0;">
               <input type="hidden" name="action"   value="delete">
               <input type="hidden" name="id"       value="<?= $p['id'] ?>">
               <input type="hidden" name="section"  value="<?= htmlspecialchars($section) ?>">
@@ -364,15 +414,19 @@ body {
         <input type="text" name="title" id="editTitle" class="form-control" required>
       </div>
       <div class="mb-3">
-        <label class="form-label fw-bold">URL</label>
-        <input type="url" name="url" id="editUrl" class="form-control" required>
-      </div>
-      <div class="mb-3">
         <label class="form-label fw-bold">Image URL <span style="font-weight:400;color:var(--muted);">(optional)</span></label>
         <input type="text" name="image" id="editImage" class="form-control" placeholder="images/photo.png or https://...">
         <div id="editImagePreview" style="margin-top:8px;display:none;">
           <img id="editImagePreviewImg" src="" alt="Preview" style="height:60px;border-radius:10px;border:1px solid #dbeafe;object-fit:cover;">
         </div>
+      </div>
+      <div class="mb-3">
+        <label class="form-label fw-bold">View Project Link <span style="font-weight:400;color:var(--muted);">(optional)</span></label>
+        <input type="url" name="url" id="editUrl" class="form-control" placeholder="https://scratch.mit.edu/...">
+      </div>
+      <div class="mb-3">
+        <label class="form-label fw-bold">Check Course PDF <span style="font-weight:400;color:var(--muted);">(optional)</span></label>
+        <input type="url" name="pdf_url" id="editPdfUrl" class="form-control" placeholder="https://drive.google.com/...">
       </div>
       <div style="display:flex;gap:10px;">
         <button type="submit" class="btn-main">Save Changes</button>
@@ -383,11 +437,12 @@ body {
 </div>
 
 <script>
-function openEdit(id, title, url, image) {
-  document.getElementById('editId').value    = id;
-  document.getElementById('editTitle').value = title;
-  document.getElementById('editUrl').value   = url;
-  document.getElementById('editImage').value = image || '';
+function openEdit(id, title, url, image, pdfUrl) {
+  document.getElementById('editId').value     = id;
+  document.getElementById('editTitle').value  = title;
+  document.getElementById('editUrl').value    = url    || '';
+  document.getElementById('editImage').value  = image  || '';
+  document.getElementById('editPdfUrl').value = pdfUrl || '';
   updatePreview('editImage', 'editImagePreview', 'editImagePreviewImg');
   document.getElementById('editModal').classList.add('show');
 }

@@ -80,7 +80,8 @@ $conn->query("CREATE TABLE IF NOT EXISTS course_projects (
     sort_order INT          NOT NULL DEFAULT 0,
     created_at TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-$conn->query("ALTER TABLE course_projects ADD COLUMN IF NOT EXISTS image TEXT NOT NULL DEFAULT ''");
+$conn->query("ALTER TABLE course_projects ADD COLUMN IF NOT EXISTS image   TEXT NOT NULL DEFAULT ''");
+$conn->query("ALTER TABLE course_projects ADD COLUMN IF NOT EXISTS pdf_url TEXT NOT NULL DEFAULT ''");
 
 function fetchProjects($conn, $section, $category) {
     $stmt = $conn->prepare("SELECT * FROM course_projects WHERE section = ? AND category = ? ORDER BY sort_order ASC, id ASC");
@@ -145,11 +146,23 @@ function renderProjectLinks($projects, $section, $category) {
             <?php endif; ?>
             <div style="flex:1;min-width:0;">
               <div class="proj-title"><?= htmlspecialchars($p["title"]) ?></div>
-              <div class="proj-url"><?= htmlspecialchars($p["url"]) ?></div>
             </div>
-            <a href="<?= htmlspecialchars($p["url"]) ?>" target="_blank" class="proj-link-btn">
-              <i class="fas fa-external-link-alt"></i> Open
-            </a>
+            <div class="proj-action-boxes">
+              <?php if (!empty($p["pdf_url"])): ?>
+                <a href="<?= htmlspecialchars($p["pdf_url"]) ?>" target="_blank" class="proj-action-btn proj-action-pdf">
+                  <i class="fas fa-file-pdf"></i> Check Course
+                </a>
+              <?php else: ?>
+                <span class="proj-action-empty"><i class="fas fa-file-pdf"></i> No PDF</span>
+              <?php endif; ?>
+              <?php if (!empty($p["url"])): ?>
+                <a href="<?= htmlspecialchars($p["url"]) ?>" target="_blank" class="proj-action-btn proj-action-link">
+                  <i class="fas fa-arrow-up-right-from-square"></i> View Project
+                </a>
+              <?php else: ?>
+                <span class="proj-action-empty"><i class="fas fa-arrow-up-right-from-square"></i> No Link</span>
+              <?php endif; ?>
+            </div>
           </div>
         <?php endforeach; ?>
       </div>
@@ -686,17 +699,32 @@ function renderCourseTable($result) {
       max-width: 320px;
     }
 
-    .proj-link-btn {
-      margin-left: auto;
-      display: inline-flex; align-items: center; gap: 6px;
-      font-size: 0.82rem; font-weight: 700;
-      color: #2563eb; text-decoration: none;
-      background: white; border: 1px solid #bfdbfe;
-      padding: 6px 12px; border-radius: 8px;
-      white-space: nowrap; flex-shrink: 0;
-      transition: background 0.15s;
+    .proj-action-boxes {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex-shrink: 0;
+      background: #f8fbff;
+      border: 1px solid #dbeafe;
+      border-radius: 14px;
+      padding: 12px 14px;
+      min-width: 148px;
     }
-    .proj-link-btn:hover { background: #dbeafe; color: #1d4ed8; }
+    .proj-action-btn {
+      display: flex; align-items: center; justify-content: center; gap: 7px;
+      font-size: 0.82rem; font-weight: 800; text-decoration: none;
+      padding: 9px 14px; border-radius: 10px; white-space: nowrap;
+      transition: filter 0.2s; color: white; text-align: center;
+    }
+    .proj-action-btn:hover { filter: brightness(1.1); color: white; }
+    .proj-action-pdf  { background: linear-gradient(135deg, #f97316, #ea580c); box-shadow: 0 4px 12px rgba(249,115,22,0.28); }
+    .proj-action-link { background: linear-gradient(135deg, #3b82f6, #1d4ed8); box-shadow: 0 4px 12px rgba(59,130,246,0.28); }
+    .proj-action-empty {
+      display: flex; align-items: center; justify-content: center; gap: 7px;
+      font-size: 0.8rem; font-weight: 600; color: #94a3b8;
+      padding: 9px 14px; border-radius: 10px;
+      border: 1.5px dashed #e2e8f0; white-space: nowrap; text-align: center;
+    }
 
     .proj-section-header {
       display: flex; align-items: center; justify-content: space-between;
