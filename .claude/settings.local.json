@@ -14,7 +14,12 @@
       "Bash(where xampp *)",
       "Bash(C:/xampp/php/php.exe -r ' *)",
       "PowerShell(& \"C:\\\\xampp\\\\mysql\\\\bin\\\\mysql.exe\" -u root -e \"INSERT INTO juniorcode.settings \\(setting_key, setting_value\\) VALUES \\('whatsapp', '96179108683'\\) ON DUPLICATE KEY UPDATE setting_value = '96179108683';\")",
-      "PowerShell(& \"C:\\\\xampp\\\\mysql\\\\bin\\\\mysql.exe\" -u root -e \"INSERT INTO juniorcode_db2.settings \\(setting_key, setting_value\\) VALUES \\('whatsapp', '96179108683'\\) ON DUPLICATE KEY UPDATE setting_value = '96179108683';\")"
+      "PowerShell(& \"C:\\\\xampp\\\\mysql\\\\bin\\\\mysql.exe\" -u root -e \"INSERT INTO juniorcode_db2.settings \\(setting_key, setting_value\\) VALUES \\('whatsapp', '96179108683'\\) ON DUPLICATE KEY UPDATE setting_value = '96179108683';\")",
+      "Bash(\"C:\\\\xampp\\\\mysql\\\\bin\\\\mysql.exe\" -u root juniorcode_db2 -e \"DESCRIBE users;\")",
+      "Bash(\"C:\\\\xampp\\\\mysql\\\\bin\\\\mysql.exe\" -u root juniorcode_db2 -e \"ALTER TABLE users ADD COLUMN IF NOT EXISTS zoom_personal_link TEXT NOT NULL DEFAULT ''; ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_picture VARCHAR\\(300\\) NOT NULL DEFAULT '';\")",
+      "Bash(New-Item -ItemType Directory -Force -Path \"C:\\\\xampp\\\\htdocs\\\\JuniorCode\\\\uploads\\\\profiles\")",
+      "Bash(Out-Null)",
+      "PowerShell(New-Item *)"
     ]
   }
 }

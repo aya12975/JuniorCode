@@ -51,8 +51,9 @@ $waDisplay = $wa ? '+' . $wa : '';
       width: 255px; height: 100vh;
       background: linear-gradient(180deg, #0f172a 0%, #172554 100%);
       display: flex; flex-direction: column; justify-content: space-between;
-      z-index: 1000; overflow-y: auto;
+      z-index: 1000; overflow-y: auto; transition: transform 0.3s ease;
     }
+    body.sidebar-collapsed .sidebar { transform: translateX(-255px); }
 
     .sidebar-top { padding: 20px 16px; }
 
@@ -83,8 +84,9 @@ $waDisplay = $wa ? '+' . $wa : '';
       background: linear-gradient(135deg, var(--primary), var(--secondary));
       color: white; font-weight: bold;
       display: flex; align-items: center; justify-content: center;
-      font-size: 18px; flex-shrink: 0;
+      font-size: 18px; flex-shrink: 0; overflow: hidden;
     }
+    .student-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
     .student-name { font-weight: 800; margin: 0; color: #fff; }
     .student-role { margin: 0; color: rgba(255,255,255,0.55); font-size: 0.85rem; }
@@ -114,7 +116,11 @@ $waDisplay = $wa ? '+' . $wa : '';
     .sidebar-bottom { padding: 16px; border-top: 1px solid rgba(255,255,255,0.1); }
 
     /* ── Main ── */
-    .main { margin-left: 255px; padding: 28px; min-height: 100vh; }
+    .main { margin-left: 255px; padding: 28px; min-height: 100vh; transition: margin-left 0.3s ease; }
+    body.sidebar-collapsed .main { margin-left: 0; }
+    .hamburger-btn { display:flex; flex-direction:column; gap:5px; cursor:pointer; background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; margin-bottom:18px; width:fit-content; box-shadow:0 2px 8px rgba(0,0,0,0.06); transition:background 0.2s; }
+    .hamburger-btn:hover { background:#f1f5f9; }
+    .hamburger-line { width:22px; height:2.5px; background:#334155; border-radius:2px; }
 
     /* ── Topbar ── */
     .topbar {
@@ -289,7 +295,13 @@ $waDisplay = $wa ? '+' . $wa : '';
     </div>
 
     <div class="student-box">
-      <div class="student-avatar"><?= strtoupper(substr($studentName, 0, 1)) ?></div>
+      <div class="student-avatar">
+        <?php if (!empty($_SESSION["profile_picture"])): ?>
+          <img src="uploads/profiles/<?= htmlspecialchars($_SESSION["profile_picture"]) ?>" alt="Profile">
+        <?php else: ?>
+          <?= strtoupper(substr($studentName, 0, 1)) ?>
+        <?php endif; ?>
+      </div>
       <div>
         <p class="student-name"><?= htmlspecialchars($studentName) ?></p>
         <p class="student-role">Student</p>
@@ -305,6 +317,9 @@ $waDisplay = $wa ? '+' . $wa : '';
     <a href="student_contact.php" class="nav-link-custom active">
       <span class="nav-icon"><i class="fas fa-comments"></i></span><span>Contact Admin</span>
     </a>
+    <a href="student_profile.php" class="nav-link-custom">
+      <span class="nav-icon"><i class="fas fa-gear"></i></span><span>Settings</span>
+    </a>
   </div>
 
   <div class="sidebar-bottom">
@@ -316,6 +331,12 @@ $waDisplay = $wa ? '+' . $wa : '';
 
 <!-- ── MAIN ── -->
 <div class="main">
+
+  <div class="hamburger-btn" onclick="document.body.classList.toggle('sidebar-collapsed')">
+    <div class="hamburger-line"></div>
+    <div class="hamburger-line"></div>
+    <div class="hamburger-line"></div>
+  </div>
 
   <div class="topbar">
     <div>

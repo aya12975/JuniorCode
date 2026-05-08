@@ -84,7 +84,9 @@ $withUpcoming   = count(array_filter($students, fn($s) => !empty($s["next_class"
       justify-content: space-between;
       z-index: 1000;
       overflow-y: auto;
+      transition: transform 0.3s ease;
     }
+    body.sidebar-collapsed .sidebar { transform: translateX(-260px); }
 
     .sidebar-top { padding: 20px 16px; }
 
@@ -127,8 +129,9 @@ $withUpcoming   = count(array_filter($students, fn($s) => !empty($s["next_class"
       color: #fff;
       font-weight: bold;
       display: flex; align-items: center; justify-content: center;
-      font-size: 18px; flex-shrink: 0;
+      font-size: 18px; flex-shrink: 0; overflow: hidden;
     }
+    .teacher-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
     .teacher-name { font-weight: 800; margin: 0; color: #fff; }
     .teacher-role { margin: 0; color: rgba(255,255,255,0.55); font-size: 0.85rem; }
@@ -170,7 +173,11 @@ $withUpcoming   = count(array_filter($students, fn($s) => !empty($s["next_class"
     }
 
     /* ── Main ── */
-    .main { margin-left: 260px; padding: 28px; }
+    .main { margin-left: 260px; padding: 28px; transition: margin-left 0.3s ease; }
+    body.sidebar-collapsed .main { margin-left: 0; }
+    .hamburger-btn { display:flex; flex-direction:column; gap:5px; cursor:pointer; background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; margin-bottom:18px; width:fit-content; box-shadow:0 2px 8px rgba(0,0,0,0.06); transition:background 0.2s; }
+    .hamburger-btn:hover { background:#f1f5f9; }
+    .hamburger-line { width:22px; height:2.5px; background:#334155; border-radius:2px; }
 
     /* ── Topbar ── */
     .topbar {
@@ -425,7 +432,13 @@ $withUpcoming   = count(array_filter($students, fn($s) => !empty($s["next_class"
     </div>
 
     <div class="teacher-box">
-      <div class="teacher-avatar"><?php echo strtoupper(substr($teacherName, 0, 1)); ?></div>
+      <div class="teacher-avatar">
+        <?php if (!empty($_SESSION["profile_picture"])): ?>
+          <img src="uploads/profiles/<?= htmlspecialchars($_SESSION["profile_picture"]) ?>" alt="Profile">
+        <?php else: ?>
+          <?= strtoupper(substr($teacherName, 0, 1)) ?>
+        <?php endif; ?>
+      </div>
       <div>
         <p class="teacher-name"><?php echo htmlspecialchars($teacherName); ?></p>
         <p class="teacher-role">Teacher</p>
@@ -450,6 +463,9 @@ $withUpcoming   = count(array_filter($students, fn($s) => !empty($s["next_class"
     <a href="teacher_courses.php" class="nav-link-custom">
       <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>Courses</span>
     </a>
+    <a href="teacher_profile.php" class="nav-link-custom">
+      <span class="nav-icon"><i class="fas fa-gear"></i></span><span>Settings</span>
+    </a>
   </div>
 
   <div class="sidebar-bottom">
@@ -461,6 +477,12 @@ $withUpcoming   = count(array_filter($students, fn($s) => !empty($s["next_class"
 
 <!-- ── MAIN ── -->
 <div class="main">
+
+  <div class="hamburger-btn" onclick="document.body.classList.toggle('sidebar-collapsed')">
+    <div class="hamburger-line"></div>
+    <div class="hamburger-line"></div>
+    <div class="hamburger-line"></div>
+  </div>
 
   <!-- Topbar -->
   <div class="topbar">

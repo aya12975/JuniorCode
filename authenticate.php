@@ -17,7 +17,7 @@ if ($username === "" || $password === "") {
     exit();
 }
 
-$stmt = $conn->prepare("SELECT id, username, password, role FROM users WHERE username = ?");
+$stmt = $conn->prepare("SELECT id, username, password, role, profile_picture FROM users WHERE username = ?");
 
 if (!$stmt) {
     echo json_encode(["success" => false, "message" => "Server error. Please try again."]);
@@ -32,9 +32,10 @@ if ($result->num_rows === 1) {
     $user = $result->fetch_assoc();
 
     if (password_verify($password, $user["password"])) {
-        $_SESSION["user_id"]  = $user["id"];
-        $_SESSION["username"] = $user["username"];
-        $_SESSION["role"]     = $user["role"];
+        $_SESSION["user_id"]        = $user["id"];
+        $_SESSION["username"]       = $user["username"];
+        $_SESSION["role"]           = $user["role"];
+        $_SESSION["profile_picture"] = $user["profile_picture"] ?? "";
 
         $redirects = [
             "admin"   => "admin_dashboard.php",

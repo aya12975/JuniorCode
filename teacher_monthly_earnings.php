@@ -80,14 +80,16 @@ $monthNames = ['','January','February','March','April','May','June','July','Augu
     }
 
     /* Sidebar */
-    .sidebar { position:fixed;top:0;left:0;width:260px;height:100vh;background:linear-gradient(180deg,#0f172a 0%,#172554 100%);display:flex;flex-direction:column;justify-content:space-between;z-index:1000;overflow-y:auto; }
+    .sidebar { position:fixed;top:0;left:0;width:260px;height:100vh;background:linear-gradient(180deg,#0f172a 0%,#172554 100%);display:flex;flex-direction:column;justify-content:space-between;z-index:1000;overflow-y:auto;transition:transform 0.3s ease; }
+    body.sidebar-collapsed .sidebar { transform: translateX(-260px); }
     .sidebar-top { padding:20px 16px; }
     .brand { display:flex;align-items:center;gap:12px;padding:10px 10px 18px;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:16px; }
     .brand-logo-img { width:55px;height:55px;object-fit:contain;border-radius:0;background:none;padding:0;flex-shrink:0; }
     .brand-title { font-size:1.05rem;font-weight:900;margin:0;color:#fff;line-height:1.2; }
     .brand-subtitle { font-size:0.75rem;color:rgba(255,255,255,0.55);margin:3px 0 0;letter-spacing:1px; }
     .teacher-box { display:flex;align-items:center;gap:12px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);border-radius:16px;padding:14px;margin-bottom:18px; }
-    .teacher-avatar { width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--secondary));color:white;font-weight:bold;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0; }
+    .teacher-avatar { width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--secondary));color:white;font-weight:bold;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;overflow:hidden; }
+    .teacher-avatar img { width:100%;height:100%;object-fit:cover; }
     .teacher-name { font-weight:800;margin:0;color:#fff; }
     .teacher-role { margin:0;color:rgba(255,255,255,0.55);font-size:0.85rem; }
     .nav-link-custom { display:flex;align-items:center;gap:12px;text-decoration:none;color:rgba(255,255,255,0.78);padding:12px 14px;border-radius:14px;margin:4px 0;font-weight:700;transition:all 0.22s; }
@@ -97,7 +99,11 @@ $monthNames = ['','January','February','March','April','May','June','July','Augu
     .sidebar-bottom { padding:16px;border-top:1px solid rgba(255,255,255,0.1); }
 
     /* Main */
-    .main { margin-left:260px;padding:26px;min-height:100vh; }
+    .main { margin-left:260px;padding:26px;min-height:100vh;transition:margin-left 0.3s ease; }
+    body.sidebar-collapsed .main { margin-left: 0; }
+    .hamburger-btn { display:flex; flex-direction:column; gap:5px; cursor:pointer; background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; margin-bottom:18px; width:fit-content; box-shadow:0 2px 8px rgba(0,0,0,0.06); transition:background 0.2s; }
+    .hamburger-btn:hover { background:#f1f5f9; }
+    .hamburger-line { width:22px; height:2.5px; background:#334155; border-radius:2px; }
 
     .hero { background:linear-gradient(135deg,var(--primary),var(--secondary));color:white;border-radius:22px;padding:18px 22px;margin-bottom:24px;box-shadow:0 12px 28px rgba(37,99,235,0.3);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px; }
     .hero h2 { margin:0;font-size:1.5rem;font-weight:900; }
@@ -173,7 +179,13 @@ $monthNames = ['','January','February','March','April','May','June','July','Augu
       </div>
     </div>
     <div class="teacher-box">
-      <div class="teacher-avatar"><?= strtoupper(substr($teacherName,0,1)) ?></div>
+      <div class="teacher-avatar">
+        <?php if (!empty($_SESSION["profile_picture"])): ?>
+          <img src="uploads/profiles/<?= htmlspecialchars($_SESSION["profile_picture"]) ?>" alt="Profile">
+        <?php else: ?>
+          <?= strtoupper(substr($teacherName, 0, 1)) ?>
+        <?php endif; ?>
+      </div>
       <div>
         <p class="teacher-name"><?= htmlspecialchars($teacherName) ?></p>
         <p class="teacher-role">Teacher</p>
@@ -185,6 +197,7 @@ $monthNames = ['','January','February','March','April','May','June','July','Augu
     <a href="teacher_monthly_earnings.php" class="nav-link-custom active"><span class="nav-icon"><i class="fas fa-dollar-sign"></i></span><span>My Earnings</span></a>
     <a href="teacher_students.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-user-graduate"></i></span><span>My Students</span></a>
     <a href="teacher_courses.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>Courses</span></a>
+    <a href="teacher_profile.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-gear"></i></span><span>Settings</span></a>
   </div>
   <div class="sidebar-bottom">
     <a href="logout.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-right-from-bracket"></i></span><span>Logout</span></a>
@@ -192,6 +205,12 @@ $monthNames = ['','January','February','March','April','May','June','July','Augu
 </div>
 
 <div class="main">
+
+  <div class="hamburger-btn" onclick="document.body.classList.toggle('sidebar-collapsed')">
+    <div class="hamburger-line"></div>
+    <div class="hamburger-line"></div>
+    <div class="hamburger-line"></div>
+  </div>
 
   <div class="hero">
     <div>

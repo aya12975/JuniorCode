@@ -85,7 +85,10 @@ require_once "admin_prefs.php";
       position: sticky; top: 0;
       height: 100vh; overflow-y: auto;
       display: flex; flex-direction: column;
+      transition: width 0.3s ease, padding 0.3s ease, min-width 0.3s ease;
+      overflow: hidden;
     }
+    body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; }
 
     .brand {
       display: flex; align-items: center; gap: 12px;
@@ -136,6 +139,11 @@ require_once "admin_prefs.php";
 
     /* ── Main ── */
     .main-content { flex: 1; padding: 28px; min-width: 0; }
+
+    /* ── Hamburger ── */
+    .hamburger-btn { display:flex; flex-direction:column; gap:5px; cursor:pointer; background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; margin-bottom:18px; width:fit-content; box-shadow:0 2px 8px rgba(0,0,0,0.06); transition:background 0.2s; }
+    .hamburger-btn:hover { background:#f1f5f9; }
+    .hamburger-line { width:22px; height:2.5px; background:#334155; border-radius:2px; }
 
     /* ── Topbar ── */
     .topbar {
@@ -329,6 +337,13 @@ require_once "admin_prefs.php";
 
   <!-- ── MAIN ── -->
   <main class="main-content">
+
+    <!-- Hamburger toggle -->
+    <div class="hamburger-btn" onclick="document.body.classList.toggle('sidebar-collapsed')">
+      <div class="hamburger-line"></div>
+      <div class="hamburger-line"></div>
+      <div class="hamburger-line"></div>
+    </div>
 
     <!-- Topbar -->
     <div class="topbar">

@@ -100,7 +100,10 @@ body {
   top: 0;
   height: 100vh;
   overflow-y: auto;
+  transition: width 0.3s ease, padding 0.3s ease, min-width 0.3s ease; overflow: hidden;
 }
+
+body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: hidden; }
 
 .brand-box {
   display: flex;
@@ -204,6 +207,10 @@ body {
   flex: 1;
   padding: 26px;
 }
+
+.hamburger-btn { display:flex; flex-direction:column; gap:5px; cursor:pointer; background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; margin-bottom:18px; width:fit-content; box-shadow:0 2px 8px rgba(0,0,0,0.06); transition:background 0.2s; }
+.hamburger-btn:hover { background:#f1f5f9; }
+.hamburger-line { width:22px; height:2.5px; background:#334155; border-radius:2px; }
 
 .topbar {
   display: flex;
@@ -492,6 +499,11 @@ body {
   </aside>
 
   <main class="main-content">
+    <div class="hamburger-btn" onclick="document.body.classList.toggle('sidebar-collapsed')">
+      <div class="hamburger-line"></div>
+      <div class="hamburger-line"></div>
+      <div class="hamburger-line"></div>
+    </div>
     <div class="topbar">
       <div>
         <h1>Add User</h1>

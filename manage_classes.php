@@ -132,7 +132,10 @@ function isActive($page, $currentPage) {
       height: 100vh;
       overflow-y: auto;
       flex-shrink: 0;
+      transition: width 0.3s ease, padding 0.3s ease, min-width 0.3s ease; overflow: hidden;
     }
+
+    body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: hidden; }
 
     .brand-box {
       display: flex;
@@ -221,6 +224,10 @@ function isActive($page, $currentPage) {
       flex: 1;
       padding: 26px;
     }
+
+    .hamburger-btn { display:flex; flex-direction:column; gap:5px; cursor:pointer; background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; margin-bottom:18px; width:fit-content; box-shadow:0 2px 8px rgba(0,0,0,0.06); transition:background 0.2s; }
+    .hamburger-btn:hover { background:#f1f5f9; }
+    .hamburger-line { width:22px; height:2.5px; background:#334155; border-radius:2px; }
 
     .topbar,
     .panel-card {
@@ -502,6 +509,11 @@ function isActive($page, $currentPage) {
     </aside>
 
     <main class="main-content">
+      <div class="hamburger-btn" onclick="document.body.classList.toggle('sidebar-collapsed')">
+        <div class="hamburger-line"></div>
+        <div class="hamburger-line"></div>
+        <div class="hamburger-line"></div>
+      </div>
       <div class="topbar">
         <div>
           <h1>Manage Classes</h1>
@@ -676,7 +688,7 @@ function isActive($page, $currentPage) {
                     </td>
                     <td>
                       <a href="edit_class.php?id=<?php echo $class["id"]; ?>" class="btn btn-sm btn-warning">Edit</a>
-                      <a href="delete_class.php?id=<?php echo $class["id"]; ?>" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this class?');">Delete</a>
+                      <a href="delete_class.php?id=<?php echo $class["id"]; ?>" class="btn btn-sm btn-danger">Delete</a>
                     </td>
                   </tr>
                 <?php endforeach; ?>
