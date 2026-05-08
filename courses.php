@@ -149,7 +149,7 @@ function renderProjectLinks($projects, $section, $category) {
             </div>
             <div class="proj-action-boxes">
               <?php if (!empty($p["pdf_url"])): ?>
-                <a href="<?= htmlspecialchars($p["pdf_url"]) ?>" target="_blank" class="proj-action-btn proj-action-pdf">
+                <a href="uploads/pdfs/<?= htmlspecialchars($p["pdf_url"]) ?>" target="_blank" class="proj-action-btn proj-action-pdf">
                   <i class="fas fa-file-pdf"></i> Check Course
                 </a>
               <?php else: ?>

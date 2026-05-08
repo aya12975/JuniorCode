@@ -24,6 +24,8 @@ $conn->query("CREATE TABLE IF NOT EXISTS course_projects (
 $conn->query("ALTER TABLE course_projects ADD COLUMN IF NOT EXISTS image   TEXT NOT NULL DEFAULT ''");
 $conn->query("ALTER TABLE course_projects ADD COLUMN IF NOT EXISTS pdf_url TEXT NOT NULL DEFAULT ''");
 
+if (!is_dir("uploads/pdfs")) mkdir("uploads/pdfs", 0755, true);
+
 $section  = trim($_GET["section"]  ?? "kids");
 $category = trim($_GET["category"] ?? "Game Development");
 
@@ -38,18 +40,34 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $title   = trim($_POST["title"]   ?? "");
         $url     = trim($_POST["url"]     ?? "");
         $image   = trim($_POST["image"]   ?? "");
-        $pdf_url = trim($_POST["pdf_url"] ?? "");
         $sec     = trim($_POST["section"]   ?? $section);
         $cat     = trim($_POST["category"]  ?? $category);
+        $pdf_url = "";
 
-        if ($title === "") {
-            $error = "Title is required.";
-        } else {
-            $stmt = $conn->prepare("INSERT INTO course_projects (section, category, title, url, image, pdf_url) VALUES (?, ?, ?, ?, ?, ?)");
-            $stmt->bind_param("ssssss", $sec, $cat, $title, $url, $image, $pdf_url);
-            $stmt->execute() ? $success = "Project added." : $error = "Failed to add.";
-            $section  = $sec;
-            $category = $cat;
+        if (!empty($_FILES["pdf_file"]["name"])) {
+            $ext = strtolower(pathinfo($_FILES["pdf_file"]["name"], PATHINFO_EXTENSION));
+            if ($ext !== "pdf") {
+                $error = "Only PDF files are allowed.";
+            } else {
+                $fname = uniqid("proj_", true) . ".pdf";
+                if (!move_uploaded_file($_FILES["pdf_file"]["tmp_name"], "uploads/pdfs/" . $fname)) {
+                    $error = "Failed to save PDF file.";
+                } else {
+                    $pdf_url = $fname;
+                }
+            }
+        }
+
+        if ($error === "") {
+            if ($title === "") {
+                $error = "Title is required.";
+            } else {
+                $stmt = $conn->prepare("INSERT INTO course_projects (section, category, title, url, image, pdf_url) VALUES (?, ?, ?, ?, ?, ?)");
+                $stmt->bind_param("ssssss", $sec, $cat, $title, $url, $image, $pdf_url);
+                $stmt->execute() ? $success = "Project added." : $error = "Failed to add.";
+                $section  = $sec;
+                $category = $cat;
+            }
         }
     }
 
@@ -67,8 +85,24 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $title   = trim($_POST["title"]    ?? "");
         $url     = trim($_POST["url"]      ?? "");
         $image   = trim($_POST["image"]    ?? "");
-        $pdf_url = trim($_POST["pdf_url"]  ?? "");
-        if ($id > 0 && $title !== "") {
+        $pdf_url = trim($_POST["existing_pdf"] ?? "");
+
+        if (!empty($_FILES["pdf_file"]["name"])) {
+            $ext = strtolower(pathinfo($_FILES["pdf_file"]["name"], PATHINFO_EXTENSION));
+            if ($ext !== "pdf") {
+                $error = "Only PDF files are allowed.";
+            } else {
+                $fname = uniqid("proj_", true) . ".pdf";
+                if (!move_uploaded_file($_FILES["pdf_file"]["tmp_name"], "uploads/pdfs/" . $fname)) {
+                    $error = "Failed to save PDF file.";
+                } else {
+                    if ($pdf_url !== "") @unlink("uploads/pdfs/" . $pdf_url);
+                    $pdf_url = $fname;
+                }
+            }
+        }
+
+        if ($error === "" && $id > 0 && $title !== "") {
             $stmt = $conn->prepare("UPDATE course_projects SET title = ?, url = ?, image = ?, pdf_url = ? WHERE id = ?");
             $stmt->bind_param("ssssi", $title, $url, $image, $pdf_url, $id);
             $stmt->execute() ? $success = "Project updated." : $error = "Failed to update.";
@@ -315,7 +349,7 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: 
     <!-- Add new project link -->
     <div class="panel-card">
       <div class="panel-title">Add Project Link — <?= htmlspecialchars(ucfirst($section)) ?> &rsaquo; <?= htmlspecialchars($category) ?></div>
-      <form method="POST">
+      <form method="POST" enctype="multipart/form-data">
         <input type="hidden" name="action"   value="add">
         <input type="hidden" name="section"  value="<?= htmlspecialchars($section) ?>">
         <input type="hidden" name="category" value="<?= htmlspecialchars($category) ?>">
@@ -334,7 +368,7 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: 
           </div>
           <div class="col-md-3">
             <label class="form-label fw-bold">Check Course PDF</label>
-            <input type="url" name="pdf_url" class="form-control" placeholder="https://drive.google.com/...">
+            <input type="file" name="pdf_file" accept=".pdf" class="form-control">
           </div>
           <div class="col-md-1 d-flex align-items-end">
             <button type="submit" class="btn-main w-100">Add</button>
@@ -371,7 +405,7 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: 
             <!-- Action boxes -->
             <div class="action-boxes">
               <?php if (!empty($p["pdf_url"])): ?>
-                <a href="<?= htmlspecialchars($p["pdf_url"]) ?>" target="_blank" class="action-box action-box-pdf">
+                <a href="uploads/pdfs/<?= htmlspecialchars($p["pdf_url"]) ?>" target="_blank" class="action-box action-box-pdf">
                   <i class="fas fa-file-pdf"></i> Check Course
                 </a>
               <?php else: ?>
@@ -414,7 +448,7 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: 
 <div class="modal-backdrop-custom" id="editModal">
   <div class="modal-box">
     <div class="modal-title">Edit Project Link</div>
-    <form method="POST">
+    <form method="POST" enctype="multipart/form-data">
       <input type="hidden" name="action"   value="edit">
       <input type="hidden" name="id"       id="editId">
       <input type="hidden" name="section"  value="<?= htmlspecialchars($section) ?>">
@@ -436,7 +470,10 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: 
       </div>
       <div class="mb-3">
         <label class="form-label fw-bold">Check Course PDF <span style="font-weight:400;color:var(--muted);">(optional)</span></label>
-        <input type="url" name="pdf_url" id="editPdfUrl" class="form-control" placeholder="https://drive.google.com/...">
+        <input type="hidden" name="existing_pdf" id="editExistingPdf">
+        <div id="editCurrentPdf" style="font-size:0.83rem;color:var(--muted);margin-bottom:6px;"></div>
+        <input type="file" name="pdf_file" accept=".pdf" class="form-control">
+        <div style="font-size:0.78rem;color:var(--muted);margin-top:4px;">Leave empty to keep the current PDF</div>
       </div>
       <div style="display:flex;gap:10px;">
         <button type="submit" class="btn-main">Save Changes</button>
@@ -448,11 +485,17 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: 
 
 <script>
 function openEdit(id, title, url, image, pdfUrl) {
-  document.getElementById('editId').value     = id;
-  document.getElementById('editTitle').value  = title;
-  document.getElementById('editUrl').value    = url    || '';
-  document.getElementById('editImage').value  = image  || '';
-  document.getElementById('editPdfUrl').value = pdfUrl || '';
+  document.getElementById('editId').value          = id;
+  document.getElementById('editTitle').value       = title;
+  document.getElementById('editUrl').value         = url   || '';
+  document.getElementById('editImage').value       = image || '';
+  document.getElementById('editExistingPdf').value = pdfUrl || '';
+  const currentPdfDiv = document.getElementById('editCurrentPdf');
+  if (pdfUrl) {
+    currentPdfDiv.innerHTML = 'Current: <a href="uploads/pdfs/' + pdfUrl + '" target="_blank" style="color:#2563eb;">' + pdfUrl + '</a>';
+  } else {
+    currentPdfDiv.textContent = 'No PDF uploaded yet.';
+  }
   updatePreview('editImage', 'editImagePreview', 'editImagePreviewImg');
   document.getElementById('editModal').classList.add('show');
 }

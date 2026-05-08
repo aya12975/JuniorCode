@@ -15,32 +15,95 @@ if ($chk && $chk->num_rows === 0) {
     $conn->query("ALTER TABLE courses ADD COLUMN section VARCHAR(50) NOT NULL DEFAULT 'kids'");
 }
 
-function fetchCoursesByCategory($conn, $section, $category = null) {
-    if ($category) {
-        $sql = "SELECT * FROM courses WHERE section = ? AND category = ? ORDER BY id DESC";
-        $stmt = $conn->prepare($sql);
-        if (!$stmt) return false;
-        $stmt->bind_param("ss", $section, $category);
-    } else {
-        $sql = "SELECT * FROM courses WHERE section = ? ORDER BY id DESC";
-        $stmt = $conn->prepare($sql);
-        if (!$stmt) return false;
-        $stmt->bind_param("s", $section);
-    }
+function fetchCoursesSection($conn, $section) {
+    $stmt = $conn->prepare("SELECT * FROM courses WHERE section = ? ORDER BY category ASC, id DESC");
+    if (!$stmt) return [];
+    $stmt->bind_param("s", $section);
     $stmt->execute();
-    return $stmt->get_result();
+    $rows = [];
+    $res = $stmt->get_result();
+    while ($r = $res->fetch_assoc()) $rows[] = $r;
+    return $rows;
 }
 
-$kidsGame    = fetchCoursesByCategory($conn, 'kids',   'Game Development');
-$kidsPython  = fetchCoursesByCategory($conn, 'kids',   'Python Introduction');
-$kidsVM      = fetchCoursesByCategory($conn, 'kids',   'Virtual Machine');
-$juniorGame  = fetchCoursesByCategory($conn, 'junior', 'Game Development');
-$juniorPython= fetchCoursesByCategory($conn, 'junior', 'Python Introduction');
-$juniorVM    = fetchCoursesByCategory($conn, 'junior', 'Virtual Machine');
-$demoResult  = fetchCoursesByCategory($conn, 'demo');
+function groupCoursesByCat(array $rows): array {
+    $g = [];
+    foreach ($rows as $r) {
+        $cat = trim($r['category']) ?: 'General';
+        $g[$cat][] = $r;
+    }
+    return $g;
+}
 
-function renderReadOnlyTable($result) {
-    if (!$result || $result->num_rows === 0) {
+function catId(string $cat): string {
+    return preg_replace('/[^a-z0-9]+/', '_', strtolower(trim($cat)));
+}
+
+$kidsGroups   = groupCoursesByCat(fetchCoursesSection($conn, 'kids'));
+$juniorGroups = groupCoursesByCat(fetchCoursesSection($conn, 'junior'));
+$allDemoCrs   = fetchCoursesSection($conn, 'demo');
+
+// Ensure course_projects table exists
+$conn->query("CREATE TABLE IF NOT EXISTS course_projects (
+    id INT AUTO_INCREMENT PRIMARY KEY, section VARCHAR(50) NOT NULL DEFAULT 'kids',
+    category VARCHAR(100) NOT NULL DEFAULT '', title VARCHAR(255) NOT NULL,
+    url TEXT NOT NULL, image TEXT NOT NULL DEFAULT '', sort_order INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$conn->query("ALTER TABLE course_projects ADD COLUMN IF NOT EXISTS pdf_url TEXT NOT NULL DEFAULT ''");
+
+function fetchProjSectionTc($conn, $section) {
+    $stmt = $conn->prepare("SELECT * FROM course_projects WHERE section = ? ORDER BY sort_order ASC, id ASC");
+    if (!$stmt) return [];
+    $stmt->bind_param("s", $section);
+    $stmt->execute();
+    $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $g = [];
+    foreach ($rows as $r) { $g[trim($r['category']) ?: 'General'][] = $r; }
+    return $g;
+}
+
+function renderTcProjects(array $projs): string {
+    if (empty($projs)) return '';
+    ob_start(); ?>
+    <div style="margin-bottom:16px;">
+      <div style="font-size:0.93rem;font-weight:800;color:#0f172a;margin-bottom:10px;">
+        <i class="fas fa-link" style="color:#2563eb;margin-right:6px;"></i>Project Links
+      </div>
+      <?php foreach ($projs as $p): ?>
+        <div class="tc-proj-item">
+          <?php if (!empty($p["image"])): ?>
+            <div class="tc-proj-icon"><img src="<?= htmlspecialchars($p["image"]) ?>" alt="<?= htmlspecialchars($p["title"]) ?>"></div>
+          <?php else: ?>
+            <div class="tc-proj-icon-fb"><i class="fas fa-gamepad"></i></div>
+          <?php endif; ?>
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:800;color:#0f172a;font-size:0.9rem;"><?= htmlspecialchars($p["title"]) ?></div>
+          </div>
+          <div class="tc-proj-actions">
+            <?php if (!empty($p["pdf_url"])): ?>
+              <a href="uploads/pdfs/<?= htmlspecialchars($p["pdf_url"]) ?>" target="_blank" class="tc-proj-btn tc-proj-pdf">
+                <i class="fas fa-file-pdf"></i> Check Course
+              </a>
+            <?php endif; ?>
+            <?php if (!empty($p["url"])): ?>
+              <a href="<?= htmlspecialchars($p["url"]) ?>" target="_blank" class="tc-proj-btn tc-proj-link">
+                <i class="fas fa-arrow-up-right-from-square"></i> View Project
+              </a>
+            <?php endif; ?>
+          </div>
+        </div>
+      <?php endforeach; ?>
+    </div>
+    <?php return ob_get_clean();
+}
+
+$kidsProjects   = fetchProjSectionTc($conn, 'kids');
+$juniorProjects = fetchProjSectionTc($conn, 'junior');
+$demoProjects   = fetchProjSectionTc($conn, 'demo');
+
+function renderReadOnlyTable(array $rows) {
+    if (empty($rows)) {
         return '<div class="empty-box">No courses found.</div>';
     }
     ob_start(); ?>
@@ -54,7 +117,7 @@ function renderReadOnlyTable($result) {
           </tr>
         </thead>
         <tbody>
-          <?php while ($course = $result->fetch_assoc()): ?>
+          <?php foreach ($rows as $course): ?>
           <tr>
             <td><?= htmlspecialchars($course["id"]) ?></td>
             <td>
@@ -73,7 +136,7 @@ function renderReadOnlyTable($result) {
             <td><span class="status-badge <?= $course["status"] === "active" ? "status-active" : "status-inactive" ?>"><?= ucfirst(htmlspecialchars($course["status"])) ?></span></td>
             <td><?= htmlspecialchars($course["duration"]) ?></td>
           </tr>
-          <?php endwhile; ?>
+          <?php endforeach; ?>
         </tbody>
       </table>
     </div>
@@ -335,6 +398,16 @@ function renderReadOnlyTable($result) {
       color: var(--muted); border: 1px dashed #d9e9ff; font-weight: 700;
     }
 
+    .tc-proj-item { display:flex; align-items:center; gap:12px; background:#f0f7ff; border:1px solid #bfdbfe; border-radius:14px; padding:13px 16px; margin-bottom:10px; }
+    .tc-proj-icon { flex-shrink:0; display:flex; align-items:center; }
+    .tc-proj-icon img { max-height:100px; max-width:160px; width:auto; height:auto; border-radius:10px; display:block; }
+    .tc-proj-icon-fb { width:44px; height:44px; border-radius:10px; background:linear-gradient(135deg,var(--primary),var(--secondary)); color:white; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .tc-proj-actions { display:flex; flex-direction:column; gap:6px; flex-shrink:0; }
+    .tc-proj-btn { display:flex; align-items:center; justify-content:center; gap:6px; font-size:0.8rem; font-weight:800; text-decoration:none; padding:8px 14px; border-radius:9px; white-space:nowrap; color:white; transition:filter 0.2s; }
+    .tc-proj-btn:hover { color:white; filter:brightness(1.1); }
+    .tc-proj-pdf  { background:linear-gradient(135deg,#f97316,#ea580c); box-shadow:0 4px 10px rgba(249,115,22,0.25); }
+    .tc-proj-link { background:linear-gradient(135deg,#3b82f6,#1d4ed8); box-shadow:0 4px 10px rgba(59,130,246,0.25); }
+
     @media (max-width: 991px) {
       .sidebar { position: static; width: 100%; height: auto; }
       .main    { margin-left: 0; }
@@ -428,145 +501,99 @@ function renderReadOnlyTable($result) {
     </div>
   </div>
 
-  <!-- Tabs -->
+  <!-- Tab bar -->
   <div class="tab-bar">
     <button class="tab-btn active" onclick="switchTab('kids',   this)">Kids</button>
     <button class="tab-btn"        onclick="switchTab('junior', this)">Junior</button>
     <button class="tab-btn"        onclick="switchTab('demo',   this)">Demo</button>
   </div>
 
-  <!-- ── KIDS ── -->
+  <!-- Kids -->
   <div id="tab-kids" class="tab-section active">
-    <div style="position:relative;display:inline-block;margin-bottom:16px;">
-      <button class="btn-module" onclick="toggleMenu('kids', event)" type="button">
-        Select Kids Module <i class="fas fa-chevron-down ms-2" id="kids-chevron"></i>
-      </button>
-      <div id="kids-dropdown" style="
-        display:none; position:absolute; top:calc(100% + 8px); left:0;
-        background:white; border:1px solid #dbeafe; border-radius:16px;
-        box-shadow:0 12px 32px rgba(15,23,42,0.12); min-width:220px; z-index:100; overflow:hidden;">
-        <button class="kids-drop-item active" onclick="switchCat('kids','game',  this)" type="button">Game Development</button>
-        <button class="kids-drop-item"        onclick="switchCat('kids','python',this)" type="button">Python Introduction</button>
-        <button class="kids-drop-item"        onclick="switchCat('kids','vm',    this)" type="button">Virtual Machine</button>
-      </div>
-    </div>
-
-    <div id="kids-game" class="kids-cat-section active">
-      <div class="panel-card">
-        <div class="panel-header">
-          <div class="panel-title">Kids — Game Development</div>
+    <?php if (!empty($kidsGroups)):
+      $kidsCats = array_keys($kidsGroups); ?>
+      <?php if (count($kidsCats) > 1): ?>
+      <div style="position:relative;display:inline-block;margin-bottom:16px;">
+        <button class="btn-module" onclick="toggleMenu('kids',event)" type="button">
+          Select Kids Module <i class="fas fa-chevron-down ms-2" id="kids-chevron"></i>
+        </button>
+        <div id="kids-dropdown" style="display:none;position:absolute;top:calc(100% + 8px);left:0;background:white;border:1px solid #dbeafe;border-radius:16px;box-shadow:0 12px 32px rgba(15,23,42,0.12);min-width:220px;z-index:100;overflow:hidden;">
+          <?php foreach ($kidsCats as $i => $cat): ?>
+            <button class="kids-drop-item <?= $i === 0 ? 'active' : '' ?>" onclick="switchCat('kids','<?= catId($cat) ?>',this)" type="button"><?= htmlspecialchars($cat) ?></button>
+          <?php endforeach; ?>
         </div>
-        <?= renderReadOnlyTable($kidsGame) ?>
       </div>
-    </div>
-    <div id="kids-python" class="kids-cat-section">
-      <div class="panel-card">
-        <div class="panel-header">
-          <div class="panel-title">Kids — Python Introduction</div>
+      <?php endif; ?>
+      <?php foreach ($kidsCats as $i => $cat): ?>
+        <div id="kids-<?= catId($cat) ?>" class="kids-cat-section <?= $i === 0 ? 'active' : '' ?>">
+          <div class="panel-card">
+            <div class="panel-header">
+              <div class="panel-title">Kids — <?= htmlspecialchars($cat) ?></div>
+            </div>
+            <?= renderTcProjects($kidsProjects[$cat] ?? []) ?>
+            <?= renderReadOnlyTable($kidsGroups[$cat]) ?>
+          </div>
         </div>
-        <?= renderReadOnlyTable($kidsPython) ?>
-      </div>
-    </div>
-    <div id="kids-vm" class="kids-cat-section">
-      <div class="panel-card">
-        <div class="panel-header">
-          <div class="panel-title">Kids — Virtual Machine</div>
-        </div>
-        <?= renderReadOnlyTable($kidsVM) ?>
-      </div>
-    </div>
+      <?php endforeach; ?>
+    <?php else: ?>
+      <div class="empty-box">No Kids courses found.</div>
+    <?php endif; ?>
   </div>
 
-  <!-- ── JUNIOR ── -->
+  <!-- Junior -->
   <div id="tab-junior" class="tab-section">
-    <div style="position:relative;display:inline-block;margin-bottom:16px;">
-      <button class="btn-module" onclick="toggleMenu('junior', event)" type="button">
-        Select Junior Module <i class="fas fa-chevron-down ms-2" id="junior-chevron"></i>
-      </button>
-      <div id="junior-dropdown" style="
-        display:none; position:absolute; top:calc(100% + 8px); left:0;
-        background:white; border:1px solid #dbeafe; border-radius:16px;
-        box-shadow:0 12px 32px rgba(15,23,42,0.12); min-width:220px; z-index:100; overflow:hidden;">
-        <button class="kids-drop-item active" onclick="switchCat('junior','game',  this)" type="button">Game Development</button>
-        <button class="kids-drop-item"        onclick="switchCat('junior','python',this)" type="button">Python Introduction</button>
-        <button class="kids-drop-item"        onclick="switchCat('junior','vm',    this)" type="button">Virtual Machine</button>
-      </div>
-    </div>
-
-    <div id="junior-game" class="junior-cat-section active">
-      <div class="panel-card">
-        <div class="panel-header">
-          <div class="panel-title">Junior — Game Development</div>
+    <?php if (!empty($juniorGroups)):
+      $juniorCats = array_keys($juniorGroups); ?>
+      <?php if (count($juniorCats) > 1): ?>
+      <div style="position:relative;display:inline-block;margin-bottom:16px;">
+        <button class="btn-module" onclick="toggleMenu('junior',event)" type="button">
+          Select Junior Module <i class="fas fa-chevron-down ms-2" id="junior-chevron"></i>
+        </button>
+        <div id="junior-dropdown" style="display:none;position:absolute;top:calc(100% + 8px);left:0;background:white;border:1px solid #dbeafe;border-radius:16px;box-shadow:0 12px 32px rgba(15,23,42,0.12);min-width:220px;z-index:100;overflow:hidden;">
+          <?php foreach ($juniorCats as $i => $cat): ?>
+            <button class="kids-drop-item <?= $i === 0 ? 'active' : '' ?>" onclick="switchCat('junior','<?= catId($cat) ?>',this)" type="button"><?= htmlspecialchars($cat) ?></button>
+          <?php endforeach; ?>
         </div>
-        <?= renderReadOnlyTable($juniorGame) ?>
       </div>
-    </div>
-    <div id="junior-python" class="junior-cat-section">
-      <div class="panel-card">
-        <div class="panel-header">
-          <div class="panel-title">Junior — Python Introduction</div>
+      <?php endif; ?>
+      <?php foreach ($juniorCats as $i => $cat): ?>
+        <div id="junior-<?= catId($cat) ?>" class="junior-cat-section <?= $i === 0 ? 'active' : '' ?>">
+          <div class="panel-card">
+            <div class="panel-header">
+              <div class="panel-title">Junior — <?= htmlspecialchars($cat) ?></div>
+            </div>
+            <?= renderTcProjects($juniorProjects[$cat] ?? []) ?>
+            <?= renderReadOnlyTable($juniorGroups[$cat]) ?>
+          </div>
         </div>
-        <?= renderReadOnlyTable($juniorPython) ?>
-      </div>
-    </div>
-    <div id="junior-vm" class="junior-cat-section">
-      <div class="panel-card">
-        <div class="panel-header">
-          <div class="panel-title">Junior — Virtual Machine</div>
-        </div>
-        <?= renderReadOnlyTable($juniorVM) ?>
-      </div>
-    </div>
+      <?php endforeach; ?>
+    <?php else: ?>
+      <div class="empty-box">No Junior courses found.</div>
+    <?php endif; ?>
   </div>
 
-  <!-- ── DEMO ── -->
+  <!-- Demo -->
   <div id="tab-demo" class="tab-section">
     <div class="panel-card">
       <div class="panel-title">Demo Courses</div>
-
       <div class="grade-group">
         <span class="grade-group-label">Little <span style="font-weight:400;color:#64748b;">Grade 1 – Grade 3</span></span>
         <div class="grade-cards">
-          <div class="grade-card">
-            <a href="https://studio.code.org/courses/courseb-2025/units/1/lessons/3/levels/2" target="_blank" class="grade-link">
-              <i class="fas fa-external-link-alt"></i> Code.org — Course B
-            </a>
-          </div>
-          <div class="grade-card">
-            <a href="https://studio.code.org/flappy/1" target="_blank" class="grade-link">
-              <i class="fas fa-external-link-alt"></i> Code.org — Flappy
-            </a>
-          </div>
-          <div class="grade-card">
-            <a href="https://scratch.mit.edu/projects/889441020/" target="_blank" class="grade-link">
-              <i class="fas fa-external-link-alt"></i> Scratch Project
-            </a>
-          </div>
+          <div class="grade-card"><a href="https://studio.code.org/courses/courseb-2025/units/1/lessons/3/levels/2" target="_blank" class="grade-link"><i class="fas fa-external-link-alt"></i> Code.org — Course B</a></div>
+          <div class="grade-card"><a href="https://studio.code.org/flappy/1" target="_blank" class="grade-link"><i class="fas fa-external-link-alt"></i> Code.org — Flappy</a></div>
+          <div class="grade-card"><a href="https://scratch.mit.edu/projects/889441020/" target="_blank" class="grade-link"><i class="fas fa-external-link-alt"></i> Scratch Project</a></div>
         </div>
       </div>
-
       <div class="grade-group">
         <span class="grade-group-label">Junior</span>
         <div class="grade-cards">
-          <div class="grade-card">
-            <a href="https://scratch.mit.edu/projects/889441020/" target="_blank" class="grade-link">
-              <i class="fas fa-external-link-alt"></i> Scratch Project
-            </a>
-          </div>
-          <div class="grade-card">
-            <a href="https://x.thunkable.com/projectPage/65d61cf59f6fe10a3cc8ea2f" target="_blank" class="grade-link">
-              <i class="fas fa-external-link-alt"></i> Thunkable Project
-            </a>
-          </div>
-          <div class="grade-card">
-            <a href="https://www.onlinegdb.com/EIipF2SoF" target="_blank" class="grade-link">
-              <i class="fas fa-external-link-alt"></i> OnlineGDB
-            </a>
-          </div>
+          <div class="grade-card"><a href="https://scratch.mit.edu/projects/889441020/" target="_blank" class="grade-link"><i class="fas fa-external-link-alt"></i> Scratch Project</a></div>
+          <div class="grade-card"><a href="https://x.thunkable.com/projectPage/65d61cf59f6fe10a3cc8ea2f" target="_blank" class="grade-link"><i class="fas fa-external-link-alt"></i> Thunkable Project</a></div>
+          <div class="grade-card"><a href="https://www.onlinegdb.com/EIipF2SoF" target="_blank" class="grade-link"><i class="fas fa-external-link-alt"></i> OnlineGDB</a></div>
         </div>
       </div>
-
-      <?= renderReadOnlyTable($demoResult) ?>
+      <?php foreach ($demoProjects as $projs): echo renderTcProjects($projs); endforeach; ?>
+      <?= renderReadOnlyTable($allDemoCrs) ?>
     </div>
   </div>
 </div>
