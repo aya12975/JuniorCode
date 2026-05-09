@@ -61,6 +61,16 @@ if ($connCheck && $connCheck->num_rows > 0) {
     }
 }
 
+/* ── Certificates ── */
+$certificates = [];
+if ($conn->query("SHOW TABLES LIKE 'certificates'")->num_rows > 0) {
+    $stmtC = $conn->prepare("SELECT * FROM certificates WHERE student_name = ? ORDER BY issued_date DESC LIMIT 6");
+    $stmtC->bind_param("s", $studentName);
+    $stmtC->execute();
+    $certificates = $stmtC->get_result()->fetch_all(MYSQLI_ASSOC);
+    $stmtC->close();
+}
+
 /* ── WhatsApp number from settings ── */
 require_once "admin_prefs.php";
 $whatsapp = getAdminSetting($conn, 'whatsapp', '');
@@ -345,7 +355,8 @@ body.sidebar-collapsed .main { margin-left: 0; }
     <a href="student_assignments.php" class="nav-link-custom">
       <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span><span>My Assignments</span>
     </a>
-    <a href="student_chat.php" class="nav-link-custom">
+        <a href="student_certificates.php"  class="nav-link-custom"><span class="nav-icon"><i class="fas fa-award"></i></span><span>Certificates</span></a>
+<a href="student_chat.php" class="nav-link-custom">
       <span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI Tutor</span>
     </a>
     <a href="student_contact.php" class="nav-link-custom">
@@ -398,6 +409,11 @@ body.sidebar-collapsed .main { margin-left: 0; }
       <div class="stat-icon" style="background:#fef9c3;color:#ca8a04;"><i class="fas fa-star"></i></div>
       <div class="stat-num" style="color:#ca8a04;"><?= count($todaysClasses) ?></div>
       <div class="stat-label">Today's Classes</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon" style="background:#fff7ed;color:#f59e0b;"><i class="fas fa-award"></i></div>
+      <div class="stat-num" style="color:#f59e0b;"><?= count($certificates) ?></div>
+      <div class="stat-label">Certificates</div>
     </div>
   </div>
 
@@ -565,6 +581,34 @@ body.sidebar-collapsed .main { margin-left: 0; }
         </a>
       </div>
     </div>
+  </div>
+
+  <!-- Certificates -->
+  <div class="panel-card" style="margin-top:22px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--border);">
+      <div class="panel-title" style="margin:0;padding:0;border:none;"><i class="fas fa-award me-2" style="color:#f59e0b;"></i>My Certificates</div>
+      <a href="student_certificates.php" style="text-decoration:none;color:var(--primary);font-weight:800;font-size:0.85rem;background:#eff6ff;border-radius:999px;padding:5px 14px;">View all</a>
+    </div>
+    <?php if (empty($certificates)): ?>
+      <div class="empty-state">
+        <i class="fas fa-award"></i>
+        <p>No certificates yet — complete a course to earn one!</p>
+      </div>
+    <?php else: ?>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;">
+        <?php foreach ($certificates as $cert): ?>
+          <div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);border-radius:16px;padding:18px;color:#fff;position:relative;overflow:hidden;">
+            <div style="position:absolute;top:-14px;right:-14px;width:70px;height:70px;border-radius:50%;background:rgba(245,158,11,0.12);"></div>
+            <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#f59e0b,#b45309);display:flex;align-items:center;justify-content:center;margin-bottom:12px;">
+              <i class="fas fa-medal" style="color:#fff;font-size:1rem;"></i>
+            </div>
+            <div style="font-weight:800;font-size:0.95rem;margin-bottom:4px;line-height:1.3;"><?= htmlspecialchars($cert['course_name']) ?></div>
+            <div style="font-size:0.78rem;color:rgba(255,255,255,0.6);margin-bottom:2px;"><i class="fas fa-chalkboard-user me-1"></i><?= htmlspecialchars($cert['teacher_name']) ?></div>
+            <div style="font-size:0.75rem;color:#f59e0b;margin-top:8px;font-weight:700;"><i class="fas fa-calendar me-1"></i><?= date("M j, Y", strtotime($cert['issued_date'])) ?></div>
+          </div>
+        <?php endforeach; ?>
+      </div>
+    <?php endif; ?>
   </div>
 
 </div>

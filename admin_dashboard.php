@@ -329,6 +329,9 @@ require_once "admin_prefs.php";
       <a href="settings.php" class="nav-link-custom <?= isActive('settings.php', $currentPage) ?>">
         <span class="nav-icon"><i class="fas fa-gear"></i></span><span><?= t('nav_settings') ?></span>
       </a>
+      <a href="admin_certificates.php" class="nav-link-custom <?= isActive('admin_certificates.php', $currentPage) ?>">
+        <span class="nav-icon"><i class="fas fa-award"></i></span><span>Certificates</span>
+      </a>
       <a href="admin_ai_settings.php" class="nav-link-custom <?= isActive('admin_ai_settings.php', $currentPage) ?>">
         <span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI Tutor</span>
       </a>

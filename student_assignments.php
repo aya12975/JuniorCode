@@ -408,7 +408,8 @@ body.sidebar-collapsed .main { margin-left: 0; }
     <a href="student_assignments.php" class="nav-link-custom active">
       <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span><span>My Assignments</span>
     </a>
-    <a href="student_chat.php" class="nav-link-custom">
+        <a href="student_certificates.php"  class="nav-link-custom"><span class="nav-icon"><i class="fas fa-award"></i></span><span>Certificates</span></a>
+<a href="student_chat.php" class="nav-link-custom">
       <span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI Tutor</span>
     </a>
     <a href="student_contact.php" class="nav-link-custom">

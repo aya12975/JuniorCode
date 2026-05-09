@@ -764,7 +764,7 @@ $demoProjects   = fetchProjSection($conn, 'demo');
       <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span>
       <span>Courses</span>
     </a>
-    <a href="teacher_profile.php" class="nav-link-custom">
+<a href="teacher_profile.php" class="nav-link-custom">
       <span class="nav-icon"><i class="fas fa-gear"></i></span>
       <span>Settings</span>
     </a>

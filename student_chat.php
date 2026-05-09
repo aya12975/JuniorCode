@@ -237,7 +237,8 @@ body.sidebar-collapsed .main { margin-left: 0; }
     <a href="student_dashboard.php"    class="nav-link-custom"><span class="nav-icon"><i class="fas fa-house"></i></span><span>Dashboard</span></a>
     <a href="student_classes.php"      class="nav-link-custom"><span class="nav-icon"><i class="fas fa-book"></i></span><span>My Classes</span></a>
     <a href="student_assignments.php"  class="nav-link-custom"><span class="nav-icon"><i class="fas fa-clipboard-list"></i></span><span>My Assignments</span></a>
-    <a href="student_chat.php"         class="nav-link-custom active"><span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI Tutor</span></a>
+        <a href="student_certificates.php"  class="nav-link-custom"><span class="nav-icon"><i class="fas fa-award"></i></span><span>Certificates</span></a>
+<a href="student_chat.php"         class="nav-link-custom active"><span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI Tutor</span></a>
     <a href="student_contact.php"      class="nav-link-custom"><span class="nav-icon"><i class="fas fa-comments"></i></span><span>Contact Admin</span></a>
     <a href="student_profile.php"      class="nav-link-custom"><span class="nav-icon"><i class="fas fa-gear"></i></span><span>Settings</span></a>
   </div>

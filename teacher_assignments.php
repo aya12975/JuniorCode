@@ -259,7 +259,7 @@ body.sidebar-collapsed .sidebar { width:0; padding:0; min-width:0; overflow:hidd
       <a href="teacher_students.php"        class="nav-link-custom"><span class="nav-icon"><i class="fas fa-user-graduate"></i></span><span>My Students</span></a>
       <a href="teacher_assignments.php"     class="nav-link-custom active"><span class="nav-icon"><i class="fas fa-clipboard-list"></i></span><span>Assignments</span></a>
       <a href="teacher_courses.php"         class="nav-link-custom"><span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>Courses</span></a>
-      <a href="teacher_profile.php"         class="nav-link-custom"><span class="nav-icon"><i class="fas fa-gear"></i></span><span>Settings</span></a>
+<a href="teacher_profile.php"         class="nav-link-custom"><span class="nav-icon"><i class="fas fa-gear"></i></span><span>Settings</span></a>
       <a href="logout.php"                  class="nav-link-custom"><span class="nav-icon"><i class="fas fa-right-from-bracket"></i></span><span>Logout</span></a>
     </div>
   </aside>
