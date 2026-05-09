@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 require_once "db.php";
 require_once "zoom_helper.php";
@@ -326,5 +326,6 @@ textarea.form-control { height: auto; }
   </main>
 </div>
 
+<script src="logout-modal.js"></script>
 </body>
 </html>

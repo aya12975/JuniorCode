@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 require_once "db.php";
 
@@ -279,5 +279,6 @@ function toggleTeacherFields() {
 }
 toggleTeacherFields();
 </script>
+<script src="logout-modal.js"></script>
 </body>
 </html>

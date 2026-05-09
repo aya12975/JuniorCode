@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 require_once "db.php";
 
@@ -9,6 +9,44 @@ if (!isset($_SESSION["role"]) || $_SESSION["role"] !== "admin") {
 
 $currentPage = basename($_SERVER["PHP_SELF"]);
 $adminName = $_SESSION["username"] ?? "Admin";
+
+// Ensure course_projects table exists before any POST handler runs
+$conn->query("CREATE TABLE IF NOT EXISTS course_projects (
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    section    VARCHAR(50)  NOT NULL DEFAULT 'kids',
+    category   VARCHAR(100) NOT NULL DEFAULT 'Game Development',
+    title      VARCHAR(255) NOT NULL,
+    url        TEXT         NOT NULL,
+    image      TEXT         NOT NULL DEFAULT '',
+    sort_order INT          NOT NULL DEFAULT 0,
+    created_at TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$conn->query("ALTER TABLE course_projects ADD COLUMN IF NOT EXISTS image   TEXT NOT NULL DEFAULT ''");
+$conn->query("ALTER TABLE course_projects ADD COLUMN IF NOT EXISTS pdf_url TEXT NOT NULL DEFAULT ''");
+
+// Handle category rename / delete
+if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["cat_action"])) {
+    $catAction  = $_POST["cat_action"];
+    $catSection = trim($_POST["cat_section"] ?? "");
+    $catOld     = trim($_POST["cat_old"]     ?? "");
+    $catNew     = trim($_POST["cat_new"]     ?? "");
+
+    if ($catSection && $catOld) {
+        if ($catAction === "rename" && $catNew && $catNew !== $catOld) {
+            $s1 = $conn->prepare("UPDATE courses SET category=? WHERE section=? AND category=?");
+            if ($s1) { $s1->bind_param("sss", $catNew, $catSection, $catOld); $s1->execute(); }
+            $s2 = $conn->prepare("UPDATE course_projects SET category=? WHERE section=? AND category=?");
+            if ($s2) { $s2->bind_param("sss", $catNew, $catSection, $catOld); $s2->execute(); }
+        } elseif ($catAction === "delete") {
+            $d1 = $conn->prepare("DELETE FROM courses WHERE section=? AND category=?");
+            if ($d1) { $d1->bind_param("ss", $catSection, $catOld); $d1->execute(); }
+            $d2 = $conn->prepare("DELETE FROM course_projects WHERE section=? AND category=?");
+            if ($d2) { $d2->bind_param("ss", $catSection, $catOld); $d2->execute(); }
+        }
+    }
+    header("Location: courses.php?tab=" . urlencode($catSection) . "&success=1");
+    exit();
+}
 
 $search      = trim($_GET["search"] ?? "");
 $filterType  = trim($_GET["type"] ?? "");
@@ -65,42 +103,18 @@ function fetchKidsByCategory($conn, $category, $search, $filterType) {
     return $stmt->get_result();
 }
 
-$kidsGame   = fetchKidsByCategory($conn, 'Game Development',     $search, $filterType);
-$kidsPython = fetchKidsByCategory($conn, 'Python Introduction',  $search, $filterType);
-$kidsVM     = fetchKidsByCategory($conn, 'Virtual Machine',      $search, $filterType);
-
-// Auto-create course_projects table if missing
-$conn->query("CREATE TABLE IF NOT EXISTS course_projects (
-    id         INT AUTO_INCREMENT PRIMARY KEY,
-    section    VARCHAR(50)  NOT NULL DEFAULT 'kids',
-    category   VARCHAR(100) NOT NULL DEFAULT 'Game Development',
-    title      VARCHAR(255) NOT NULL,
-    url        TEXT         NOT NULL,
-    image      TEXT         NOT NULL DEFAULT '',
-    sort_order INT          NOT NULL DEFAULT 0,
-    created_at TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-$conn->query("ALTER TABLE course_projects ADD COLUMN IF NOT EXISTS image   TEXT NOT NULL DEFAULT ''");
-$conn->query("ALTER TABLE course_projects ADD COLUMN IF NOT EXISTS pdf_url TEXT NOT NULL DEFAULT ''");
-
 function fetchProjects($conn, $section, $category) {
     $stmt = $conn->prepare("SELECT * FROM course_projects WHERE section = ? AND category = ? ORDER BY sort_order ASC, id ASC");
+    if (!$stmt) return [];
     $stmt->bind_param("ss", $section, $category);
     $stmt->execute();
     return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 }
 
-$kidsGameProjects   = fetchProjects($conn, 'kids',   'Game Development');
-$kidsPythonProjects = fetchProjects($conn, 'kids',   'Python Introduction');
-$kidsVMProjects     = fetchProjects($conn, 'kids',   'Virtual Machine');
-$juniorGameProjects   = fetchProjects($conn, 'junior', 'Game Development');
-$juniorPythonProjects = fetchProjects($conn, 'junior', 'Python Introduction');
-$juniorVMProjects     = fetchProjects($conn, 'junior', 'Virtual Machine');
-
-function fetchJuniorByCategory($conn, $category, $search, $filterType) {
-    $sql    = "SELECT * FROM courses WHERE section = 'junior' AND category = ?";
-    $params = [$category];
-    $types  = "s";
+function fetchCoursesByCategory($conn, $section, $category, $search, $filterType) {
+    $sql    = "SELECT * FROM courses WHERE section = ? AND category = ?";
+    $params = [$section, $category];
+    $types  = "ss";
     if ($search !== "") { $sql .= " AND course_name LIKE ?"; $params[] = "%$search%"; $types .= "s"; }
     if ($filterType !== "") { $sql .= " AND course_type = ?"; $params[] = $filterType; $types .= "s"; }
     $sql .= " ORDER BY id DESC";
@@ -111,9 +125,32 @@ function fetchJuniorByCategory($conn, $category, $search, $filterType) {
     return $stmt->get_result();
 }
 
-$juniorGame   = fetchJuniorByCategory($conn, 'Game Development',    $search, $filterType);
-$juniorPython = fetchJuniorByCategory($conn, 'Python Introduction', $search, $filterType);
-$juniorVM     = fetchJuniorByCategory($conn, 'Virtual Machine',     $search, $filterType);
+function getCategoriesForSection($conn, $section) {
+    $defaults = ['Game Development', 'Python Introduction', 'Virtual Machine'];
+    $cats = [];
+
+    $s1 = $conn->prepare("SELECT DISTINCT category FROM courses WHERE section=? AND category != '' ORDER BY category ASC");
+    if ($s1) {
+        $s1->bind_param("s", $section);
+        $s1->execute();
+        $cats = array_column($s1->get_result()->fetch_all(MYSQLI_ASSOC), 'category');
+    }
+
+    $s2 = $conn->prepare("SELECT DISTINCT category FROM course_projects WHERE section=? AND category != ''");
+    if ($s2) {
+        $s2->bind_param("s", $section);
+        $s2->execute();
+        foreach (array_column($s2->get_result()->fetch_all(MYSQLI_ASSOC), 'category') as $c) {
+            if (!in_array($c, $cats)) $cats[] = $c;
+        }
+        sort($cats);
+    }
+
+    return $cats ?: $defaults;
+}
+
+$kidsCategories   = getCategoriesForSection($conn, 'kids');
+$juniorCategories = getCategoriesForSection($conn, 'junior');
 
 function isActive($page, $currentPage) {
     return $page === $currentPage ? "active" : "";
@@ -172,45 +209,48 @@ function renderProjectLinks($projects, $section, $category) {
 
 function renderCourseTable($result) {
     if (!$result || $result->num_rows === 0) {
-        return '<div class="empty-box">No courses found.</div>';
+        return '<div class="empty-box">No courses added yet.</div>';
     }
     ob_start(); ?>
-    <div class="table-responsive">
-      <table class="table align-middle">
-        <thead>
-          <tr>
-            <th>ID</th><th>Image</th><th>Course Name</th><th>Category</th>
-            <th>Age Group</th><th>Level</th><th>Price</th><th>Type</th>
-            <th>Status</th><th>Duration</th><th style="width:180px;">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <?php while ($course = $result->fetch_assoc()): ?>
-          <tr>
-            <td><?= htmlspecialchars($course["id"]) ?></td>
-            <td>
-              <?php if (!empty($course["image"])): ?>
-                <img src="<?= htmlspecialchars($course["image"]) ?>" alt="Course" class="course-img">
-              <?php else: ?>
-                <div class="course-img d-flex align-items-center justify-content-center text-muted" style="font-size:.75rem;">No Img</div>
-              <?php endif; ?>
-            </td>
-            <td><?= htmlspecialchars($course["course_name"]) ?></td>
-            <td><?= htmlspecialchars($course["category"]) ?></td>
-            <td><?= htmlspecialchars($course["age_group"]) ?></td>
-            <td><?= htmlspecialchars($course["level"]) ?></td>
-            <td>$<?= number_format((float)$course["price"], 2) ?></td>
-            <td><span class="type-badge <?= $course["course_type"] === "demo" ? "type-demo" : "type-paid" ?>"><?= ucfirst(htmlspecialchars($course["course_type"])) ?></span></td>
-            <td><span class="status-badge <?= $course["status"] === "active" ? "status-active" : "status-inactive" ?>"><?= ucfirst(htmlspecialchars($course["status"])) ?></span></td>
-            <td><?= htmlspecialchars($course["duration"]) ?></td>
-            <td>
-              <a href="edit_course.php?id=<?= $course["id"] ?>" class="action-btn edit-btn">Edit</a>
-              <a href="delete_course.php?id=<?= $course["id"] ?>" class="action-btn delete-btn" onclick="return confirm('Delete this course?')">Delete</a>
-            </td>
-          </tr>
-          <?php endwhile; ?>
-        </tbody>
-      </table>
+    <div class="course-card-list">
+      <?php while ($c = $result->fetch_assoc()): ?>
+      <div class="course-card-item">
+        <div class="course-card-thumb">
+          <?php if (!empty($c["image"])): ?>
+            <img src="<?= htmlspecialchars($c["image"]) ?>" alt="">
+          <?php else: ?>
+            <div class="course-thumb-fallback"><i class="fas fa-graduation-cap"></i></div>
+          <?php endif; ?>
+        </div>
+        <div class="course-card-body">
+          <div class="course-card-name"><?= htmlspecialchars($c["course_name"]) ?></div>
+          <div class="course-card-meta">
+            <?php if (!empty($c["age_group"])): ?>
+              <span class="meta-chip"><i class="fas fa-users"></i> <?= htmlspecialchars($c["age_group"]) ?></span>
+            <?php endif; ?>
+            <?php if (!empty($c["level"])): ?>
+              <span class="meta-chip"><i class="fas fa-signal"></i> <?= htmlspecialchars($c["level"]) ?></span>
+            <?php endif; ?>
+            <?php if (!empty($c["duration"])): ?>
+              <span class="meta-chip"><i class="fas fa-clock"></i> <?= htmlspecialchars($c["duration"]) ?></span>
+            <?php endif; ?>
+            <span class="meta-chip"><i class="fas fa-dollar-sign"></i> $<?= number_format((float)$c["price"], 2) ?></span>
+            <span class="type-badge <?= $c["course_type"] === "demo" ? "type-demo" : "type-paid" ?>"><?= ucfirst(htmlspecialchars($c["course_type"])) ?></span>
+            <span class="status-badge <?= $c["status"] === "active" ? "status-active" : "status-inactive" ?>"><?= ucfirst(htmlspecialchars($c["status"])) ?></span>
+          </div>
+        </div>
+        <div class="course-card-actions">
+          <a href="edit_course.php?id=<?= $c["id"] ?>" class="ca-btn ca-edit">
+            <i class="fas fa-pen"></i> Edit
+          </a>
+          <a href="delete_course.php?id=<?= $c["id"] ?>"
+             class="ca-btn ca-delete"
+             onclick="return confirm('Delete this course?')">
+            <i class="fas fa-trash"></i> Delete
+          </a>
+        </div>
+      </div>
+      <?php endwhile; ?>
     </div>
     <?php return ob_get_clean();
 }
@@ -762,6 +802,41 @@ function renderCourseTable($result) {
       font-weight: 700;
     }
 
+    .course-card-list { display:flex; flex-direction:column; gap:10px; margin-bottom:6px; }
+    .course-card-item {
+      display:flex; align-items:center; gap:14px;
+      background:#f8fbff; border:1px solid #dbeafe;
+      border-radius:14px; padding:14px 16px;
+    }
+    .course-card-thumb { flex-shrink:0; }
+    .course-card-thumb img {
+      width:56px; height:56px; object-fit:cover;
+      border-radius:12px; border:1px solid #e5edf9;
+    }
+    .course-thumb-fallback {
+      width:56px; height:56px; border-radius:12px;
+      background:linear-gradient(135deg,var(--primary),var(--secondary));
+      color:white; display:flex; align-items:center; justify-content:center;
+      font-size:1.3rem; flex-shrink:0;
+    }
+    .course-card-body { flex:1; min-width:0; }
+    .course-card-name { font-weight:900; font-size:1rem; color:#0f172a; margin-bottom:7px; }
+    .course-card-meta { display:flex; flex-wrap:wrap; gap:7px; align-items:center; }
+    .meta-chip {
+      font-size:0.78rem; color:#475569; background:#e2e8f0;
+      border-radius:999px; padding:4px 10px; font-weight:600;
+    }
+    .course-card-actions { display:flex; flex-direction:column; gap:8px; flex-shrink:0; }
+    .ca-btn {
+      display:flex; align-items:center; justify-content:center; gap:6px;
+      padding:9px 18px; border-radius:10px; font-size:0.85rem;
+      font-weight:800; text-decoration:none; white-space:nowrap;
+    }
+    .ca-edit  { background:#dbeafe; color:#1d4ed8; }
+    .ca-edit:hover  { background:#bfdbfe; color:#1e40af; }
+    .ca-delete { background:#fee2e2; color:#dc2626; }
+    .ca-delete:hover { background:#fecaca; color:#b91c1c; }
+
     @media (max-width: 1100px) {
       .filters {
         grid-template-columns: 1fr;
@@ -835,6 +910,7 @@ function renderCourseTable($result) {
           <span>Settings</span>
         </a>
 
+
         <a href="logout.php" class="nav-link-custom">
           <span class="nav-icon"><i class="fas fa-right-from-bracket"></i></span>
           <span>Logout</span>
@@ -888,109 +964,111 @@ function renderCourseTable($result) {
       <!-- Kids Section -->
       <div id="tab-kids" class="tab-section <?= $activeTab === 'kids' ? 'active' : '' ?>">
 
-        <!-- Kids sub-category selector -->
+        <?php
+        // Dropdown
+        if (!empty($kidsCategories)):
+        ?>
         <div style="position:relative;display:inline-block;margin-bottom:16px;">
           <button class="btn-main" onclick="toggleKidsMenu(event)" type="button">
             Select Kids Module <i class="fas fa-chevron-down ms-2" id="kids-chevron"></i>
           </button>
-          <div id="kids-dropdown" style="
-            display:none; position:absolute; top:calc(100% + 8px); left:0;
-            background:white; border:1px solid #dbeafe; border-radius:16px;
-            box-shadow:0 12px 32px rgba(15,23,42,0.12); min-width:220px; z-index:100;
-            overflow:hidden;
-          ">
-            <button class="kids-drop-item active" onclick="switchKidsCat('game',   this)" type="button">Game Development</button>
-            <button class="kids-drop-item"        onclick="switchKidsCat('python', this)" type="button">Python Introduction</button>
-            <button class="kids-drop-item"        onclick="switchKidsCat('vm',     this)" type="button">Virtual Machine</button>
+          <div id="kids-dropdown" style="display:none;position:absolute;top:calc(100% + 8px);left:0;background:white;border:1px solid #dbeafe;border-radius:16px;box-shadow:0 12px 32px rgba(15,23,42,0.12);min-width:220px;z-index:100;overflow:hidden;">
+            <?php foreach ($kidsCategories as $i => $cat):
+              $slug = preg_replace('/[^a-z0-9]+/', '-', strtolower($cat)); ?>
+              <button class="kids-drop-item <?= $i === 0 ? 'active' : '' ?>"
+                      onclick="switchKidsCat('<?= htmlspecialchars($slug) ?>', this)" type="button">
+                <?= htmlspecialchars($cat) ?>
+              </button>
+            <?php endforeach; ?>
           </div>
         </div>
 
-        <div id="kids-game" class="kids-cat-section active">
+        <?php foreach ($kidsCategories as $i => $cat):
+          $slug   = preg_replace('/[^a-z0-9]+/', '-', strtolower($cat));
+          $catJs  = htmlspecialchars(json_encode($cat), ENT_QUOTES);
+          $catEnc = urlencode($cat);
+          $projs  = fetchProjects($conn, 'kids', $cat);
+          $crs    = fetchCoursesByCategory($conn, 'kids', $cat, $search, $filterType);
+        ?>
+        <div id="kids-<?= htmlspecialchars($slug) ?>" class="kids-cat-section <?= $i === 0 ? 'active' : '' ?>">
           <section class="panel-card">
             <div class="panel-header">
-              <h2 class="panel-title">Game Development</h2>
-              <a href="add_course.php?section=kids&category=Game+Development" class="btn-main">+ Add Course</a>
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                <h2 class="panel-title"><?= htmlspecialchars($cat) ?></h2>
+                <button type="button" onclick="openRenameModal('kids', <?= $catJs ?>)" class="ca-btn ca-edit" style="padding:6px 14px;border:none;cursor:pointer;">
+                  <i class="fas fa-pen"></i> Edit
+                </button>
+                <form method="POST" style="display:inline;" onsubmit="return confirm('Delete this course and ALL its data?')">
+                  <input type="hidden" name="cat_action" value="delete">
+                  <input type="hidden" name="cat_section" value="kids">
+                  <input type="hidden" name="cat_old" value="<?= htmlspecialchars($cat) ?>">
+                  <button type="submit" class="ca-btn ca-delete" style="padding:6px 14px;border:none;cursor:pointer;">
+                    <i class="fas fa-trash"></i> Delete
+                  </button>
+                </form>
+              </div>
+              <a href="add_course.php?section=kids&category=<?= $catEnc ?>" class="btn-main">+ Add Course</a>
             </div>
-            <?= renderProjectLinks($kidsGameProjects, 'kids', 'Game Development') ?>
-            <?= renderCourseTable($kidsGame) ?>
+            <?= renderProjectLinks($projs, 'kids', $cat) ?>
+            <?= renderCourseTable($crs) ?>
           </section>
         </div>
-
-        <div id="kids-python" class="kids-cat-section">
-          <section class="panel-card">
-            <div class="panel-header">
-              <h2 class="panel-title">Python Introduction</h2>
-              <a href="add_course.php?section=kids&category=Python+Introduction" class="btn-main">+ Add Course</a>
-            </div>
-            <?= renderProjectLinks($kidsPythonProjects, 'kids', 'Python Introduction') ?>
-            <?= renderCourseTable($kidsPython) ?>
-          </section>
-        </div>
-
-        <div id="kids-vm" class="kids-cat-section">
-          <section class="panel-card">
-            <div class="panel-header">
-              <h2 class="panel-title">Virtual Machine</h2>
-              <a href="add_course.php?section=kids&category=Virtual+Machine" class="btn-main">+ Add Course</a>
-            </div>
-            <?= renderProjectLinks($kidsVMProjects, 'kids', 'Virtual Machine') ?>
-            <?= renderCourseTable($kidsVM) ?>
-          </section>
-        </div>
+        <?php endforeach; ?>
+        <?php endif; ?>
 
       </div>
 
       <!-- Junior Section -->
       <div id="tab-junior" class="tab-section <?= $activeTab === 'junior' ? 'active' : '' ?>">
 
+        <?php if (!empty($juniorCategories)): ?>
         <div style="position:relative;display:inline-block;margin-bottom:16px;">
           <button class="btn-main" onclick="toggleJuniorMenu(event)" type="button">
             Select Junior Module <i class="fas fa-chevron-down ms-2" id="junior-chevron"></i>
           </button>
-          <div id="junior-dropdown" style="
-            display:none; position:absolute; top:calc(100% + 8px); left:0;
-            background:white; border:1px solid #dbeafe; border-radius:16px;
-            box-shadow:0 12px 32px rgba(15,23,42,0.12); min-width:220px; z-index:100;
-            overflow:hidden;
-          ">
-            <button class="kids-drop-item active" onclick="switchJuniorCat('game',   this)" type="button">Game Development</button>
-            <button class="kids-drop-item"        onclick="switchJuniorCat('python', this)" type="button">Python Introduction</button>
-            <button class="kids-drop-item"        onclick="switchJuniorCat('vm',     this)" type="button">Virtual Machine</button>
+          <div id="junior-dropdown" style="display:none;position:absolute;top:calc(100% + 8px);left:0;background:white;border:1px solid #dbeafe;border-radius:16px;box-shadow:0 12px 32px rgba(15,23,42,0.12);min-width:220px;z-index:100;overflow:hidden;">
+            <?php foreach ($juniorCategories as $i => $cat):
+              $slug = preg_replace('/[^a-z0-9]+/', '-', strtolower($cat)); ?>
+              <button class="kids-drop-item <?= $i === 0 ? 'active' : '' ?>"
+                      onclick="switchJuniorCat('<?= htmlspecialchars($slug) ?>', this)" type="button">
+                <?= htmlspecialchars($cat) ?>
+              </button>
+            <?php endforeach; ?>
           </div>
         </div>
 
-        <div id="junior-game" class="junior-cat-section active">
+        <?php foreach ($juniorCategories as $i => $cat):
+          $slug   = preg_replace('/[^a-z0-9]+/', '-', strtolower($cat));
+          $catJs  = htmlspecialchars(json_encode($cat), ENT_QUOTES);
+          $catEnc = urlencode($cat);
+          $projs  = fetchProjects($conn, 'junior', $cat);
+          $crs    = fetchCoursesByCategory($conn, 'junior', $cat, $search, $filterType);
+        ?>
+        <div id="junior-<?= htmlspecialchars($slug) ?>" class="junior-cat-section <?= $i === 0 ? 'active' : '' ?>">
           <section class="panel-card">
             <div class="panel-header">
-              <h2 class="panel-title">Game Development</h2>
-              <a href="add_course.php?section=junior&category=Game+Development" class="btn-main">+ Add Course</a>
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                <h2 class="panel-title"><?= htmlspecialchars($cat) ?></h2>
+                <button type="button" onclick="openRenameModal('junior', <?= $catJs ?>)" class="ca-btn ca-edit" style="padding:6px 14px;border:none;cursor:pointer;">
+                  <i class="fas fa-pen"></i> Edit
+                </button>
+                <form method="POST" style="display:inline;" onsubmit="return confirm('Delete this course and ALL its data?')">
+                  <input type="hidden" name="cat_action" value="delete">
+                  <input type="hidden" name="cat_section" value="junior">
+                  <input type="hidden" name="cat_old" value="<?= htmlspecialchars($cat) ?>">
+                  <button type="submit" class="ca-btn ca-delete" style="padding:6px 14px;border:none;cursor:pointer;">
+                    <i class="fas fa-trash"></i> Delete
+                  </button>
+                </form>
+              </div>
+              <a href="add_course.php?section=junior&category=<?= $catEnc ?>" class="btn-main">+ Add Course</a>
             </div>
-            <?= renderProjectLinks($juniorGameProjects, 'junior', 'Game Development') ?>
-            <?= renderCourseTable($juniorGame) ?>
+            <?= renderProjectLinks($projs, 'junior', $cat) ?>
+            <?= renderCourseTable($crs) ?>
           </section>
         </div>
-
-        <div id="junior-python" class="junior-cat-section">
-          <section class="panel-card">
-            <div class="panel-header">
-              <h2 class="panel-title">Python Introduction</h2>
-              <a href="add_course.php?section=junior&category=Python+Introduction" class="btn-main">+ Add Course</a>
-            </div>
-            <?= renderProjectLinks($juniorPythonProjects, 'junior', 'Python Introduction') ?>
-            <?= renderCourseTable($juniorPython) ?>
-          </section>
-        </div>
-
-        <div id="junior-vm" class="junior-cat-section">
-          <section class="panel-card">
-            <div class="panel-header">
-              <h2 class="panel-title">Virtual Machine</h2>
-              <a href="add_course.php?section=junior&category=Virtual+Machine" class="btn-main">+ Add Course</a>
-            </div>
-            <?= renderProjectLinks($juniorVMProjects, 'junior', 'Virtual Machine') ?>
-            <?= renderCourseTable($juniorVM) ?>
-          </section>
-        </div>
+        <?php endforeach; ?>
+        <?php endif; ?>
 
       </div>
 
@@ -1055,7 +1133,42 @@ function renderCourseTable($result) {
       </div>
     </main>
   </div>
+<!-- Rename Category Modal -->
+<div id="rename-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.45);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:white;border-radius:22px;padding:36px;max-width:420px;width:92%;box-shadow:0 24px 60px rgba(0,0,0,0.18);">
+    <h3 style="font-weight:900;margin:0 0 6px;font-size:1.2rem;">Rename Course</h3>
+    <p style="color:#64748b;font-size:0.88rem;margin:0 0 22px;">Enter the new name for this course category.</p>
+    <form method="POST">
+      <input type="hidden" name="cat_action" value="rename">
+      <input type="hidden" name="cat_section" id="modal-section">
+      <input type="hidden" name="cat_old" id="modal-old">
+      <div style="margin-bottom:18px;">
+        <label style="font-weight:800;color:#334155;display:block;margin-bottom:8px;">New Name</label>
+        <input type="text" name="cat_new" id="modal-new" class="form-control" required>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button type="submit" class="btn-main">Save</button>
+        <button type="button" onclick="closeRenameModal()" style="background:#64748b;color:white;border:none;border-radius:14px;padding:13px 24px;font-weight:900;cursor:pointer;">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <script>
+function openRenameModal(section, cat) {
+  document.getElementById('modal-section').value = section;
+  document.getElementById('modal-old').value     = cat;
+  document.getElementById('modal-new').value     = cat;
+  const m = document.getElementById('rename-modal');
+  m.style.display = 'flex';
+}
+function closeRenameModal() {
+  document.getElementById('rename-modal').style.display = 'none';
+}
+document.getElementById('rename-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeRenameModal();
+});
+
 function toggleJuniorMenu(e) {
   e.stopPropagation();
   const d = document.getElementById('junior-dropdown');
@@ -1105,5 +1218,6 @@ function switchTab(tab) {
   event.currentTarget.classList.add('active');
 }
 </script>
+<script src="logout-modal.js"></script>
 </body>
 </html>

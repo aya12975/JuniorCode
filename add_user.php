@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 require_once "db.php";
 
@@ -486,6 +486,7 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: 
         <span>Settings</span>
       </a>
 
+
       <a href="logout.php" class="nav-link-custom">
         <span class="nav-icon"><i class="fas fa-right-from-bracket"></i></span>
         <span>Logout</span>
@@ -638,5 +639,6 @@ function copyText(id, btn) {
   });
 }
 </script>
+<script src="logout-modal.js"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 require_once "db.php";
 
@@ -47,6 +47,19 @@ $stmt3->bind_param("ss", $studentName, $today);
 $stmt3->execute();
 $nextClasses = $stmt3->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt3->close();
+
+/* ── Assignments for this student ── */
+$assignments = [];
+$connCheck = $conn->query("SHOW TABLES LIKE 'assignments'");
+if ($connCheck && $connCheck->num_rows > 0) {
+    $stmtA = $conn->prepare("SELECT * FROM assignments WHERE student_name = ? ORDER BY created_at DESC");
+    if ($stmtA) {
+        $stmtA->bind_param("s", $studentName);
+        $stmtA->execute();
+        $assignments = $stmtA->get_result()->fetch_all(MYSQLI_ASSOC);
+        $stmtA->close();
+    }
+}
 
 /* ── WhatsApp number from settings ── */
 require_once "admin_prefs.php";
@@ -329,6 +342,12 @@ body.sidebar-collapsed .main { margin-left: 0; }
     <a href="student_classes.php" class="nav-link-custom">
       <span class="nav-icon"><i class="fas fa-book"></i></span><span>My Classes</span>
     </a>
+    <a href="student_assignments.php" class="nav-link-custom">
+      <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span><span>My Assignments</span>
+    </a>
+    <a href="student_chat.php" class="nav-link-custom">
+      <span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI Tutor</span>
+    </a>
     <a href="student_contact.php" class="nav-link-custom">
       <span class="nav-icon"><i class="fas fa-comments"></i></span><span>Contact Admin</span>
     </a>
@@ -481,6 +500,54 @@ body.sidebar-collapsed .main { margin-left: 0; }
     <?php endif; ?>
   </div>
 
+  <!-- Assignments -->
+  <div class="panel-card" id="assignments">
+    <div class="panel-title"><i class="fas fa-clipboard-list me-2"></i>My Assignments</div>
+    <?php if (empty($assignments)): ?>
+      <div class="empty-state">
+        <i class="fas fa-clipboard-list"></i>
+        <p>No assignments yet.</p>
+      </div>
+    <?php else: ?>
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <?php foreach ($assignments as $a): ?>
+        <div style="display:flex;align-items:flex-start;gap:14px;background:#f8fbff;border:1px solid #dbeafe;border-radius:16px;padding:16px 18px;">
+          <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#3e5077,#143674);color:white;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;">
+            <i class="fas fa-file-pen"></i>
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:900;font-size:1rem;color:#0f172a;margin-bottom:3px;"><?= htmlspecialchars($a["title"]) ?></div>
+            <div style="font-size:0.82rem;color:#64748b;margin-bottom:2px;"><i class="fas fa-chalkboard-user me-1"></i>From: <strong><?= htmlspecialchars($a["teacher_name"]) ?></strong></div>
+            <?php if (!empty($a["description"])): ?>
+              <div style="font-size:0.87rem;color:#334155;margin:6px 0;white-space:pre-wrap;"><?= htmlspecialchars($a["description"]) ?></div>
+            <?php endif; ?>
+            <?php if (!empty($a["due_date"])): ?>
+              <div style="font-size:0.82rem;font-weight:700;color:#f97316;margin-top:4px;"><i class="fas fa-clock me-1"></i>Due: <?= date("D, d M Y", strtotime($a["due_date"])) ?></div>
+            <?php endif; ?>
+            <?php if (!empty($a["file_name"]) || !empty($a["link"])): ?>
+              <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
+                <?php if (!empty($a["file_name"])): ?>
+                  <a href="uploads/assignments/<?= urlencode($a["file_name"]) ?>" download
+                     style="display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,#3e5077,#143674);color:white;font-weight:800;border-radius:10px;padding:7px 14px;font-size:0.82rem;text-decoration:none;">
+                    <i class="fas fa-paperclip"></i> Download File
+                  </a>
+                <?php endif; ?>
+                <?php if (!empty($a["link"])): ?>
+                  <a href="<?= htmlspecialchars($a["link"]) ?>" target="_blank" rel="noopener"
+                     style="display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:white;font-weight:800;border-radius:10px;padding:7px 14px;font-size:0.82rem;text-decoration:none;">
+                    <i class="fas fa-link"></i> Open Link
+                  </a>
+                <?php endif; ?>
+              </div>
+            <?php endif; ?>
+            <div style="font-size:0.78rem;color:#94a3b8;margin-top:4px;">Received: <?= date("d M Y", strtotime($a["created_at"])) ?></div>
+          </div>
+        </div>
+        <?php endforeach; ?>
+      </div>
+    <?php endif; ?>
+  </div>
+
   <!-- Contact Admin -->
   <div class="panel-card" id="contact">
     <div class="panel-title"><i class="fas fa-comments me-2"></i>Contact Admin</div>
@@ -502,5 +569,6 @@ body.sidebar-collapsed .main { margin-left: 0; }
 
 </div>
 
+<script src="logout-modal.js"></script>
 </body>
 </html>

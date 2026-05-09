@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 require_once "db.php";
 
@@ -215,5 +215,6 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: 
     </div>
   </main>
 </div>
+<script src="logout-modal.js"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 require_once "db.php";
 
@@ -756,6 +756,10 @@ $demoProjects   = fetchProjSection($conn, 'demo');
       <span>My Students</span>
     </a>
 
+    <a href="teacher_assignments.php" class="nav-link-custom">
+      <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+      <span>Assignments</span>
+    </a>
     <a href="teacher_courses.php" class="nav-link-custom">
       <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span>
       <span>Courses</span>
@@ -1199,5 +1203,6 @@ $demoProjects   = fetchProjSection($conn, 'demo');
     });
   });
 </script>
+<script src="logout-modal.js"></script>
 </body>
 </html>

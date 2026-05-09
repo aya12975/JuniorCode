@@ -19,7 +19,19 @@
       "Bash(\"C:\\\\xampp\\\\mysql\\\\bin\\\\mysql.exe\" -u root juniorcode_db2 -e \"ALTER TABLE users ADD COLUMN IF NOT EXISTS zoom_personal_link TEXT NOT NULL DEFAULT ''; ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_picture VARCHAR\\(300\\) NOT NULL DEFAULT '';\")",
       "Bash(New-Item -ItemType Directory -Force -Path \"C:\\\\xampp\\\\htdocs\\\\JuniorCode\\\\uploads\\\\profiles\")",
       "Bash(Out-Null)",
-      "PowerShell(New-Item *)"
+      "PowerShell(New-Item *)",
+      "Bash(Get-Content *)",
+      "PowerShell(& \"C:\\\\xampp\\\\php\\\\php.exe\" -l \"C:\\\\xampp\\\\htdocs\\\\JuniorCode\\\\teacher_assignments.php\"; & \"C:\\\\xampp\\\\php\\\\php.exe\" -l \"C:\\\\xampp\\\\htdocs\\\\JuniorCode\\\\student_dashboard.php\")",
+      "PowerShell(Remove-Item *)",
+      "PowerShell(& \"C:\\\\xampp\\\\php\\\\php.exe\" -l \"C:\\\\xampp\\\\htdocs\\\\JuniorCode\\\\student_assignments.php\")",
+      "PowerShell(& \"C:\\\\xampp\\\\php\\\\php.exe\" -l \"C:\\\\xampp\\\\htdocs\\\\JuniorCode\\\\teacher_assignments.php\")",
+      "PowerShell(& \"C:\\\\xampp\\\\php\\\\php.exe\" -l \"C:\\\\xampp\\\\htdocs\\\\JuniorCode\\\\student_assignments.php\"; & \"C:\\\\xampp\\\\php\\\\php.exe\" -l \"C:\\\\xampp\\\\htdocs\\\\JuniorCode\\\\teacher_assignments.php\")",
+      "PowerShell(& \"C:\\\\xampp\\\\php\\\\php.exe\" -l \"C:\\\\xampp\\\\htdocs\\\\JuniorCode\\\\teacher_assignments.php\"; & \"C:\\\\xampp\\\\php\\\\php.exe\" -l \"C:\\\\xampp\\\\htdocs\\\\JuniorCode\\\\student_assignments.php\"; & \"C:\\\\xampp\\\\php\\\\php.exe\" -l \"C:\\\\xampp\\\\htdocs\\\\JuniorCode\\\\student_dashboard.php\")",
+      "PowerShell(& \"C:\\\\xampp\\\\php\\\\php.exe\" -l \"C:\\\\xampp\\\\htdocs\\\\JuniorCode\\\\student_chat.php\"; & \"C:\\\\xampp\\\\php\\\\php.exe\" -l \"C:\\\\xampp\\\\htdocs\\\\JuniorCode\\\\ai_chat_handler.php\")",
+      "PowerShell(& \"C:\\\\xampp\\\\php\\\\php.exe\" -l \"C:\\\\xampp\\\\htdocs\\\\JuniorCode\\\\admin_ai_settings.php\"; & \"C:\\\\xampp\\\\php\\\\php.exe\" -l \"C:\\\\xampp\\\\htdocs\\\\JuniorCode\\\\ai_chat_handler.php\"; & \"C:\\\\xampp\\\\php\\\\php.exe\" -l \"C:\\\\xampp\\\\htdocs\\\\JuniorCode\\\\student_chat.php\")",
+      "PowerShell(Invoke-WebRequest -Uri \"http://localhost/JuniorCode/_diag_ai.php\" -UseBasicParsing | Select-Object -ExpandProperty Content)",
+      "PowerShell(& \"C:\\\\xampp\\\\php\\\\php.exe\" -l \"C:\\\\xampp\\\\htdocs\\\\JuniorCode\\\\ai_chat_handler.php\")",
+      "Bash(del *)"
     ]
   }
 }

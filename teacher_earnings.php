@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 require_once "db.php";
 
@@ -451,6 +451,7 @@ function isActive($page, $currentPage) {
           <span>Settings</span>
         </a>
 
+
         <a href="logout.php" class="nav-link-custom">
           <span class="nav-icon"><i class="fas fa-right-from-bracket"></i></span>
           <span>Logout</span>
@@ -704,5 +705,6 @@ function saveEarning() {
   });
 }
 </script>
+<script src="logout-modal.js"></script>
 </body>
 </html>

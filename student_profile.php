@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 require_once "db.php";
 
@@ -241,6 +241,12 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: 
   <a href="student_classes.php" class="nav-link-custom">
     <span class="nav-icon"><i class="fas fa-book"></i></span><span>My Classes</span>
   </a>
+  <a href="student_assignments.php" class="nav-link-custom">
+    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span><span>My Assignments</span>
+  </a>
+  <a href="student_chat.php" class="nav-link-custom">
+    <span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI Tutor</span>
+  </a>
   <a href="student_contact.php" class="nav-link-custom">
     <span class="nav-icon"><i class="fas fa-comments"></i></span><span>Contact Admin</span>
   </a>
@@ -398,5 +404,6 @@ function previewPic(input) {
   reader.readAsDataURL(file);
 }
 </script>
+<script src="logout-modal.js"></script>
 </body>
 </html>

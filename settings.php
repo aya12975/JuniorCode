@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 require_once "db.php";
 
@@ -342,6 +342,7 @@ function isActive($page, $cur) { return $page === $cur ? "active" : ""; }
         <span class="nav-icon"><i class="fas fa-gear"></i></span>
         <span><?= t('nav_settings') ?></span>
       </a>
+
       <a href="logout.php" class="nav-link-custom">
         <span class="nav-icon"><i class="fas fa-right-from-bracket"></i></span>
         <span><?= t('nav_logout') ?></span>
@@ -617,5 +618,6 @@ function togglePwd(id, btn) {
   localStorage.setItem('jc-theme', savedTheme);
 })();
 </script>
+<script src="logout-modal.js"></script>
 </body>
 </html>

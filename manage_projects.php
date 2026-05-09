@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 require_once "db.php";
 
@@ -424,13 +424,9 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: 
             <button class="btn-edit-soft" onclick="openEdit(<?= $p['id'] ?>, <?= htmlspecialchars(json_encode($p['title'])) ?>, <?= htmlspecialchars(json_encode($p['url'] ?? '')) ?>, <?= htmlspecialchars(json_encode($p['image'] ?? '')) ?>, <?= htmlspecialchars(json_encode($p['pdf_url'] ?? '')) ?>)">
               <i class="fas fa-pen"></i> Edit
             </button>
-            <form method="POST" onsubmit="return confirm('Delete this project?')" style="margin:0;">
-              <input type="hidden" name="action"   value="delete">
-              <input type="hidden" name="id"       value="<?= $p['id'] ?>">
-              <input type="hidden" name="section"  value="<?= htmlspecialchars($section) ?>">
-              <input type="hidden" name="category" value="<?= htmlspecialchars($category) ?>">
-              <button type="submit" class="btn-danger-soft"><i class="fas fa-trash"></i> Delete</button>
-            </form>
+            <button type="button" class="btn-danger-soft" onclick="openDeleteModal(<?= $p['id'] ?>, <?= htmlspecialchars(json_encode($p['title'])) ?>)">
+              <i class="fas fa-trash"></i> Delete
+            </button>
           </div>
         <?php endforeach; ?>
       <?php endif; ?>
@@ -442,6 +438,29 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: 
       </div>
     </div>
   </main>
+</div>
+
+<!-- Delete confirmation modal -->
+<div class="modal-backdrop-custom" id="deleteModal">
+  <div class="modal-box" style="max-width:400px;text-align:center;">
+    <div style="width:64px;height:64px;border-radius:50%;background:#fee2e2;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;">
+      <i class="fas fa-trash" style="font-size:1.5rem;color:#dc2626;"></i>
+    </div>
+    <div class="modal-title" style="margin-bottom:8px;">Delete Project?</div>
+    <p id="deleteModalMsg" style="color:#64748b;font-size:0.92rem;margin-bottom:24px;"></p>
+    <form method="POST" id="deleteForm">
+      <input type="hidden" name="action"   value="delete">
+      <input type="hidden" name="id"       id="deleteId">
+      <input type="hidden" name="section"  value="<?= htmlspecialchars($section) ?>">
+      <input type="hidden" name="category" value="<?= htmlspecialchars($category) ?>">
+      <div style="display:flex;gap:10px;justify-content:center;">
+        <button type="submit" style="background:linear-gradient(135deg,#dc2626,#b91c1c);border:none;color:white;font-weight:800;border-radius:12px;padding:12px 28px;cursor:pointer;font-size:0.95rem;">
+          <i class="fas fa-trash me-1"></i> Yes, Delete
+        </button>
+        <button type="button" onclick="closeDeleteModal()" class="btn-back">Cancel</button>
+      </div>
+    </form>
+  </div>
 </div>
 
 <!-- Edit modal -->
@@ -484,6 +503,18 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: 
 </div>
 
 <script>
+function openDeleteModal(id, title) {
+  document.getElementById('deleteId').value    = id;
+  document.getElementById('deleteModalMsg').textContent = 'Are you sure you want to delete "' + title + '"? This cannot be undone.';
+  document.getElementById('deleteModal').classList.add('show');
+}
+function closeDeleteModal() {
+  document.getElementById('deleteModal').classList.remove('show');
+}
+document.getElementById('deleteModal').addEventListener('click', function(e) {
+  if (e.target === this) closeDeleteModal();
+});
+
 function openEdit(id, title, url, image, pdfUrl) {
   document.getElementById('editId').value          = id;
   document.getElementById('editTitle').value       = title;
@@ -519,5 +550,6 @@ document.getElementById('editModal').addEventListener('click', function(e) {
   if (e.target === this) closeEdit();
 });
 </script>
+<script src="logout-modal.js"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 require_once "db.php";
 
@@ -635,5 +635,6 @@ document.addEventListener('click', function() {
   });
 });
 </script>
+<script src="logout-modal.js"></script>
 </body>
 </html>

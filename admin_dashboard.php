@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 require_once "db.php";
 
@@ -329,6 +329,9 @@ require_once "admin_prefs.php";
       <a href="settings.php" class="nav-link-custom <?= isActive('settings.php', $currentPage) ?>">
         <span class="nav-icon"><i class="fas fa-gear"></i></span><span><?= t('nav_settings') ?></span>
       </a>
+      <a href="admin_ai_settings.php" class="nav-link-custom <?= isActive('admin_ai_settings.php', $currentPage) ?>">
+        <span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI Tutor</span>
+      </a>
       <a href="logout.php" class="nav-link-custom">
         <span class="nav-icon"><i class="fas fa-right-from-bracket"></i></span><span><?= t('nav_logout') ?></span>
       </a>
@@ -525,5 +528,6 @@ require_once "admin_prefs.php";
 
   </main>
 </div>
+<script src="logout-modal.js"></script>
 </body>
 </html>

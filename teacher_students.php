@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 require_once "db.php";
 
@@ -636,5 +636,6 @@ $withUpcoming   = count(array_filter($students, fn($s) => !empty($s["next_class"
   }
 </script>
 
+<script src="logout-modal.js"></script>
 </body>
 </html>

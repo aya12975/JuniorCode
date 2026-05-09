@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 require_once "db.php";
 
@@ -759,5 +759,6 @@ foreach ($classSessions as $c) {
   }
 </script>
 
+<script src="logout-modal.js"></script>
 </body>
 </html>
