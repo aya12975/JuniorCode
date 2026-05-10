@@ -31,6 +31,7 @@ $category = trim($_GET["category"] ?? "Game Development");
 
 $error   = "";
 $success = "";
+if (($_GET["msg"] ?? "") === "deleted") $success = "Project link deleted.";
 
 /* Handle POST actions */
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
@@ -42,7 +43,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $image   = trim($_POST["image"]   ?? "");
         $sec     = trim($_POST["section"]   ?? $section);
         $cat     = trim($_POST["category"]  ?? $category);
-        $pdf_url = "";
+        $pdf_url  = "";
+        $pdf_link = trim($_POST["pdf_link"] ?? "");
 
         if (!empty($_FILES["pdf_file"]["name"])) {
             $ext = strtolower(pathinfo($_FILES["pdf_file"]["name"], PATHINFO_EXTENSION));
@@ -56,6 +58,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     $pdf_url = $fname;
                 }
             }
+        } elseif ($pdf_link !== "") {
+            $pdf_url = $pdf_link;
         }
 
         if ($error === "") {
@@ -72,11 +76,26 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     }
 
     if ($action === "delete") {
-        $id = (int)($_POST["id"] ?? 0);
+        $id  = (int)($_POST["id"]      ?? 0);
+        $sec = trim($_POST["section"]  ?? $section);
+        $cat = trim($_POST["category"] ?? $category);
         if ($id > 0) {
+            $pdfStmt = $conn->prepare("SELECT pdf_url FROM course_projects WHERE id = ?");
+            $pdfStmt->bind_param("i", $id);
+            $pdfStmt->execute();
+            $pdfRow = $pdfStmt->get_result()->fetch_assoc();
+
             $stmt = $conn->prepare("DELETE FROM course_projects WHERE id = ?");
             $stmt->bind_param("i", $id);
-            $stmt->execute() ? $success = "Project link deleted." : $error = "Failed to delete.";
+            if ($stmt->execute()) {
+                if (!empty($pdfRow["pdf_url"]) && strpos($pdfRow["pdf_url"], 'http') !== 0) {
+                    @unlink("uploads/pdfs/" . $pdfRow["pdf_url"]);
+                }
+                header("Location: manage_projects.php?section=" . urlencode($sec) . "&category=" . urlencode($cat) . "&msg=deleted");
+                exit();
+            } else {
+                $error = "Failed to delete.";
+            }
         }
     }
 
@@ -85,7 +104,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $title   = trim($_POST["title"]    ?? "");
         $url     = trim($_POST["url"]      ?? "");
         $image   = trim($_POST["image"]    ?? "");
-        $pdf_url = trim($_POST["existing_pdf"] ?? "");
+        $pdf_url  = trim($_POST["existing_pdf"] ?? "");
+        $pdf_link = trim($_POST["pdf_link"] ?? "");
 
         if (!empty($_FILES["pdf_file"]["name"])) {
             $ext = strtolower(pathinfo($_FILES["pdf_file"]["name"], PATHINFO_EXTENSION));
@@ -96,10 +116,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 if (!move_uploaded_file($_FILES["pdf_file"]["tmp_name"], "uploads/pdfs/" . $fname)) {
                     $error = "Failed to save PDF file.";
                 } else {
-                    if ($pdf_url !== "") @unlink("uploads/pdfs/" . $pdf_url);
+                    if ($pdf_url !== "" && strpos($pdf_url, 'http') !== 0) @unlink("uploads/pdfs/" . $pdf_url);
                     $pdf_url = $fname;
                 }
             }
+        } elseif ($pdf_link !== "") {
+            if ($pdf_url !== "" && strpos($pdf_url, 'http') !== 0) @unlink("uploads/pdfs/" . $pdf_url);
+            $pdf_url = $pdf_link;
         }
 
         if ($error === "" && $id > 0 && $title !== "") {
@@ -156,28 +179,27 @@ body {
 .sidebar {
   width: 285px;
   background: linear-gradient(180deg, #0f172a 0%, #172554 100%);
-  color: white; padding: 24px 18px;
+  color: white; padding:  0;
   position: sticky; top: 0; height: 100vh; overflow-y: auto;
   transition: width 0.3s ease, padding 0.3s ease, min-width 0.3s ease; overflow: hidden;
+  display: flex; flex-direction: column; justify-content: space-between;
 }
 body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: hidden; }
-.brand-box {
-  display: flex; align-items: center; gap: 12px; margin-bottom: 28px;
-  padding: 10px 12px; border-radius: 18px;
-  background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.08);
-}
+.sidebar-bottom { padding: 16px 18px; border-top: 1px solid rgba(255,255,255,0.1); }
+.sidebar-top-area { padding: 24px 18px; flex: 1; }
+.brand-box { display: flex; align-items: center; gap: 12px; padding: 0 4px 22px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; }
 .logo-img { width: 55px; height: 55px; object-fit: contain; border-radius: 12px; flex-shrink: 0; }
 .brand-title { font-weight: 900; font-size: 1.1rem; line-height: 1.15; }
-.brand-sub { font-size: 0.78rem; color: rgba(255,255,255,0.75); letter-spacing: 1px; margin-top: 3px; }
-.nav-title { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1.3px; color: rgba(255,255,255,0.55); margin: 18px 10px 10px; font-weight: 700; }
-.nav-custom { display: flex; flex-direction: column; gap: 8px; }
+.brand-sub { font-size: 0.75rem; color: rgba(255,255,255,0.55); letter-spacing: 1px; margin-top: 3px; }
+.nav-title { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 1.3px; color: rgba(255,255,255,0.45); margin: 20px 10px 10px; font-weight: 700; }
+.nav-custom { display: flex; flex-direction: column; gap: 4px; }
 .nav-link-custom {
-  display: flex; align-items: center; gap: 12px; color: rgba(255,255,255,0.88);
-  text-decoration: none; padding: 13px 14px; border-radius: 14px; transition: all 0.25s; font-weight: 700;
+  display: flex; align-items: center; gap: 12px; color: rgba(255,255,255,0.78);
+  text-decoration: none; padding: 12px 14px; border-radius: 14px; transition: all 0.25s; font-weight: 700;
 }
 .nav-link-custom:hover { background: rgba(255,255,255,0.08); color: white; }
 .nav-link-custom.active { background: linear-gradient(135deg, var(--primary), var(--secondary)); color: white; }
-.nav-icon { width: 34px; height: 34px; border-radius: 10px; background: rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.nav-icon { width: 32px; height: 32px; border-radius: 10px; background: rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .main-content { flex: 1; padding: 26px; }
 .hamburger-btn { display:flex; flex-direction:column; gap:5px; cursor:pointer; background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; margin-bottom:18px; width:fit-content; box-shadow:0 2px 8px rgba(0,0,0,0.06); transition:background 0.2s; }
 .hamburger-btn:hover { background:#f1f5f9; }
@@ -190,7 +212,7 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: 
 }
 .topbar h1 { font-size: 1.6rem; font-weight: 900; margin: 0; color: white; }
 .topbar p  { margin: 4px 0 0; color: rgba(255,255,255,0.8); }
-.admin-badge { background: rgba(255,255,255,0.15); color: white; border-radius: 999px; padding: 10px 16px; font-weight: 800; white-space: nowrap; }
+.admin-badge { background: rgba(255,255,255,0.15); color: white; border-radius: 12px; border: 1px solid rgba(255,255,255,0.2); padding: 10px 18px; font-weight: 800; white-space: nowrap; }
 .panel-card { background: white; border: 1px solid #edf4ff; border-radius: 22px; padding: 24px; box-shadow: var(--shadow); margin-bottom: 22px; }
 .panel-title { font-size: 1.15rem; font-weight: 900; margin-bottom: 18px; color: var(--dark); }
 .form-control, .form-select { border-radius: 12px; padding: 11px 14px; border: 1px solid #dbe4f0; font-size: 0.95rem; }
@@ -293,6 +315,7 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: 
 <div class="app-shell">
 
   <aside class="sidebar">
+    <div class="sidebar-top-area">
     <div class="brand-box">
       <img src="images/robot2.png.png" class="logo-img" alt="Logo">
       <div>
@@ -309,9 +332,15 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: 
       <a href="available_slots.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-calendar-days"></i></span><span>Available Slots</span></a>
       <a href="courses.php" class="nav-link-custom active"><span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>Courses</span></a>
       <a href="reports.php"  class="nav-link-custom"><span class="nav-icon"><i class="fas fa-chart-bar"></i></span><span>Reports</span></a>
-      <a href="settings.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-gear"></i></span><span>Settings</span></a>
-      <a href="logout.php"   class="nav-link-custom"><span class="nav-icon"><i class="fas fa-right-from-bracket"></i></span><span>Logout</span></a>
+      <a href="admin_certificates.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-award"></i></span><span>Certificates</span></a>
+      <a href="admin_ai_settings.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI Tutor</span></a>
     </div>
+      </div>
+      <div class="sidebar-bottom">
+        <a href="settings.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-gear"></i></span><span>Settings</span></a>
+        <div style="height:1px;background:rgba(255,255,255,0.1);margin:8px 0;"></div>
+        <a href="logout.php"   class="nav-link-custom"><span class="nav-icon"><i class="fas fa-right-from-bracket"></i></span><span>Logout</span></a>
+      </div>
   </aside>
 
   <main class="main-content">
@@ -325,7 +354,7 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: 
         <h1>Project Links</h1>
         <p>Manage project links for course categories.</p>
       </div>
-      <div class="admin-badge">Hello, <?= htmlspecialchars($adminName) ?></div>
+      <div class="admin-badge"><i class="fas fa-user-shield me-2"></i>Hello, <?= htmlspecialchars($adminName) ?> &nbsp;·&nbsp; <?= date("d M Y") ?></div>
     </div>
 
     <?php if ($success): ?>
@@ -364,11 +393,13 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: 
           </div>
           <div class="col-md-3">
             <label class="form-label fw-bold">View Project Link</label>
-            <input type="url" name="url" class="form-control" placeholder="https://scratch.mit.edu/...">
+            <input type="text" name="url" class="form-control" placeholder="https://scratch.mit.edu/...">
           </div>
           <div class="col-md-3">
             <label class="form-label fw-bold">Check Course PDF</label>
-            <input type="file" name="pdf_file" accept=".pdf" class="form-control">
+            <input type="file" name="pdf_file" accept=".pdf" class="form-control" style="margin-bottom:6px;">
+            <div style="font-size:0.78rem;color:var(--muted);text-align:center;margin:2px 0;">— or enter a link —</div>
+            <input type="text" name="pdf_link" class="form-control" placeholder="https://drive.google.com/...">
           </div>
           <div class="col-md-1 d-flex align-items-end">
             <button type="submit" class="btn-main w-100">Add</button>
@@ -405,7 +436,8 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: 
             <!-- Action boxes -->
             <div class="action-boxes">
               <?php if (!empty($p["pdf_url"])): ?>
-                <a href="uploads/pdfs/<?= htmlspecialchars($p["pdf_url"]) ?>" target="_blank" class="action-box action-box-pdf">
+                <?php $pdfHref = (strpos($p["pdf_url"], 'http') === 0) ? $p["pdf_url"] : 'uploads/pdfs/' . $p["pdf_url"]; ?>
+                <a href="<?= htmlspecialchars($pdfHref) ?>" target="_blank" class="action-box action-box-pdf">
                   <i class="fas fa-file-pdf"></i> Check Course
                 </a>
               <?php else: ?>
@@ -485,13 +517,15 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: 
       </div>
       <div class="mb-3">
         <label class="form-label fw-bold">View Project Link <span style="font-weight:400;color:var(--muted);">(optional)</span></label>
-        <input type="url" name="url" id="editUrl" class="form-control" placeholder="https://scratch.mit.edu/...">
+        <input type="text" name="url" id="editUrl" class="form-control" placeholder="https://scratch.mit.edu/...">
       </div>
       <div class="mb-3">
         <label class="form-label fw-bold">Check Course PDF <span style="font-weight:400;color:var(--muted);">(optional)</span></label>
         <input type="hidden" name="existing_pdf" id="editExistingPdf">
         <div id="editCurrentPdf" style="font-size:0.83rem;color:var(--muted);margin-bottom:6px;"></div>
-        <input type="file" name="pdf_file" accept=".pdf" class="form-control">
+        <input type="file" name="pdf_file" accept=".pdf" class="form-control" style="margin-bottom:6px;">
+        <div style="font-size:0.78rem;color:var(--muted);text-align:center;margin:2px 0;">— or enter a link —</div>
+        <input type="text" name="pdf_link" id="editPdfLink" class="form-control" placeholder="https://drive.google.com/...">
         <div style="font-size:0.78rem;color:var(--muted);margin-top:4px;">Leave empty to keep the current PDF</div>
       </div>
       <div style="display:flex;gap:10px;">
@@ -521,9 +555,14 @@ function openEdit(id, title, url, image, pdfUrl) {
   document.getElementById('editUrl').value         = url   || '';
   document.getElementById('editImage').value       = image || '';
   document.getElementById('editExistingPdf').value = pdfUrl || '';
+  document.getElementById('editPdfLink').value     = '';
   const currentPdfDiv = document.getElementById('editCurrentPdf');
   if (pdfUrl) {
-    currentPdfDiv.innerHTML = 'Current: <a href="uploads/pdfs/' + pdfUrl + '" target="_blank" style="color:#2563eb;">' + pdfUrl + '</a>';
+    const isLink = pdfUrl.startsWith('http');
+    const pdfHref = isLink ? pdfUrl : 'uploads/pdfs/' + pdfUrl;
+    const label   = isLink ? pdfUrl : pdfUrl;
+    currentPdfDiv.innerHTML = 'Current: <a href="' + pdfHref + '" target="_blank" style="color:#2563eb;">' + label + '</a>';
+    if (isLink) document.getElementById('editPdfLink').value = pdfUrl;
   } else {
     currentPdfDiv.textContent = 'No PDF uploaded yet.';
   }

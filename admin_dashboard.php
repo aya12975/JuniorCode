@@ -81,13 +81,15 @@ require_once "admin_prefs.php";
       width: 285px; flex-shrink: 0;
       background: linear-gradient(180deg, #0f172a 0%, #172554 100%);
       color: #fff;
-      padding: 24px 18px;
+      padding: 0;
       position: sticky; top: 0;
       height: 100vh; overflow-y: auto;
-      display: flex; flex-direction: column;
+      display: flex; flex-direction: column; justify-content: space-between;
       transition: width 0.3s ease, padding 0.3s ease, min-width 0.3s ease;
       overflow: hidden;
     }
+    .sidebar-top-area { padding: 24px 18px; flex: 1; }
+    .sidebar-bottom { padding: 16px 18px; border-top: 1px solid rgba(255,255,255,0.1); }
     body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; }
 
     .brand {
@@ -295,46 +297,52 @@ require_once "admin_prefs.php";
 
   <!-- ── SIDEBAR ── -->
   <aside class="sidebar">
-    <div class="brand">
-      <img src="images/robot2.png.png" class="brand-logo-img" alt="JuniorCode Logo">
-      <div>
-        <div class="brand-title">JuniorCode</div>
-        <div class="brand-sub"><?= t('admin_panel') ?></div>
+    <div class="sidebar-top-area">
+      <div class="brand">
+        <img src="images/robot2.png.png" class="brand-logo-img" alt="JuniorCode Logo">
+        <div>
+          <div class="brand-title">JuniorCode</div>
+          <div class="brand-sub"><?= t('admin_panel') ?></div>
+        </div>
+      </div>
+
+      <div class="nav-title"><?= t('main_label') ?></div>
+      <div class="nav-custom">
+        <a href="admin_dashboard.php" class="nav-link-custom <?= isActive('admin_dashboard.php', $currentPage) ?>">
+          <span class="nav-icon"><i class="fas fa-house"></i></span><span><?= t('nav_dashboard') ?></span>
+        </a>
+        <a href="manage_users.php" class="nav-link-custom <?= isActive('manage_users.php', $currentPage) ?>">
+          <span class="nav-icon"><i class="fas fa-users"></i></span><span><?= t('nav_users') ?></span>
+        </a>
+        <a href="manage_classes.php" class="nav-link-custom <?= isActive('manage_classes.php', $currentPage) ?>">
+          <span class="nav-icon"><i class="fas fa-book"></i></span><span><?= t('nav_classes') ?></span>
+        </a>
+        <a href="teacher_earnings.php" class="nav-link-custom <?= isActive('teacher_earnings.php', $currentPage) ?>">
+          <span class="nav-icon"><i class="fas fa-dollar-sign"></i></span><span><?= t('nav_earnings') ?></span>
+        </a>
+        <a href="available_slots.php" class="nav-link-custom <?= isActive('available_slots.php', $currentPage) ?>">
+          <span class="nav-icon"><i class="fas fa-calendar-days"></i></span><span><?= t('nav_slots') ?></span>
+        </a>
+        <a href="courses.php" class="nav-link-custom <?= isActive('courses.php', $currentPage) ?>">
+          <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span><?= t('nav_courses') ?></span>
+        </a>
+        <a href="reports.php" class="nav-link-custom <?= isActive('reports.php', $currentPage) ?>">
+          <span class="nav-icon"><i class="fas fa-chart-bar"></i></span><span><?= t('nav_reports') ?></span>
+        </a>
+        <a href="admin_certificates.php" class="nav-link-custom <?= isActive('admin_certificates.php', $currentPage) ?>">
+          <span class="nav-icon"><i class="fas fa-award"></i></span><span>Certificates</span>
+        </a>
+        <a href="admin_ai_settings.php" class="nav-link-custom <?= isActive('admin_ai_settings.php', $currentPage) ?>">
+          <span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI Tutor</span>
+        </a>
       </div>
     </div>
 
-    <div class="nav-title"><?= t('main_label') ?></div>
-    <div class="nav-custom">
-      <a href="admin_dashboard.php" class="nav-link-custom <?= isActive('admin_dashboard.php', $currentPage) ?>">
-        <span class="nav-icon"><i class="fas fa-house"></i></span><span><?= t('nav_dashboard') ?></span>
-      </a>
-      <a href="manage_users.php" class="nav-link-custom <?= isActive('manage_users.php', $currentPage) ?>">
-        <span class="nav-icon"><i class="fas fa-users"></i></span><span><?= t('nav_users') ?></span>
-      </a>
-      <a href="manage_classes.php" class="nav-link-custom <?= isActive('manage_classes.php', $currentPage) ?>">
-        <span class="nav-icon"><i class="fas fa-book"></i></span><span><?= t('nav_classes') ?></span>
-      </a>
-      <a href="teacher_earnings.php" class="nav-link-custom <?= isActive('teacher_earnings.php', $currentPage) ?>">
-        <span class="nav-icon"><i class="fas fa-dollar-sign"></i></span><span><?= t('nav_earnings') ?></span>
-      </a>
-      <a href="available_slots.php" class="nav-link-custom <?= isActive('available_slots.php', $currentPage) ?>">
-        <span class="nav-icon"><i class="fas fa-calendar-days"></i></span><span><?= t('nav_slots') ?></span>
-      </a>
-      <a href="courses.php" class="nav-link-custom <?= isActive('courses.php', $currentPage) ?>">
-        <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span><?= t('nav_courses') ?></span>
-      </a>
-      <a href="reports.php" class="nav-link-custom <?= isActive('reports.php', $currentPage) ?>">
-        <span class="nav-icon"><i class="fas fa-chart-bar"></i></span><span><?= t('nav_reports') ?></span>
-      </a>
+    <div class="sidebar-bottom">
       <a href="settings.php" class="nav-link-custom <?= isActive('settings.php', $currentPage) ?>">
         <span class="nav-icon"><i class="fas fa-gear"></i></span><span><?= t('nav_settings') ?></span>
       </a>
-      <a href="admin_certificates.php" class="nav-link-custom <?= isActive('admin_certificates.php', $currentPage) ?>">
-        <span class="nav-icon"><i class="fas fa-award"></i></span><span>Certificates</span>
-      </a>
-      <a href="admin_ai_settings.php" class="nav-link-custom <?= isActive('admin_ai_settings.php', $currentPage) ?>">
-        <span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI Tutor</span>
-      </a>
+      <div style="height:1px;background:rgba(255,255,255,0.1);margin:8px 0;"></div>
       <a href="logout.php" class="nav-link-custom">
         <span class="nav-icon"><i class="fas fa-right-from-bracket"></i></span><span><?= t('nav_logout') ?></span>
       </a>

@@ -237,9 +237,9 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: 
   <a href="teacher_monthly_earnings.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-dollar-sign"></i></span><span>My Earnings</span></a>
   <a href="teacher_students.php"         class="nav-link-custom"><span class="nav-icon"><i class="fas fa-user-graduate"></i></span><span>My Students</span></a>
   <a href="teacher_courses.php"          class="nav-link-custom"><span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>Courses</span></a>
-<a href="teacher_profile.php"          class="nav-link-custom active"><span class="nav-icon"><i class="fas fa-gear"></i></span><span>Settings</span></a>
-
   <div class="sidebar-bottom">
+    <a href="teacher_profile.php"          class="nav-link-custom active"><span class="nav-icon"><i class="fas fa-gear"></i></span><span>Settings</span></a>
+    <div style="height:1px;background:rgba(255,255,255,0.1);margin:8px 0;"></div>
     <a href="logout.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-right-from-bracket"></i></span><span>Logout</span></a>
   </div>
 </div>

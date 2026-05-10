@@ -362,12 +362,13 @@ body.sidebar-collapsed .main { margin-left: 0; }
     <a href="student_contact.php" class="nav-link-custom">
       <span class="nav-icon"><i class="fas fa-comments"></i></span><span>Contact Admin</span>
     </a>
-    <a href="student_profile.php" class="nav-link-custom">
-      <span class="nav-icon"><i class="fas fa-gear"></i></span><span>Settings</span>
-    </a>
   </div>
 
   <div class="sidebar-bottom">
+    <a href="student_profile.php" class="nav-link-custom">
+      <span class="nav-icon"><i class="fas fa-gear"></i></span><span>Settings</span>
+    </a>
+    <div style="height:1px;background:rgba(255,255,255,0.1);margin:8px 0;"></div>
     <a href="logout.php" class="nav-link-custom">
       <span class="nav-icon"><i class="fas fa-right-from-bracket"></i></span><span>Logout</span>
     </a>

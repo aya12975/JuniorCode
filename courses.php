@@ -1,4 +1,4 @@
-﻿<?php
+﻿﻿<?php
 session_start();
 require_once "db.php";
 
@@ -186,7 +186,8 @@ function renderProjectLinks($projects, $section, $category) {
             </div>
             <div class="proj-action-boxes">
               <?php if (!empty($p["pdf_url"])): ?>
-                <a href="uploads/pdfs/<?= htmlspecialchars($p["pdf_url"]) ?>" target="_blank" class="proj-action-btn proj-action-pdf">
+                <?php $pdfHref = (strpos($p["pdf_url"], 'http') === 0) ? $p["pdf_url"] : 'uploads/pdfs/' . $p["pdf_url"]; ?>
+                <a href="<?= htmlspecialchars($pdfHref) ?>" target="_blank" class="proj-action-btn proj-action-pdf">
                   <i class="fas fa-file-pdf"></i> Check Course
                 </a>
               <?php else: ?>
@@ -243,11 +244,9 @@ function renderCourseTable($result) {
           <a href="edit_course.php?id=<?= $c["id"] ?>" class="ca-btn ca-edit">
             <i class="fas fa-pen"></i> Edit
           </a>
-          <a href="delete_course.php?id=<?= $c["id"] ?>"
-             class="ca-btn ca-delete"
-             onclick="return confirm('Delete this course?')">
+          <button type="button" class="ca-btn ca-delete" style="border:none;cursor:pointer;" onclick="openCourseDelModal(<?= $c['id'] ?>, <?= htmlspecialchars(json_encode($c['course_name'])) ?>)">
             <i class="fas fa-trash"></i> Delete
-          </a>
+          </button>
         </div>
       </div>
       <?php endwhile; ?>
@@ -297,26 +296,20 @@ function renderCourseTable($result) {
       width: 285px;
       background: linear-gradient(180deg, #0f172a 0%, #172554 100%);
       color: white;
-      padding: 24px 18px;
+      padding:  0;
       position: sticky;
       top: 0;
       height: 100vh;
       overflow-y: auto;
       transition: width 0.3s ease, padding 0.3s ease, min-width 0.3s ease; overflow: hidden;
+      display: flex; flex-direction: column; justify-content: space-between;
     }
+    .sidebar-bottom { padding: 16px 18px; border-top: 1px solid rgba(255,255,255,0.1); }
 
     body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: hidden; }
 
-    .brand-box {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 28px;
-      padding: 10px 12px;
-      border-radius: 18px;
-      background: rgba(255,255,255,0.07);
-      border: 1px solid rgba(255,255,255,0.08);
-    }
+    .sidebar-top-area { padding: 24px 18px; flex: 1; }
+    .brand-box { display: flex; align-items: center; gap: 12px; padding: 0 4px 22px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; }
 
     .logo-img {
       width: 55px;
@@ -324,7 +317,6 @@ function renderCourseTable($result) {
       object-fit: contain;
       border-radius: 12px;
       background: none;
-      padding: 6px;
       flex-shrink: 0;
     }
 
@@ -335,34 +327,34 @@ function renderCourseTable($result) {
     }
 
     .brand-sub {
-      font-size: 0.78rem;
-      color: rgba(255,255,255,0.75);
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.55);
       letter-spacing: 1px;
       margin-top: 3px;
     }
 
     .nav-title {
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       text-transform: uppercase;
       letter-spacing: 1.3px;
-      color: rgba(255,255,255,0.55);
-      margin: 18px 10px 10px;
+      color: rgba(255,255,255,0.45);
+      margin: 20px 10px 10px;
       font-weight: 700;
     }
 
     .nav-custom {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 4px;
     }
 
     .nav-link-custom {
       display: flex;
       align-items: center;
       gap: 12px;
-      color: rgba(255,255,255,0.88);
+      color: rgba(255,255,255,0.78);
       text-decoration: none;
-      padding: 13px 14px;
+      padding: 12px 14px;
       border-radius: 14px;
       transition: all 0.25s ease;
       font-weight: 700;
@@ -380,8 +372,8 @@ function renderCourseTable($result) {
     }
 
     .nav-icon {
-      width: 34px;
-      height: 34px;
+      width: 32px;
+      height: 32px;
       border-radius: 10px;
       background: rgba(255,255,255,0.08);
       display: flex;
@@ -433,8 +425,8 @@ function renderCourseTable($result) {
     .admin-badge {
       background: rgba(255,255,255,0.15);
       color: #f6f8fc;
-      border-radius: 999px;
-      padding: 10px 16px;
+      border-radius: 12px; border: 1px solid rgba(255,255,255,0.2);
+      padding: 10px 18px;
       font-weight: 800;
       white-space: nowrap;
     }
@@ -860,6 +852,7 @@ function renderCourseTable($result) {
 <body>
   <div class="app-shell">
     <aside class="sidebar">
+      <div class="sidebar-top-area">
       <div class="brand-box">
         <img src="images/robot2.png.png" class="logo-img" alt="Logo">
         <div>
@@ -904,13 +897,23 @@ function renderCourseTable($result) {
           <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
           <span>Reports</span>
         </a>
+        <a href="admin_certificates.php" class="nav-link-custom">
+          <span class="nav-icon"><i class="fas fa-award"></i></span>
+          <span>Certificates</span>
+        </a>
+        <a href="admin_ai_settings.php" class="nav-link-custom">
+          <span class="nav-icon"><i class="fas fa-robot"></i></span>
+          <span>AI Tutor</span>
+        </a>
 
+      </div>
+      </div>
+      <div class="sidebar-bottom">
         <a href="settings.php" class="nav-link-custom">
           <span class="nav-icon"><i class="fas fa-gear"></i></span>
           <span>Settings</span>
         </a>
-
-
+        <div style="height:1px;background:rgba(255,255,255,0.1);margin:8px 0;"></div>
         <a href="logout.php" class="nav-link-custom">
           <span class="nav-icon"><i class="fas fa-right-from-bracket"></i></span>
           <span>Logout</span>
@@ -929,9 +932,7 @@ function renderCourseTable($result) {
           <h1>Courses</h1>
           <p>Manage academy courses, demo classes, and paid programs.</p>
         </div>
-        <div class="admin-badge">
-          Hello, <?php echo htmlspecialchars($adminName); ?>
-        </div>
+        <div class="admin-badge"><i class="fas fa-user-shield me-2"></i>Hello, <?php echo htmlspecialchars($adminName); ?> &nbsp;·&nbsp; <?php echo date("d M Y"); ?></div>
       </div>
 
       <?php if (isset($_GET["success"])): ?>
@@ -998,14 +999,9 @@ function renderCourseTable($result) {
                 <button type="button" onclick="openRenameModal('kids', <?= $catJs ?>)" class="ca-btn ca-edit" style="padding:6px 14px;border:none;cursor:pointer;">
                   <i class="fas fa-pen"></i> Edit
                 </button>
-                <form method="POST" style="display:inline;" onsubmit="return confirm('Delete this course and ALL its data?')">
-                  <input type="hidden" name="cat_action" value="delete">
-                  <input type="hidden" name="cat_section" value="kids">
-                  <input type="hidden" name="cat_old" value="<?= htmlspecialchars($cat) ?>">
-                  <button type="submit" class="ca-btn ca-delete" style="padding:6px 14px;border:none;cursor:pointer;">
-                    <i class="fas fa-trash"></i> Delete
-                  </button>
-                </form>
+                <button type="button" onclick="openCatDelModal('kids', <?= $catJs ?>)" class="ca-btn ca-delete" style="padding:6px 14px;border:none;cursor:pointer;">
+                  <i class="fas fa-trash"></i> Delete
+                </button>
               </div>
               <a href="add_course.php?section=kids&category=<?= $catEnc ?>" class="btn-main">+ Add Course</a>
             </div>
@@ -1052,14 +1048,9 @@ function renderCourseTable($result) {
                 <button type="button" onclick="openRenameModal('junior', <?= $catJs ?>)" class="ca-btn ca-edit" style="padding:6px 14px;border:none;cursor:pointer;">
                   <i class="fas fa-pen"></i> Edit
                 </button>
-                <form method="POST" style="display:inline;" onsubmit="return confirm('Delete this course and ALL its data?')">
-                  <input type="hidden" name="cat_action" value="delete">
-                  <input type="hidden" name="cat_section" value="junior">
-                  <input type="hidden" name="cat_old" value="<?= htmlspecialchars($cat) ?>">
-                  <button type="submit" class="ca-btn ca-delete" style="padding:6px 14px;border:none;cursor:pointer;">
-                    <i class="fas fa-trash"></i> Delete
-                  </button>
-                </form>
+                <button type="button" onclick="openCatDelModal('junior', <?= $catJs ?>)" class="ca-btn ca-delete" style="padding:6px 14px;border:none;cursor:pointer;">
+                  <i class="fas fa-trash"></i> Delete
+                </button>
               </div>
               <a href="add_course.php?section=junior&category=<?= $catEnc ?>" class="btn-main">+ Add Course</a>
             </div>
@@ -1133,6 +1124,30 @@ function renderCourseTable($result) {
       </div>
     </main>
   </div>
+<!-- Delete Confirmation Modal -->
+<div id="del-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.45);z-index:10000;align-items:center;justify-content:center;">
+  <div style="background:white;border-radius:22px;padding:36px;max-width:400px;width:92%;box-shadow:0 24px 60px rgba(0,0,0,0.18);text-align:center;">
+    <div style="width:64px;height:64px;border-radius:50%;background:#fee2e2;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;">
+      <i class="fas fa-trash" style="font-size:1.5rem;color:#dc2626;"></i>
+    </div>
+    <div id="del-modal-title" style="font-size:1.1rem;font-weight:900;margin-bottom:8px;"></div>
+    <p id="del-modal-msg" style="color:#64748b;font-size:0.92rem;margin-bottom:24px;"></p>
+    <div style="display:flex;gap:10px;justify-content:center;">
+      <button id="del-modal-confirm" style="background:linear-gradient(135deg,#dc2626,#b91c1c);border:none;color:white;font-weight:800;border-radius:12px;padding:12px 28px;cursor:pointer;font-size:0.95rem;">
+        <i class="fas fa-trash me-1"></i> Yes, Delete
+      </button>
+      <button onclick="closeDelModal()" style="background:#64748b;color:white;border:none;border-radius:12px;padding:12px 24px;font-weight:800;cursor:pointer;">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Hidden form for category delete (submitted by modal) -->
+<form id="del-cat-form" method="POST" style="display:none;">
+  <input type="hidden" name="cat_action" value="delete">
+  <input type="hidden" name="cat_section" id="del-cat-section">
+  <input type="hidden" name="cat_old"     id="del-cat-old">
+</form>
+
 <!-- Rename Category Modal -->
 <div id="rename-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.45);z-index:9999;align-items:center;justify-content:center;">
   <div style="background:white;border-radius:22px;padding:36px;max-width:420px;width:92%;box-shadow:0 24px 60px rgba(0,0,0,0.18);">
@@ -1155,6 +1170,37 @@ function renderCourseTable($result) {
 </div>
 
 <script>
+function openDelModal(title, msg, onConfirm) {
+  document.getElementById('del-modal-title').textContent = title;
+  document.getElementById('del-modal-msg').textContent   = msg;
+  document.getElementById('del-modal-confirm').onclick   = function() { closeDelModal(); onConfirm(); };
+  document.getElementById('del-modal').style.display     = 'flex';
+}
+function closeDelModal() {
+  document.getElementById('del-modal').style.display = 'none';
+}
+document.getElementById('del-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeDelModal();
+});
+function openCatDelModal(section, cat) {
+  openDelModal(
+    'Delete "' + cat + '"?',
+    'This will permanently delete the "' + cat + '" module and ALL its courses and project links. This cannot be undone.',
+    function() {
+      document.getElementById('del-cat-section').value = section;
+      document.getElementById('del-cat-old').value     = cat;
+      document.getElementById('del-cat-form').submit();
+    }
+  );
+}
+function openCourseDelModal(id, name) {
+  openDelModal(
+    'Delete Course?',
+    'Are you sure you want to delete "' + name + '"? This cannot be undone.',
+    function() { window.location.href = 'delete_course.php?id=' + id; }
+  );
+}
+
 function openRenameModal(section, cat) {
   document.getElementById('modal-section').value = section;
   document.getElementById('modal-old').value     = cat;

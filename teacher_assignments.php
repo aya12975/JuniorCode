@@ -147,18 +147,20 @@ if ($subCheck && $subCheck->num_rows > 0 && !empty($assignments)) {
 * { box-sizing:border-box; }
 body { margin:0; font-family:Arial,Helvetica,sans-serif; background:radial-gradient(circle at top left,rgba(37,99,235,0.08),transparent 22%),radial-gradient(circle at bottom right,rgba(56,189,248,0.08),transparent 22%),linear-gradient(180deg,#f8fbff 0%,#eef6ff 100%); color:var(--dark); }
 .app-shell { min-height:100vh; display:flex; }
-.sidebar { width:285px; background:linear-gradient(180deg,#0f172a 0%,#172554 100%); color:white; padding:24px 18px; position:sticky; top:0; height:100vh; overflow-y:auto; transition:width .3s,padding .3s,min-width .3s; overflow:hidden; }
+.sidebar { width:285px; background:linear-gradient(180deg,#0f172a 0%,#172554 100%); color:white; padding:0; justify-content:space-between; position:sticky; top:0; height:100vh; overflow-y:auto; transition:width .3s,padding .3s,min-width .3s; overflow:hidden; display:flex; flex-direction:column; justify-content:space-between; }
+.sidebar-bottom { margin-top:auto; border-top:1px solid rgba(255,255,255,0.1); padding-top:12px; }
 body.sidebar-collapsed .sidebar { width:0; padding:0; min-width:0; overflow:hidden; }
-.brand-box { display:flex; align-items:center; gap:12px; margin-bottom:28px; padding:10px 12px; border-radius:18px; background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.08); }
+.sidebar-top-area { padding: 24px 18px; flex: 1; }
+.brand-box { display: flex; align-items: center; gap: 12px; padding: 0 4px 22px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; }
 .logo-img { width:55px; height:55px; object-fit:contain; border-radius:12px; flex-shrink:0; }
 .brand-title { font-weight:900; font-size:1.1rem; line-height:1.15; }
 .brand-sub { font-size:0.78rem; color:rgba(255,255,255,0.75); letter-spacing:1px; margin-top:3px; }
 .nav-title { font-size:0.8rem; text-transform:uppercase; letter-spacing:1.3px; color:rgba(255,255,255,0.55); margin:18px 10px 10px; font-weight:700; }
-.nav-custom { display:flex; flex-direction:column; gap:8px; }
-.nav-link-custom { display:flex; align-items:center; gap:12px; color:rgba(255,255,255,0.88); text-decoration:none; padding:13px 14px; border-radius:14px; transition:all .25s; font-weight:700; }
+.nav-custom { display:flex; flex-direction:column; gap:4px; }
+.nav-link-custom { display:flex; align-items:center; gap:12px; color:rgba(255,255,255,0.88); text-decoration:none; padding:12px 14px; border-radius:14px; transition:all .25s; font-weight:700; }
 .nav-link-custom:hover { background:rgba(255,255,255,0.08); color:white; }
 .nav-link-custom.active { background:linear-gradient(135deg,var(--primary),var(--secondary)); color:white; }
-.nav-icon { width:34px; height:34px; border-radius:10px; background:rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.nav-icon { width:32px; height:32px; border-radius:10px; background:rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
 .main-content { flex:1; padding:26px; }
 .hamburger-btn { display:flex; flex-direction:column; gap:5px; cursor:pointer; background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; margin-bottom:18px; width:fit-content; box-shadow:0 2px 8px rgba(0,0,0,0.06); }
 .hamburger-line { width:22px; height:2.5px; background:#334155; border-radius:2px; }
@@ -243,6 +245,7 @@ body.sidebar-collapsed .sidebar { width:0; padding:0; min-width:0; overflow:hidd
 <div class="app-shell">
 
   <aside class="sidebar">
+    <div class="sidebar-top-area">
     <div class="brand-box">
       <img src="images/robot2.png.png" class="logo-img" alt="Logo">
       <div>
@@ -259,7 +262,11 @@ body.sidebar-collapsed .sidebar { width:0; padding:0; min-width:0; overflow:hidd
       <a href="teacher_students.php"        class="nav-link-custom"><span class="nav-icon"><i class="fas fa-user-graduate"></i></span><span>My Students</span></a>
       <a href="teacher_assignments.php"     class="nav-link-custom active"><span class="nav-icon"><i class="fas fa-clipboard-list"></i></span><span>Assignments</span></a>
       <a href="teacher_courses.php"         class="nav-link-custom"><span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>Courses</span></a>
-<a href="teacher_profile.php"         class="nav-link-custom"><span class="nav-icon"><i class="fas fa-gear"></i></span><span>Settings</span></a>
+    </div>
+    </div>
+    <div class="sidebar-bottom">
+      <a href="teacher_profile.php"         class="nav-link-custom"><span class="nav-icon"><i class="fas fa-gear"></i></span><span>Settings</span></a>
+      <div style="height:1px;background:rgba(255,255,255,0.1);margin:8px 0;"></div>
       <a href="logout.php"                  class="nav-link-custom"><span class="nav-icon"><i class="fas fa-right-from-bracket"></i></span><span>Logout</span></a>
     </div>
   </aside>

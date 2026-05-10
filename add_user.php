@@ -95,26 +95,20 @@ body {
   width: 285px;
   background: linear-gradient(180deg, #0f172a 0%, #172554 100%);
   color: white;
-  padding: 24px 18px;
+  padding:  0;
   position: sticky;
   top: 0;
   height: 100vh;
   overflow-y: auto;
   transition: width 0.3s ease, padding 0.3s ease, min-width 0.3s ease; overflow: hidden;
+  display: flex; flex-direction: column; justify-content: space-between;
 }
 
 body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: hidden; }
+.sidebar-bottom { padding: 16px 18px; border-top: 1px solid rgba(255,255,255,0.1); }
 
-.brand-box {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 28px;
-  padding: 10px 12px;
-  border-radius: 18px;
-  background: rgba(255,255,255,0.07);
-  border: 1px solid rgba(255,255,255,0.08);
-}
+.sidebar-top-area { padding: 24px 18px; flex: 1; }
+.brand-box { display: flex; align-items: center; gap: 12px; padding: 0 4px 22px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; }
 
 .logo-img {
   width: 55px;
@@ -122,7 +116,6 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: 
   object-fit: contain;
   border-radius: 12px;
   background: none;
-  padding: 6px;
   flex-shrink: 0;
 }
 
@@ -133,34 +126,34 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: 
 }
 
 .brand-sub {
-  font-size: 0.78rem;
-  color: rgba(255,255,255,0.75);
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.55);
   letter-spacing: 1px;
   margin-top: 3px;
 }
 
 .nav-title {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   text-transform: uppercase;
   letter-spacing: 1.3px;
-  color: rgba(255,255,255,0.55);
-  margin: 18px 10px 10px;
+  color: rgba(255,255,255,0.45);
+  margin: 20px 10px 10px;
   font-weight: 700;
 }
 
 .nav-custom {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 
 .nav-link-custom {
   display: flex;
   align-items: center;
   gap: 12px;
-  color: rgba(255,255,255,0.88);
+  color: rgba(255,255,255,0.78);
   text-decoration: none;
-  padding: 13px 14px;
+  padding: 12px 14px;
   border-radius: 14px;
   transition: all 0.25s ease;
   font-weight: 700;
@@ -178,8 +171,8 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: 
 }
 
 .nav-icon {
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   border-radius: 10px;
   background: rgba(255,255,255,0.08);
   display: flex;
@@ -238,8 +231,8 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: 
 .admin-badge {
   background: rgba(255,255,255,0.15);
   color: white;
-  border-radius: 999px;
-  padding: 10px 16px;
+  border-radius: 12px; border: 1px solid rgba(255,255,255,0.2);
+  padding: 10px 18px;
   font-weight: 800;
   white-space: nowrap;
 }
@@ -435,6 +428,7 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: 
 <div class="app-shell">
 
   <aside class="sidebar">
+    <div class="sidebar-top-area">
     <div class="brand-box">
       <img src="images/robot2.png.png" class="logo-img" alt="logo">
       <div>
@@ -480,13 +474,23 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: 
         <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
         <span>Reports</span>
       </a>
+      <a href="admin_certificates.php" class="nav-link-custom <?php echo isActive('admin_certificates.php', $currentPage); ?>">
+        <span class="nav-icon"><i class="fas fa-award"></i></span>
+        <span>Certificates</span>
+      </a>
+      <a href="admin_ai_settings.php" class="nav-link-custom <?php echo isActive('admin_ai_settings.php', $currentPage); ?>">
+        <span class="nav-icon"><i class="fas fa-robot"></i></span>
+        <span>AI Tutor</span>
+      </a>
 
+    </div>
+    </div>
+    <div class="sidebar-bottom">
       <a href="settings.php" class="nav-link-custom <?php echo isActive('settings.php', $currentPage); ?>">
         <span class="nav-icon"><i class="fas fa-gear"></i></span>
         <span>Settings</span>
       </a>
-
-
+      <div style="height:1px;background:rgba(255,255,255,0.1);margin:8px 0;"></div>
       <a href="logout.php" class="nav-link-custom">
         <span class="nav-icon"><i class="fas fa-right-from-bracket"></i></span>
         <span>Logout</span>
@@ -511,9 +515,7 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: 
         <p>Create a new admin, teacher, or student account.</p>
       </div>
 
-      <div class="admin-badge">
-        Hello, <?php echo htmlspecialchars($adminName); ?>
-      </div>
+      <div class="admin-badge"><i class="fas fa-user-shield me-2"></i>Hello, <?php echo htmlspecialchars($adminName); ?> &nbsp;·&nbsp; <?php echo date("d M Y"); ?></div>
     </div>
 
     <div class="form-wrapper">

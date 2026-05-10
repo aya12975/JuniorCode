@@ -82,7 +82,8 @@ function renderTcProjects(array $projs): string {
           </div>
           <div class="tc-proj-actions">
             <?php if (!empty($p["pdf_url"])): ?>
-              <a href="uploads/pdfs/<?= htmlspecialchars($p["pdf_url"]) ?>" target="_blank" class="tc-proj-btn tc-proj-pdf">
+              <?php $tcPdfHref = (strpos($p["pdf_url"], 'http') === 0) ? $p["pdf_url"] : 'uploads/pdfs/' . $p["pdf_url"]; ?>
+              <a href="<?= htmlspecialchars($tcPdfHref) ?>" target="_blank" class="tc-proj-btn tc-proj-pdf">
                 <i class="fas fa-file-pdf"></i> Check Course
               </a>
             <?php endif; ?>
@@ -469,13 +470,14 @@ function renderReadOnlyTable(array $rows) {
       <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span>
       <span>Courses</span>
     </a>
-<a href="teacher_profile.php" class="nav-link-custom">
-      <span class="nav-icon"><i class="fas fa-gear"></i></span>
-      <span>Settings</span>
-    </a>
   </div>
 
   <div class="sidebar-bottom">
+    <a href="teacher_profile.php" class="nav-link-custom">
+      <span class="nav-icon"><i class="fas fa-gear"></i></span>
+      <span>Settings</span>
+    </a>
+    <div style="height:1px;background:rgba(255,255,255,0.1);margin:8px 0;"></div>
     <a href="logout.php" class="nav-link-custom">
       <span class="nav-icon"><i class="fas fa-right-from-bracket"></i></span>
       <span>Logout</span>

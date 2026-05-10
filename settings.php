@@ -146,28 +146,25 @@ function isActive($page, $cur) { return $page === $cur ? "active" : ""; }
       width: 285px;
       background: linear-gradient(180deg,#0f172a 0%,#172554 100%);
       color: white;
-      padding: 24px 18px;
+      padding:  0;
       position: sticky; top: 0;
       height: 100vh; overflow-y: auto; flex-shrink: 0;
       transition: width 0.3s ease, padding 0.3s ease, min-width 0.3s ease; overflow: hidden;
+      display: flex; flex-direction: column; justify-content: space-between;
     }
+    .sidebar-bottom { padding: 16px 18px; border-top: 1px solid rgba(255,255,255,0.1); }
     body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: hidden; }
-    .brand-box {
-      display: flex; align-items: center; gap: 12px;
-      margin-bottom: 28px; padding: 10px 12px;
-      border-radius: 18px;
-      background: rgba(255,255,255,.07);
-      border: 1px solid rgba(255,255,255,.08);
-    }
-    .logo-img { width:55px; height:55px; object-fit:contain; border-radius:12px; background:none; padding:6px; flex-shrink:0; }
+    .sidebar-top-area { padding: 24px 18px; flex: 1; }
+    .brand-box { display: flex; align-items: center; gap: 12px; padding: 0 4px 22px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; }
+    .logo-img { width:55px; height:55px; object-fit:contain; border-radius:12px; background:none; flex-shrink:0; }
     .brand-title { font-weight:900; font-size:1.1rem; line-height:1.15; }
     .brand-sub   { font-size:.78rem; color:rgba(255,255,255,.75); letter-spacing:1px; margin-top:3px; }
     .nav-title   { font-size:.8rem; text-transform:uppercase; letter-spacing:1.3px; color:rgba(255,255,255,.55); margin:18px 10px 10px; font-weight:700; }
-    .nav-custom  { display:flex; flex-direction:column; gap:8px; }
+    .nav-custom  { display:flex; flex-direction:column; gap:4px; }
     .nav-link-custom {
       display:flex; align-items:center; gap:12px;
       color:rgba(255,255,255,.88); text-decoration:none;
-      padding:13px 14px; border-radius:14px;
+      padding:12px 14px; border-radius:14px;
       transition:all .25s; font-weight:700;
     }
     .nav-link-custom:hover { background:rgba(255,255,255,.08); color:white; }
@@ -176,7 +173,7 @@ function isActive($page, $cur) { return $page === $cur ? "active" : ""; }
       color:white; box-shadow:0 10px 24px rgba(37,99,235,.28);
     }
     .nav-icon {
-      width:34px; height:34px; border-radius:10px;
+      width:32px; height:32px; border-radius:10px;
       background:rgba(255,255,255,.08);
       display:flex; align-items:center; justify-content:center; flex-shrink:0;
     }
@@ -300,6 +297,7 @@ function isActive($page, $cur) { return $page === $cur ? "active" : ""; }
 
   <!-- ══ SIDEBAR ══ -->
   <aside class="sidebar">
+    <div class="sidebar-top-area">
     <div class="brand-box">
       <img src="images/robot2.png.png" class="logo-img" alt="Logo">
       <div>
@@ -338,11 +336,22 @@ function isActive($page, $cur) { return $page === $cur ? "active" : ""; }
         <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
         <span><?= t('nav_reports') ?></span>
       </a>
+      <a href="admin_certificates.php" class="nav-link-custom <?= isActive('admin_certificates.php',$currentPage) ?>">
+        <span class="nav-icon"><i class="fas fa-award"></i></span>
+        <span>Certificates</span>
+      </a>
+      <a href="admin_ai_settings.php" class="nav-link-custom <?= isActive('admin_ai_settings.php',$currentPage) ?>">
+        <span class="nav-icon"><i class="fas fa-robot"></i></span>
+        <span>AI Tutor</span>
+      </a>
+    </div>
+    </div>
+    <div class="sidebar-bottom">
       <a href="settings.php" class="nav-link-custom <?= isActive('settings.php',$currentPage) ?>">
         <span class="nav-icon"><i class="fas fa-gear"></i></span>
         <span><?= t('nav_settings') ?></span>
       </a>
-
+      <div style="height:1px;background:rgba(255,255,255,0.1);margin:8px 0;"></div>
       <a href="logout.php" class="nav-link-custom">
         <span class="nav-icon"><i class="fas fa-right-from-bracket"></i></span>
         <span><?= t('nav_logout') ?></span>
@@ -362,7 +371,7 @@ function isActive($page, $cur) { return $page === $cur ? "active" : ""; }
         <h1><?= t('settings_title') ?></h1>
         <p><?= t('settings_sub') ?></p>
       </div>
-      <div class="admin-badge"><?= t('hello') ?>, <?= htmlspecialchars($adminName) ?></div>
+      <div class="admin-badge"><i class="fas fa-user-shield me-2"></i><?= t('hello') ?>, <?= htmlspecialchars($adminName) ?> &nbsp;·&nbsp; <?= date("d M Y") ?></div>
     </div>
 
     <?php if ($message !== ''): ?>

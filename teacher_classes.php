@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 session_start();
 require_once "db.php";
 
@@ -552,12 +552,13 @@ foreach ($classSessions as $c) {
     <a href="teacher_courses.php" class="nav-link-custom">
       <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>Courses</span>
     </a>
-<a href="teacher_profile.php" class="nav-link-custom">
-      <span class="nav-icon"><i class="fas fa-gear"></i></span><span>Settings</span>
-    </a>
   </div>
 
   <div class="sidebar-bottom">
+    <a href="teacher_profile.php" class="nav-link-custom">
+      <span class="nav-icon"><i class="fas fa-gear"></i></span><span>Settings</span>
+    </a>
+    <div style="height:1px;background:rgba(255,255,255,0.1);margin:8px 0;"></div>
     <a href="logout.php" class="nav-link-custom">
       <span class="nav-icon"><i class="fas fa-right-from-bracket"></i></span><span>Logout</span>
     </a>

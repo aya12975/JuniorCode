@@ -31,7 +31,9 @@
       "PowerShell(& \"C:\\\\xampp\\\\php\\\\php.exe\" -l \"C:\\\\xampp\\\\htdocs\\\\JuniorCode\\\\admin_ai_settings.php\"; & \"C:\\\\xampp\\\\php\\\\php.exe\" -l \"C:\\\\xampp\\\\htdocs\\\\JuniorCode\\\\ai_chat_handler.php\"; & \"C:\\\\xampp\\\\php\\\\php.exe\" -l \"C:\\\\xampp\\\\htdocs\\\\JuniorCode\\\\student_chat.php\")",
       "PowerShell(Invoke-WebRequest -Uri \"http://localhost/JuniorCode/_diag_ai.php\" -UseBasicParsing | Select-Object -ExpandProperty Content)",
       "PowerShell(& \"C:\\\\xampp\\\\php\\\\php.exe\" -l \"C:\\\\xampp\\\\htdocs\\\\JuniorCode\\\\ai_chat_handler.php\")",
-      "Bash(del *)"
+      "Bash(del *)",
+      "Bash(grep -v \"^.*\\\\..*css\\\\|admin-badge {\")",
+      "Bash(powershell *)"
     ]
   }
 }
