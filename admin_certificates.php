@@ -86,8 +86,9 @@ body { font-family:Arial,Helvetica,sans-serif; background:radial-gradient(circle
 .app-shell { min-height:100vh; display:flex; }
 
 /* Sidebar */
-.sidebar { width:285px; flex-shrink:0; background:linear-gradient(180deg,#0f172a,#172554); color:#fff; padding:0; justify-content:space-between; position:sticky; top:0; height:100vh; overflow-y:auto; display:flex; flex-direction:column; transition:width .3s,padding .3s,min-width .3s; }
+.sidebar { width:285px; flex-shrink:0; background:linear-gradient(180deg,#0f172a,#172554); color:#fff; padding:0; justify-content:space-between; position:sticky; top:0; height:100vh; overflow-y:auto; display:flex; flex-direction:column; transition:width .3s,padding .3s,min-width .3s; overflow:hidden; }
 body.sidebar-collapsed .sidebar { width:0; padding:0; min-width:0; overflow:hidden; }
+.sidebar-top-area { padding: 0 18px 18px; flex: 1; }
 .brand { display:flex; align-items:center; gap:12px; padding:0 4px 22px; border-bottom:1px solid rgba(255,255,255,0.1); margin-bottom:10px; }
 .brand-logo-img { width:55px; height:55px; object-fit:contain; flex-shrink:0; }
 .brand-title { font-weight:900; font-size:1.1rem; color:#fff; line-height:1.2; }
@@ -168,6 +169,7 @@ body.sidebar-collapsed .sidebar { width:0; padding:0; min-width:0; overflow:hidd
       <a href="reports.php"            class="nav-link-custom <?= isActive('reports.php',           $currentPage) ?>"><span class="nav-icon"><i class="fas fa-chart-bar"></i></span><span><?= t('nav_reports') ?></span></a>
       <a href="admin_certificates.php" class="nav-link-custom <?= isActive('admin_certificates.php',$currentPage) ?>"><span class="nav-icon"><i class="fas fa-award"></i></span><span>Certificates</span></a>
       <a href="admin_ai_settings.php"  class="nav-link-custom <?= isActive('admin_ai_settings.php', $currentPage) ?>"><span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI Tutor</span></a>
+      <a href="admin_quiz_generator.php" class="nav-link-custom <?= isActive('admin_quiz_generator.php', $currentPage) ?>"><span class="nav-icon"><i class="fas fa-circle-question"></i></span><span>AI Quiz Generator</span></a>
     </div>
     </div>
     <div class="sidebar-bottom">

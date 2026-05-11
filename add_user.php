@@ -107,7 +107,7 @@ body {
 body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: hidden; }
 .sidebar-bottom { padding: 16px 18px; border-top: 1px solid rgba(255,255,255,0.1); }
 
-.sidebar-top-area { padding: 24px 18px; flex: 1; }
+.sidebar-top-area { padding: 0 18px 18px; flex: 1; }
 .brand-box { display: flex; align-items: center; gap: 12px; padding: 0 4px 22px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; }
 
 .logo-img {
@@ -481,6 +481,10 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: 
       <a href="admin_ai_settings.php" class="nav-link-custom <?php echo isActive('admin_ai_settings.php', $currentPage); ?>">
         <span class="nav-icon"><i class="fas fa-robot"></i></span>
         <span>AI Tutor</span>
+      </a>
+      <a href="admin_quiz_generator.php" class="nav-link-custom <?php echo isActive('admin_quiz_generator.php', $currentPage); ?>">
+        <span class="nav-icon"><i class="fas fa-circle-question"></i></span>
+        <span>AI Quiz Generator</span>
       </a>
 
     </div>

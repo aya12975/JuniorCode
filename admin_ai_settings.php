@@ -67,6 +67,7 @@ body.sidebar-collapsed .sidebar { width:0; padding:0; min-width:0; }
 .nav-title { font-size:0.78rem; text-transform:uppercase; letter-spacing:1.3px; color:rgba(255,255,255,0.45); margin:20px 10px 10px; font-weight:700; }
 .nav-custom { display:flex; flex-direction:column; gap:4px; }
 .sidebar-bottom { padding:16px 18px; border-top:1px solid rgba(255,255,255,0.1); }
+.sidebar-top-area { padding: 0 18px 18px; flex: 1; }
 .nav-link-custom { display:flex; align-items:center; gap:12px; color:rgba(255,255,255,0.78); text-decoration:none; padding:12px 14px; border-radius:14px; transition:all 0.22s ease; font-weight:700; }
 .nav-link-custom:hover { background:rgba(255,255,255,0.08); color:#fff; }
 .nav-link-custom.active { background:linear-gradient(135deg,var(--primary),var(--secondary)); color:#fff; box-shadow:0 8px 20px rgba(30,50,100,0.35); }
@@ -155,6 +156,9 @@ body.sidebar-collapsed .sidebar { width:0; padding:0; min-width:0; }
       </a>
       <a href="admin_ai_settings.php" class="nav-link-custom <?= isActive('admin_ai_settings.php', $currentPage) ?>">
         <span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI Tutor</span>
+      </a>
+      <a href="admin_quiz_generator.php" class="nav-link-custom <?= isActive('admin_quiz_generator.php', $currentPage) ?>">
+        <span class="nav-icon"><i class="fas fa-circle-question"></i></span><span>AI Quiz Generator</span>
       </a>
     </div>
     </div>

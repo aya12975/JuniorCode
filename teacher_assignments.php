@@ -150,7 +150,7 @@ body { margin:0; font-family:Arial,Helvetica,sans-serif; background:radial-gradi
 .sidebar { width:285px; background:linear-gradient(180deg,#0f172a 0%,#172554 100%); color:white; padding:0; justify-content:space-between; position:sticky; top:0; height:100vh; overflow-y:auto; transition:width .3s,padding .3s,min-width .3s; overflow:hidden; display:flex; flex-direction:column; justify-content:space-between; }
 .sidebar-bottom { margin-top:auto; border-top:1px solid rgba(255,255,255,0.1); padding-top:12px; }
 body.sidebar-collapsed .sidebar { width:0; padding:0; min-width:0; overflow:hidden; }
-.sidebar-top-area { padding: 24px 18px; flex: 1; }
+.sidebar-top-area { padding: 0 18px 18px; flex: 1; }
 .brand-box { display: flex; align-items: center; gap: 12px; padding: 0 4px 22px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; }
 .logo-img { width:55px; height:55px; object-fit:contain; border-radius:12px; flex-shrink:0; }
 .brand-title { font-weight:900; font-size:1.1rem; line-height:1.15; }
@@ -262,6 +262,7 @@ body.sidebar-collapsed .sidebar { width:0; padding:0; min-width:0; overflow:hidd
       <a href="teacher_students.php"        class="nav-link-custom"><span class="nav-icon"><i class="fas fa-user-graduate"></i></span><span>My Students</span></a>
       <a href="teacher_assignments.php"     class="nav-link-custom active"><span class="nav-icon"><i class="fas fa-clipboard-list"></i></span><span>Assignments</span></a>
       <a href="teacher_courses.php"         class="nav-link-custom"><span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>Courses</span></a>
+      <a href="teacher_quizzes.php"         class="nav-link-custom"><span class="nav-icon"><i class="fas fa-circle-question"></i></span><span>Quizzes</span></a>
     </div>
     </div>
     <div class="sidebar-bottom">

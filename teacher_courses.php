@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 session_start();
 require_once "db.php";
 
@@ -9,39 +9,24 @@ if (!isset($_SESSION["role"]) || $_SESSION["role"] !== "teacher") {
 
 $teacherName = $_SESSION["username"] ?? "Teacher";
 
-// Ensure section column exists
-$chk = $conn->query("SHOW COLUMNS FROM courses LIKE 'section'");
-if ($chk && $chk->num_rows === 0) {
-    $conn->query("ALTER TABLE courses ADD COLUMN section VARCHAR(50) NOT NULL DEFAULT 'kids'");
-}
-
-function fetchCoursesSection($conn, $section) {
-    $stmt = $conn->prepare("SELECT * FROM courses WHERE section = ? ORDER BY category ASC, id DESC");
-    if (!$stmt) return [];
-    $stmt->bind_param("s", $section);
-    $stmt->execute();
-    $rows = [];
-    $res = $stmt->get_result();
-    while ($r = $res->fetch_assoc()) $rows[] = $r;
-    return $rows;
-}
-
-function groupCoursesByCat(array $rows): array {
-    $g = [];
-    foreach ($rows as $r) {
-        $cat = trim($r['category']) ?: 'General';
-        $g[$cat][] = $r;
+// Ensure all course columns exist
+foreach ([
+    "section"     => "VARCHAR(50)   NOT NULL DEFAULT 'kids'",
+    "sub_section" => "VARCHAR(50)   NOT NULL DEFAULT ''",
+    "category"    => "VARCHAR(100)  NOT NULL DEFAULT ''",
+    "age_group"   => "VARCHAR(50)   NOT NULL DEFAULT ''",
+    "level"       => "VARCHAR(50)   NOT NULL DEFAULT ''",
+    "price"       => "DECIMAL(10,2) NOT NULL DEFAULT 0",
+    "course_type" => "VARCHAR(20)   NOT NULL DEFAULT 'demo'",
+    "status"      => "VARCHAR(20)   NOT NULL DEFAULT 'active'",
+    "duration"    => "VARCHAR(100)  NOT NULL DEFAULT ''",
+    "image"       => "TEXT          NULL",
+] as $col => $def) {
+    $chk = $conn->query("SHOW COLUMNS FROM courses LIKE '$col'");
+    if ($chk && $chk->num_rows === 0) {
+        $conn->query("ALTER TABLE courses ADD COLUMN $col $def");
     }
-    return $g;
 }
-
-function catId(string $cat): string {
-    return preg_replace('/[^a-z0-9]+/', '_', strtolower(trim($cat)));
-}
-
-$kidsGroups   = groupCoursesByCat(fetchCoursesSection($conn, 'kids'));
-$juniorGroups = groupCoursesByCat(fetchCoursesSection($conn, 'junior'));
-$allDemoCrs   = fetchCoursesSection($conn, 'demo');
 
 // Ensure course_projects table exists
 $conn->query("CREATE TABLE IF NOT EXISTS course_projects (
@@ -52,25 +37,74 @@ $conn->query("CREATE TABLE IF NOT EXISTS course_projects (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 $conn->query("ALTER TABLE course_projects ADD COLUMN IF NOT EXISTS pdf_url TEXT NOT NULL DEFAULT ''");
 
-function fetchProjSectionTc($conn, $section) {
-    $stmt = $conn->prepare("SELECT * FROM course_projects WHERE section = ? ORDER BY sort_order ASC, id ASC");
-    if (!$stmt) return [];
-    $stmt->bind_param("s", $section);
-    $stmt->execute();
-    $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-    $g = [];
-    foreach ($rows as $r) { $g[trim($r['category']) ?: 'General'][] = $r; }
-    return $g;
+// Same logic as admin courses.php — pulls categories from both tables
+function getCategoriesForSection($conn, $section) {
+    $cats = [];
+    $s1 = $conn->prepare("SELECT DISTINCT category FROM courses WHERE section=? AND category != '' ORDER BY category ASC");
+    if ($s1) {
+        $s1->bind_param("s", $section);
+        $s1->execute();
+        $cats = array_column($s1->get_result()->fetch_all(MYSQLI_ASSOC), 'category');
+    }
+    $s2 = $conn->prepare("SELECT DISTINCT category FROM course_projects WHERE section=? AND category != ''");
+    if ($s2) {
+        $s2->bind_param("s", $section);
+        $s2->execute();
+        foreach (array_column($s2->get_result()->fetch_all(MYSQLI_ASSOC), 'category') as $c) {
+            if (!in_array($c, $cats)) $cats[] = $c;
+        }
+        sort($cats);
+    }
+    return $cats;
 }
 
-function renderTcProjects(array $projs): string {
-    if (empty($projs)) return '';
+function fetchProjects($conn, $section, $category) {
+    $stmt = $conn->prepare("SELECT * FROM course_projects WHERE section = ? AND category = ? ORDER BY sort_order ASC, id ASC");
+    if (!$stmt) return [];
+    $stmt->bind_param("ss", $section, $category);
+    $stmt->execute();
+    return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+}
+
+function fetchCoursesByCategory($conn, $section, $category) {
+    $stmt = $conn->prepare("SELECT * FROM courses WHERE section = ? AND category = ? ORDER BY id DESC");
+    if (!$stmt) return [];
+    $stmt->bind_param("ss", $section, $category);
+    $stmt->execute();
+    return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+}
+
+function fetchDemoCourses($conn) {
+    $stmt = $conn->prepare("SELECT * FROM courses WHERE section = 'demo' ORDER BY id DESC");
+    if (!$stmt) return [];
+    $stmt->execute();
+    return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+}
+
+function fetchDemoProjects($conn) {
+    $stmt = $conn->prepare("SELECT * FROM course_projects WHERE section = 'demo' ORDER BY sort_order ASC, id ASC");
+    if (!$stmt) return [];
+    $stmt->execute();
+    return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+}
+
+$kidsCategories   = getCategoriesForSection($conn, 'kids');
+$juniorCategories = getCategoriesForSection($conn, 'junior');
+$demoCourses      = fetchDemoCourses($conn);
+$demoProjects     = fetchDemoProjects($conn);
+
+function catSlug(string $cat): string {
+    return preg_replace('/[^a-z0-9]+/', '-', strtolower(trim($cat)));
+}
+
+function renderProjectLinks(array $projects): string {
+    if (empty($projects)) return '';
     ob_start(); ?>
     <div style="margin-bottom:16px;">
       <div style="font-size:0.93rem;font-weight:800;color:#0f172a;margin-bottom:10px;">
         <i class="fas fa-link" style="color:#2563eb;margin-right:6px;"></i>Project Links
       </div>
-      <?php foreach ($projs as $p): ?>
+      <?php foreach ($projects as $p): ?>
         <div class="tc-proj-item">
           <?php if (!empty($p["image"])): ?>
             <div class="tc-proj-icon"><img src="<?= htmlspecialchars($p["image"]) ?>" alt="<?= htmlspecialchars($p["title"]) ?>"></div>
@@ -82,8 +116,8 @@ function renderTcProjects(array $projs): string {
           </div>
           <div class="tc-proj-actions">
             <?php if (!empty($p["pdf_url"])): ?>
-              <?php $tcPdfHref = (strpos($p["pdf_url"], 'http') === 0) ? $p["pdf_url"] : 'uploads/pdfs/' . $p["pdf_url"]; ?>
-              <a href="<?= htmlspecialchars($tcPdfHref) ?>" target="_blank" class="tc-proj-btn tc-proj-pdf">
+              <?php $pdfHref = (strpos($p["pdf_url"], 'http') === 0) ? $p["pdf_url"] : 'uploads/pdfs/' . $p["pdf_url"]; ?>
+              <a href="<?= htmlspecialchars($pdfHref) ?>" target="_blank" class="tc-proj-btn tc-proj-pdf">
                 <i class="fas fa-file-pdf"></i> Check Course
               </a>
             <?php endif; ?>
@@ -99,47 +133,40 @@ function renderTcProjects(array $projs): string {
     <?php return ob_get_clean();
 }
 
-$kidsProjects   = fetchProjSectionTc($conn, 'kids');
-$juniorProjects = fetchProjSectionTc($conn, 'junior');
-$demoProjects   = fetchProjSectionTc($conn, 'demo');
-
-function renderReadOnlyTable(array $rows) {
-    if (empty($rows)) {
+function renderCourseCards(array $courses): string {
+    if (empty($courses)) {
         return '<div class="empty-box">No courses found.</div>';
     }
     ob_start(); ?>
-    <div class="table-responsive">
-      <table class="table align-middle">
-        <thead>
-          <tr>
-            <th>ID</th><th>Image</th><th>Course Name</th><th>Category</th>
-            <th>Age Group</th><th>Level</th><th>Price</th><th>Type</th>
-            <th>Status</th><th>Duration</th>
-          </tr>
-        </thead>
-        <tbody>
-          <?php foreach ($rows as $course): ?>
-          <tr>
-            <td><?= htmlspecialchars($course["id"]) ?></td>
-            <td>
-              <?php if (!empty($course["image"])): ?>
-                <img src="<?= htmlspecialchars($course["image"]) ?>" alt="Course" class="course-img">
-              <?php else: ?>
-                <div class="course-img d-flex align-items-center justify-content-center text-muted" style="font-size:.75rem;">No Img</div>
-              <?php endif; ?>
-            </td>
-            <td><strong><?= htmlspecialchars($course["course_name"]) ?></strong></td>
-            <td><?= htmlspecialchars($course["category"]) ?></td>
-            <td><?= htmlspecialchars($course["age_group"]) ?></td>
-            <td><?= htmlspecialchars($course["level"]) ?></td>
-            <td>$<?= number_format((float)$course["price"], 2) ?></td>
-            <td><span class="type-badge <?= $course["course_type"] === "demo" ? "type-demo" : "type-paid" ?>"><?= ucfirst(htmlspecialchars($course["course_type"])) ?></span></td>
-            <td><span class="status-badge <?= $course["status"] === "active" ? "status-active" : "status-inactive" ?>"><?= ucfirst(htmlspecialchars($course["status"])) ?></span></td>
-            <td><?= htmlspecialchars($course["duration"]) ?></td>
-          </tr>
-          <?php endforeach; ?>
-        </tbody>
-      </table>
+    <div class="course-card-list">
+      <?php foreach ($courses as $c): ?>
+      <div class="course-card-item">
+        <div class="course-card-thumb">
+          <?php if (!empty($c["image"])): ?>
+            <img src="<?= htmlspecialchars($c["image"]) ?>" alt="">
+          <?php else: ?>
+            <div class="course-thumb-fallback"><i class="fas fa-graduation-cap"></i></div>
+          <?php endif; ?>
+        </div>
+        <div class="course-card-body">
+          <div class="course-card-name"><?= htmlspecialchars($c["course_name"]) ?></div>
+          <div class="course-card-meta">
+            <?php if (!empty($c["age_group"])): ?>
+              <span class="meta-chip"><i class="fas fa-users"></i> <?= htmlspecialchars($c["age_group"]) ?></span>
+            <?php endif; ?>
+            <?php if (!empty($c["level"])): ?>
+              <span class="meta-chip"><i class="fas fa-signal"></i> <?= htmlspecialchars($c["level"]) ?></span>
+            <?php endif; ?>
+            <?php if (!empty($c["duration"])): ?>
+              <span class="meta-chip"><i class="fas fa-clock"></i> <?= htmlspecialchars($c["duration"]) ?></span>
+            <?php endif; ?>
+            <span class="meta-chip"><i class="fas fa-dollar-sign"></i> $<?= number_format((float)$c["price"], 2) ?></span>
+            <span class="type-badge <?= $c["course_type"] === "demo" ? "type-demo" : "type-paid" ?>"><?= ucfirst(htmlspecialchars($c["course_type"])) ?></span>
+            <span class="status-badge <?= $c["status"] === "active" ? "status-active" : "status-inactive" ?>"><?= ucfirst(htmlspecialchars($c["status"])) ?></span>
+          </div>
+        </div>
+      </div>
+      <?php endforeach; ?>
     </div>
     <?php return ob_get_clean();
 }
@@ -343,6 +370,13 @@ function renderReadOnlyTable(array $rows) {
     .kids-drop-item:hover  { background: #f0f7ff; color: var(--primary); }
     .kids-drop-item.active { background: #eff6ff; color: var(--primary); font-weight: 900; }
 
+    .btn-module {
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      border: none; color: white; font-weight: 800;
+      border-radius: 14px; padding: 10px 16px;
+      cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
+    }
+
     .grade-group { margin-bottom: 24px; }
 
     .grade-group-label {
@@ -366,15 +400,30 @@ function renderReadOnlyTable(array $rows) {
     }
     .grade-link:hover { background: #bfdbfe; color: #1d4ed8; }
 
-    .table thead th {
-      background: #f8fbff; color: var(--dark);
-      font-weight: 800; font-size: 0.9rem;
-      border-bottom: 1px solid #e6eefb;
+    /* Course cards — same style as admin */
+    .course-card-list { display:flex; flex-direction:column; gap:10px; margin-bottom:6px; }
+    .course-card-item {
+      display:flex; align-items:center; gap:14px;
+      background:#f8fbff; border:1px solid #dbeafe;
+      border-radius:14px; padding:14px 16px;
     }
-
-    .course-img {
-      width: 54px; height: 54px; object-fit: cover;
-      border-radius: 12px; border: 1px solid #e5edf9; background: #f8fbff;
+    .course-card-thumb { flex-shrink:0; }
+    .course-card-thumb img {
+      width:56px; height:56px; object-fit:cover;
+      border-radius:12px; border:1px solid #e5edf9;
+    }
+    .course-thumb-fallback {
+      width:56px; height:56px; border-radius:12px;
+      background:linear-gradient(135deg,var(--primary),var(--secondary));
+      color:white; display:flex; align-items:center; justify-content:center;
+      font-size:1.3rem; flex-shrink:0;
+    }
+    .course-card-body { flex:1; min-width:0; }
+    .course-card-name { font-weight:900; font-size:1rem; color:#0f172a; margin-bottom:7px; }
+    .course-card-meta { display:flex; flex-wrap:wrap; gap:7px; align-items:center; }
+    .meta-chip {
+      font-size:0.78rem; color:#475569; background:#e2e8f0;
+      border-radius:999px; padding:4px 10px; font-weight:600;
     }
 
     .type-badge, .status-badge {
@@ -386,19 +435,13 @@ function renderReadOnlyTable(array $rows) {
     .status-active   { background: #dcfce7; color: #166534; }
     .status-inactive { background: #fee2e2; color: #991b1b; }
 
-    .btn-module {
-      background: linear-gradient(135deg, var(--primary), var(--secondary));
-      border: none; color: white; font-weight: 800;
-      border-radius: 14px; padding: 10px 16px;
-      cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
-    }
-
     .empty-box {
       text-align: center; padding: 26px 18px;
       border-radius: 18px; background: #f8fbff;
       color: var(--muted); border: 1px dashed #d9e9ff; font-weight: 700;
     }
 
+    /* Project link items */
     .tc-proj-item { display:flex; align-items:center; gap:12px; background:#f0f7ff; border:1px solid #bfdbfe; border-radius:14px; padding:13px 16px; margin-bottom:10px; }
     .tc-proj-icon { flex-shrink:0; display:flex; align-items:center; }
     .tc-proj-icon img { max-height:100px; max-width:160px; width:auto; height:auto; border-radius:10px; display:block; }
@@ -466,9 +509,19 @@ function renderReadOnlyTable(array $rows) {
       <span>My Students</span>
     </a>
 
+    <a href="teacher_assignments.php" class="nav-link-custom">
+      <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+      <span>Assignments</span>
+    </a>
+
     <a href="teacher_courses.php" class="nav-link-custom active">
       <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span>
       <span>Courses</span>
+    </a>
+
+    <a href="teacher_quizzes.php" class="nav-link-custom">
+      <span class="nav-icon"><i class="fas fa-circle-question"></i></span>
+      <span>Quizzes</span>
     </a>
   </div>
 
@@ -512,28 +565,30 @@ function renderReadOnlyTable(array $rows) {
 
   <!-- Kids -->
   <div id="tab-kids" class="tab-section active">
-    <?php if (!empty($kidsGroups)):
-      $kidsCats = array_keys($kidsGroups); ?>
-      <?php if (count($kidsCats) > 1): ?>
+    <?php if (!empty($kidsCategories)): ?>
+      <?php if (count($kidsCategories) > 1): ?>
       <div style="position:relative;display:inline-block;margin-bottom:16px;">
         <button class="btn-module" onclick="toggleMenu('kids',event)" type="button">
           Select Kids Module <i class="fas fa-chevron-down ms-2" id="kids-chevron"></i>
         </button>
         <div id="kids-dropdown" style="display:none;position:absolute;top:calc(100% + 8px);left:0;background:white;border:1px solid #dbeafe;border-radius:16px;box-shadow:0 12px 32px rgba(15,23,42,0.12);min-width:220px;z-index:100;overflow:hidden;">
-          <?php foreach ($kidsCats as $i => $cat): ?>
-            <button class="kids-drop-item <?= $i === 0 ? 'active' : '' ?>" onclick="switchCat('kids','<?= catId($cat) ?>',this)" type="button"><?= htmlspecialchars($cat) ?></button>
+          <?php foreach ($kidsCategories as $i => $cat): ?>
+            <button class="kids-drop-item <?= $i === 0 ? 'active' : '' ?>" onclick="switchCat('kids','<?= catSlug($cat) ?>',this)" type="button"><?= htmlspecialchars($cat) ?></button>
           <?php endforeach; ?>
         </div>
       </div>
       <?php endif; ?>
-      <?php foreach ($kidsCats as $i => $cat): ?>
-        <div id="kids-<?= catId($cat) ?>" class="kids-cat-section <?= $i === 0 ? 'active' : '' ?>">
+      <?php foreach ($kidsCategories as $i => $cat):
+        $projs = fetchProjects($conn, 'kids', $cat);
+        $crs   = fetchCoursesByCategory($conn, 'kids', $cat);
+      ?>
+        <div id="kids-<?= catSlug($cat) ?>" class="kids-cat-section <?= $i === 0 ? 'active' : '' ?>">
           <div class="panel-card">
             <div class="panel-header">
               <div class="panel-title">Kids — <?= htmlspecialchars($cat) ?></div>
             </div>
-            <?= renderTcProjects($kidsProjects[$cat] ?? []) ?>
-            <?= renderReadOnlyTable($kidsGroups[$cat]) ?>
+            <?= renderProjectLinks($projs) ?>
+            <?= renderCourseCards($crs) ?>
           </div>
         </div>
       <?php endforeach; ?>
@@ -544,28 +599,30 @@ function renderReadOnlyTable(array $rows) {
 
   <!-- Junior -->
   <div id="tab-junior" class="tab-section">
-    <?php if (!empty($juniorGroups)):
-      $juniorCats = array_keys($juniorGroups); ?>
-      <?php if (count($juniorCats) > 1): ?>
+    <?php if (!empty($juniorCategories)): ?>
+      <?php if (count($juniorCategories) > 1): ?>
       <div style="position:relative;display:inline-block;margin-bottom:16px;">
         <button class="btn-module" onclick="toggleMenu('junior',event)" type="button">
           Select Junior Module <i class="fas fa-chevron-down ms-2" id="junior-chevron"></i>
         </button>
         <div id="junior-dropdown" style="display:none;position:absolute;top:calc(100% + 8px);left:0;background:white;border:1px solid #dbeafe;border-radius:16px;box-shadow:0 12px 32px rgba(15,23,42,0.12);min-width:220px;z-index:100;overflow:hidden;">
-          <?php foreach ($juniorCats as $i => $cat): ?>
-            <button class="kids-drop-item <?= $i === 0 ? 'active' : '' ?>" onclick="switchCat('junior','<?= catId($cat) ?>',this)" type="button"><?= htmlspecialchars($cat) ?></button>
+          <?php foreach ($juniorCategories as $i => $cat): ?>
+            <button class="kids-drop-item <?= $i === 0 ? 'active' : '' ?>" onclick="switchCat('junior','<?= catSlug($cat) ?>',this)" type="button"><?= htmlspecialchars($cat) ?></button>
           <?php endforeach; ?>
         </div>
       </div>
       <?php endif; ?>
-      <?php foreach ($juniorCats as $i => $cat): ?>
-        <div id="junior-<?= catId($cat) ?>" class="junior-cat-section <?= $i === 0 ? 'active' : '' ?>">
+      <?php foreach ($juniorCategories as $i => $cat):
+        $projs = fetchProjects($conn, 'junior', $cat);
+        $crs   = fetchCoursesByCategory($conn, 'junior', $cat);
+      ?>
+        <div id="junior-<?= catSlug($cat) ?>" class="junior-cat-section <?= $i === 0 ? 'active' : '' ?>">
           <div class="panel-card">
             <div class="panel-header">
               <div class="panel-title">Junior — <?= htmlspecialchars($cat) ?></div>
             </div>
-            <?= renderTcProjects($juniorProjects[$cat] ?? []) ?>
-            <?= renderReadOnlyTable($juniorGroups[$cat]) ?>
+            <?= renderProjectLinks($projs) ?>
+            <?= renderCourseCards($crs) ?>
           </div>
         </div>
       <?php endforeach; ?>
@@ -594,10 +651,11 @@ function renderReadOnlyTable(array $rows) {
           <div class="grade-card"><a href="https://www.onlinegdb.com/EIipF2SoF" target="_blank" class="grade-link"><i class="fas fa-external-link-alt"></i> OnlineGDB</a></div>
         </div>
       </div>
-      <?php foreach ($demoProjects as $projs): echo renderTcProjects($projs); endforeach; ?>
-      <?= renderReadOnlyTable($allDemoCrs) ?>
+      <?= renderProjectLinks($demoProjects) ?>
+      <?= renderCourseCards($demoCourses) ?>
     </div>
   </div>
+
 </div>
 
 <script>
@@ -613,10 +671,11 @@ function switchTab(name, btn) {
 function toggleMenu(prefix, e) {
   e.stopPropagation();
   const d = document.getElementById(prefix + '-dropdown');
+  if (!d) return;
   const open = d.style.display === 'block';
   d.style.display = open ? 'none' : 'block';
-  document.getElementById(prefix + '-chevron').className =
-    (open ? 'fas fa-chevron-down' : 'fas fa-chevron-up') + ' ms-2';
+  const chev = document.getElementById(prefix + '-chevron');
+  if (chev) chev.className = (open ? 'fas fa-chevron-down' : 'fas fa-chevron-up') + ' ms-2';
 }
 
 function switchCat(prefix, cat, btn) {
@@ -624,8 +683,10 @@ function switchCat(prefix, cat, btn) {
   document.querySelectorAll('#' + prefix + '-dropdown .kids-drop-item').forEach(b => b.classList.remove('active'));
   document.getElementById(prefix + '-' + cat).classList.add('active');
   btn.classList.add('active');
-  document.getElementById(prefix + '-dropdown').style.display = 'none';
-  document.getElementById(prefix + '-chevron').className = 'fas fa-chevron-down ms-2';
+  const d = document.getElementById(prefix + '-dropdown');
+  if (d) d.style.display = 'none';
+  const chev = document.getElementById(prefix + '-chevron');
+  if (chev) chev.className = 'fas fa-chevron-down ms-2';
 }
 
 document.addEventListener('click', function() {

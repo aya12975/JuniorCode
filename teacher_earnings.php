@@ -1,4 +1,5 @@
-﻿﻿<?php
+<?php
+ob_start();
 session_start();
 require_once "db.php";
 
@@ -24,8 +25,47 @@ foreach ([
     }
 }
 
+/* ── Delete earning ── */
+if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["action"] ?? "") === "delete_earning") {
+    $delId = (int)($_POST["earning_id"] ?? 0);
+    $month = preg_match('/^\d{4}-\d{2}$/', $_POST["month"] ?? "") ? $_POST["month"] : date("Y-m");
+    if ($delId > 0) {
+        $d = $conn->prepare("DELETE FROM teacher_earnings WHERE id = ?");
+        $d->bind_param("i", $delId);
+        $d->execute();
+        $d->close();
+    }
+    header("Location: teacher_earnings.php?month=" . urlencode($month) . "&deleted=1");
+    exit();
+}
+
+/* ── AJAX: edit earning ── */
+if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["action"] ?? "") === "edit_earning") {
+    ob_end_clean();
+    header("Content-Type: application/json");
+    $editId      = (int)($_POST["earning_id"]  ?? 0);
+    $teacherName = trim($_POST["teacher_name"] ?? "");
+    $lessonTitle = trim($_POST["lesson_title"] ?? "");
+    $amount      = (float)($_POST["amount"]    ?? 0);
+    $lessonDate  = trim($_POST["lesson_date"]  ?? "");
+    $notes       = trim($_POST["notes"]        ?? "");
+    if ($editId <= 0 || $amount <= 0) {
+        echo json_encode(["success" => false, "message" => "Invalid data"]);
+        exit();
+    }
+    $upd = $conn->prepare("UPDATE teacher_earnings SET teacher_name=?, lesson_title=?, amount=?, lesson_date=?, notes=? WHERE id=?");
+    if (!$upd) { echo json_encode(["success" => false, "message" => $conn->error]); exit(); }
+    $upd->bind_param("ssdssi", $teacherName, $lessonTitle, $amount, $lessonDate, $notes, $editId);
+    if (!$upd->execute()) { echo json_encode(["success" => false, "message" => $upd->error]); exit(); }
+    $upd->close();
+    $lessonMonth = strlen($lessonDate) >= 7 ? substr($lessonDate, 0, 7) : date('Y-m');
+    echo json_encode(["success" => true, "month" => $lessonMonth]);
+    exit();
+}
+
 /* ── AJAX: add earning from a class ── */
 if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["action"] ?? "") === "add_earning") {
+    ob_end_clean();
     header("Content-Type: application/json");
     $classId    = (int)($_POST["class_id"]    ?? 0);
     $teacherId  = (int)($_POST["teacher_id"]  ?? 0);
@@ -43,29 +83,55 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["action"] ?? "") === "add_e
     $stmt = $conn->prepare("INSERT INTO teacher_earnings (teacher_id, teacher_name, lesson_title, amount, lesson_date, notes, class_id) VALUES (?, ?, ?, ?, ?, ?, ?)");
     if (!$stmt) { echo json_encode(["success" => false, "message" => $conn->error]); exit(); }
     $stmt->bind_param("issdssi", $teacherId, $teacherName, $lessonTitle, $amount, $lessonDate, $notes, $classId);
-    $stmt->execute();
+    if (!$stmt->execute()) {
+        echo json_encode(["success" => false, "message" => $stmt->error]);
+        exit();
+    }
     $newId = $conn->insert_id;
     $stmt->close();
 
-    echo json_encode(["success" => true, "id" => $newId, "amount" => number_format($amount, 2)]);
+    // Return the lesson month so JS can redirect to it
+    $lessonMonth = strlen($lessonDate) >= 7 ? substr($lessonDate, 0, 7) : date('Y-m');
+    echo json_encode(["success" => true, "id" => $newId, "amount" => number_format($amount, 2), "month" => $lessonMonth]);
     exit();
 }
 
 $currentPage = basename($_SERVER["PHP_SELF"]);
 $adminName = $_SESSION["username"] ?? "Admin";
 
+/* ── Month switching ── */
+$selectedMonth = $_GET['month'] ?? date('Y-m');
+if (!preg_match('/^\d{4}-\d{2}$/', $selectedMonth)) $selectedMonth = date('Y-m');
+[$selYear, $selMonthNum] = array_map('intval', explode('-', $selectedMonth));
+$prevMonth  = date('Y-m', mktime(0,0,0,$selMonthNum-1,1,$selYear));
+$nextMonth  = date('Y-m', mktime(0,0,0,$selMonthNum+1,1,$selYear));
+$monthLabel = date('F Y',  mktime(0,0,0,$selMonthNum,  1,$selYear));
+$isFuture   = $selectedMonth > date('Y-m');
+
 $earnings = [];
-$result = $conn->query("SELECT * FROM teacher_earnings ORDER BY id DESC");
-if ($result) {
-    while ($row = $result->fetch_assoc()) $earnings[] = $row;
+$stmtE = $conn->prepare("SELECT * FROM teacher_earnings WHERE YEAR(lesson_date)=? AND MONTH(lesson_date)=? ORDER BY lesson_date DESC, id DESC");
+$stmtE->bind_param("ii", $selYear, $selMonthNum);
+$stmtE->execute();
+$resE = $stmtE->get_result();
+if ($resE) while ($row = $resE->fetch_assoc()) $earnings[] = $row;
+$stmtE->close();
+
+/* per-teacher totals */
+$teacherTotals = [];
+$grandTotal = 0.0;
+foreach ($earnings as $e) {
+    $n = trim($e['teacher_name']) ?: 'Unknown';
+    $teacherTotals[$n] = ($teacherTotals[$n] ?? 0.0) + (float)$e['amount'];
+    $grandTotal += (float)$e['amount'];
 }
+arsort($teacherTotals);
 
 /* ── Load all classes for the "Add Earning" panel ── */
 $classes = [];
 $result2 = $conn->query("
-    SELECT c.id, c.teacher_id, c.teacher_name, c.student_name, c.class_date, c.class_time, c.type,
-           (SELECT COUNT(*) FROM teacher_earnings te WHERE te.class_id = c.id) AS has_earning
+    SELECT c.id, c.teacher_id, c.teacher_name, c.student_name, c.class_date, c.class_time, c.type
     FROM classes c
+    WHERE NOT EXISTS (SELECT 1 FROM teacher_earnings te WHERE te.class_id = c.id)
     ORDER BY c.class_date DESC, c.class_time ASC
 ");
 if ($result2) {
@@ -128,7 +194,7 @@ function isActive($page, $currentPage) {
 
     body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: hidden; }
 
-    .sidebar-top-area { padding: 24px 18px; flex: 1; }
+    .sidebar-top-area { padding: 0 18px 18px; flex: 1; }
     .brand-box { display: flex; align-items: center; gap: 12px; padding: 0 4px 22px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; }
 
     .logo-img {
@@ -314,18 +380,21 @@ function isActive($page, $currentPage) {
     }
 
     .action-btn {
-      text-decoration: none;
-      font-weight: 700;
-      margin-right: 10px;
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 7px 13px; border-radius: 10px; font-weight: 800;
+      font-size: 0.85rem; text-decoration: none; border: none; cursor: pointer;
+      transition: background 0.2s;
     }
 
     .edit-btn {
-      color: #2563eb;
+      background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe;
     }
+    .edit-btn:hover { background: #dbeafe; color: #1d4ed8; }
 
     .delete-btn {
-      color: #dc2626;
+      background: #fef2f2; color: #dc2626; border: 1px solid #fecaca;
     }
+    .delete-btn:hover { background: #fee2e2; color: #b91c1c; }
 
     .badge-paid  { background:#dcfce7;color:#166534;padding:5px 11px;border-radius:999px;font-size:0.8rem;font-weight:800; }
     .badge-demo  { background:#fef3c7;color:#92400e;padding:5px 11px;border-radius:999px;font-size:0.8rem;font-weight:800; }
@@ -447,6 +516,10 @@ function isActive($page, $currentPage) {
           <span class="nav-icon"><i class="fas fa-robot"></i></span>
           <span>AI Tutor</span>
         </a>
+        <a href="admin_quiz_generator.php" class="nav-link-custom">
+          <span class="nav-icon"><i class="fas fa-circle-question"></i></span>
+          <span>AI Quiz Generator</span>
+        </a>
 
       </div>
       </div>
@@ -480,14 +553,43 @@ function isActive($page, $currentPage) {
       <?php if (isset($_GET["updated"])): ?>
         <div class="alert alert-success">Earning updated successfully.</div>
       <?php endif; ?>
-
       <?php if (isset($_GET["deleted"])): ?>
         <div class="alert alert-success">Earning deleted successfully.</div>
       <?php endif; ?>
-
       <?php if (isset($_GET["added"])): ?>
         <div class="alert alert-success">Earning added successfully.</div>
       <?php endif; ?>
+
+      <!-- Month switcher -->
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:22px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <a href="teacher_earnings.php?month=<?= urlencode($prevMonth) ?>" style="display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:10px;background:#fff;border:1px solid #dbeafe;color:var(--primary);text-decoration:none;font-size:1.1rem;transition:background .2s;" title="Previous month">
+            <i class="fas fa-chevron-left"></i>
+          </a>
+          <div style="font-size:1.2rem;font-weight:900;color:var(--dark);min-width:160px;text-align:center;"><?= htmlspecialchars($monthLabel) ?></div>
+          <a href="teacher_earnings.php?month=<?= urlencode($nextMonth) ?>" style="display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:10px;background:#fff;border:1px solid #dbeafe;color:var(--primary);text-decoration:none;font-size:1.1rem;transition:background .2s;<?= $isFuture ? 'opacity:.35;pointer-events:none;' : '' ?>" title="Next month">
+            <i class="fas fa-chevron-right"></i>
+          </a>
+          <?php if ($selectedMonth !== date('Y-m')): ?>
+            <a href="teacher_earnings.php" style="font-size:0.82rem;font-weight:700;color:var(--primary);background:#eff6ff;border-radius:999px;padding:5px 12px;text-decoration:none;">Today</a>
+          <?php endif; ?>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <?php if (!empty($teacherTotals)): ?>
+            <?php foreach ($teacherTotals as $tname => $tamt): ?>
+              <div style="background:#fff;border:1px solid #dbeafe;border-radius:12px;padding:8px 14px;font-size:0.85rem;">
+                <span style="color:var(--muted);font-weight:700;"><?= htmlspecialchars($tname) ?></span>
+                <span style="color:#065f46;font-weight:900;margin-left:6px;">$<?= number_format($tamt, 2) ?></span>
+              </div>
+            <?php endforeach; ?>
+            <div style="background:linear-gradient(135deg,var(--primary),var(--secondary));border-radius:12px;padding:8px 16px;font-size:0.9rem;color:#fff;font-weight:900;">
+              Total: $<?= number_format($grandTotal, 2) ?>
+            </div>
+          <?php else: ?>
+            <div style="color:var(--muted);font-size:0.9rem;font-weight:700;">No earnings for this month.</div>
+          <?php endif; ?>
+        </div>
+      </div>
 
       <!-- Classes panel: add earning from a class -->
       <section class="panel-card" style="margin-bottom:24px;">
@@ -523,21 +625,17 @@ function isActive($page, $currentPage) {
                       ?>
                     </td>
                     <td>
-                      <?php if ($cls['has_earning'] > 0): ?>
-                        <span style="color:#166534;font-weight:800;font-size:0.85rem"><i class="fas fa-check-circle"></i> Earning Added</span>
-                      <?php else: ?>
-                        <button class="btn-main" style="padding:7px 14px;font-size:0.85rem"
-                          onclick="openEarningModal(
-                            <?php echo $cls['id']; ?>,
-                            <?php echo (int)$cls['teacher_id']; ?>,
-                            '<?php echo addslashes($cls['teacher_name']); ?>',
-                            '<?php echo addslashes($cls['student_name']); ?>',
-                            '<?php echo $cls['class_date']; ?>',
-                            '<?php echo addslashes($cls['type']); ?>'
-                          )">
-                          <i class="fas fa-plus"></i> Add Earning
-                        </button>
-                      <?php endif; ?>
+                      <button class="btn-main" style="padding:7px 14px;font-size:0.85rem"
+                        onclick="openEarningModal(
+                          <?php echo $cls['id']; ?>,
+                          <?php echo (int)$cls['teacher_id']; ?>,
+                          '<?php echo addslashes($cls['teacher_name']); ?>',
+                          '<?php echo addslashes($cls['student_name']); ?>',
+                          '<?php echo $cls['class_date']; ?>',
+                          '<?php echo addslashes($cls['type']); ?>'
+                        )">
+                        <i class="fas fa-plus"></i> Add Earning
+                      </button>
                     </td>
                   </tr>
                 <?php endforeach; ?>
@@ -551,7 +649,8 @@ function isActive($page, $currentPage) {
 
       <section class="panel-card">
         <div class="panel-header">
-          <h2 class="panel-title">All Teacher Earnings</h2>
+          <h2 class="panel-title">Earnings — <?= htmlspecialchars($monthLabel) ?></h2>
+          <span class="text-muted" style="font-size:0.9rem"><?= count($earnings) ?> record<?= count($earnings) !== 1 ? 's' : '' ?></span>
         </div>
 
         <?php if (!empty($earnings)): ?>
@@ -581,9 +680,20 @@ function isActive($page, $currentPage) {
                     </td>
                     <td><?php echo htmlspecialchars($earning["lesson_date"]); ?></td>
                     <td><?php echo htmlspecialchars($earning["notes"]); ?></td>
-                    <td>
-                      <a href="edit_earning.php?id=<?php echo $earning["id"]; ?>" class="action-btn edit-btn">Edit</a>
-                      <a href="delete_earning.php?id=<?php echo $earning["id"]; ?>" class="action-btn delete-btn">Delete</a>
+                    <td style="white-space:nowrap">
+                      <button class="action-btn edit-btn" onclick="openEditModal(
+                        <?= $earning['id'] ?>,
+                        <?= htmlspecialchars(json_encode($earning['teacher_name']), ENT_QUOTES) ?>,
+                        <?= htmlspecialchars(json_encode($earning['lesson_title']), ENT_QUOTES) ?>,
+                        <?= (float)$earning['amount'] ?>,
+                        <?= htmlspecialchars(json_encode($earning['lesson_date']), ENT_QUOTES) ?>,
+                        <?= htmlspecialchars(json_encode($earning['notes'] ?? ''), ENT_QUOTES) ?>
+                      )">
+                        <i class="fas fa-pen"></i> Edit
+                      </button>
+                      <button class="action-btn delete-btn" onclick="openDelModal(<?= $earning['id'] ?>, <?= htmlspecialchars(json_encode($earning['teacher_name']), ENT_QUOTES) ?>, '<?= urlencode($selectedMonth) ?>')">
+                        <i class="fas fa-trash"></i> Delete
+                      </button>
                     </td>
                   </tr>
                 <?php endforeach; ?>
@@ -591,7 +701,7 @@ function isActive($page, $currentPage) {
             </table>
           </div>
         <?php else: ?>
-          <div class="empty-box">No earning records found.</div>
+          <div class="empty-box">No earning records for <?= htmlspecialchars($monthLabel) ?>.</div>
         <?php endif; ?>
       </section>
     </main>
@@ -616,6 +726,136 @@ function isActive($page, $currentPage) {
     </div>
   </div>
 </div>
+
+<!-- Edit Earning Modal -->
+<div class="modal-overlay" id="editModal" onclick="if(event.target===this)closeEditModal()">
+  <div class="modal-box">
+    <div class="modal-title"><i class="fas fa-pen me-2"></i>Edit Earning</div>
+    <input type="hidden" id="edit-earning-id">
+    <label style="font-weight:800;color:#334155;display:block;margin-bottom:6px">Teacher Name</label>
+    <input type="text" id="edit-teacher-name" class="modal-input" placeholder="Teacher name">
+    <label style="font-weight:800;color:#334155;display:block;margin-bottom:6px">Lesson Title</label>
+    <input type="text" id="edit-lesson-title" class="modal-input" placeholder="Lesson title">
+    <div style="display:flex;gap:12px;margin-bottom:0">
+      <div style="flex:1">
+        <label style="font-weight:800;color:#334155;display:block;margin-bottom:6px">Amount ($) <span style="color:#ef4444">*</span></label>
+        <input type="number" id="edit-amount" class="modal-input" step="0.01" min="0.01" placeholder="e.g. 25.00">
+      </div>
+      <div style="flex:1">
+        <label style="font-weight:800;color:#334155;display:block;margin-bottom:6px">Lesson Date</label>
+        <input type="date" id="edit-lesson-date" class="modal-input">
+      </div>
+    </div>
+    <label style="font-weight:800;color:#334155;display:block;margin-bottom:6px">Notes <span style="font-weight:400;color:#64748b">(optional)</span></label>
+    <input type="text" id="edit-notes" class="modal-input" placeholder="Optional notes">
+    <div id="edit-error" style="color:#ef4444;font-size:0.88rem;margin-bottom:8px;display:none"></div>
+    <div class="modal-btns">
+      <button class="btn-main" id="edit-save-btn" onclick="saveEditEarning()"><i class="fas fa-check"></i> Save Changes</button>
+      <button class="btn-cancel" onclick="closeEditModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Earning Modal -->
+<div class="modal-overlay" id="delModal" onclick="if(event.target===this)closeDelModal()">
+  <div class="modal-box" style="max-width:420px;">
+    <div class="modal-title" style="color:#dc2626;"><i class="fas fa-triangle-exclamation me-2"></i>Delete Earning</div>
+    <p style="color:#64748b;font-size:0.95rem;margin-bottom:16px;">You are about to permanently delete this earning record.</p>
+    <div class="info-row"><strong>Teacher:</strong> <span id="del-teacher"></span></div>
+    <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:12px 16px;color:#9a3412;font-weight:700;font-size:0.88rem;margin:14px 0;">
+      <i class="fas fa-exclamation-circle me-1"></i> This action cannot be undone.
+    </div>
+    <form id="del-form" method="POST" action="teacher_earnings.php">
+      <input type="hidden" name="action" value="delete_earning">
+      <input type="hidden" name="earning_id" id="del-earning-id">
+      <input type="hidden" name="month" id="del-month">
+      <div class="modal-btns">
+        <button type="submit" style="display:inline-flex;align-items:center;gap:6px;padding:11px 22px;background:linear-gradient(135deg,#dc2626,#991b1b);color:#fff;border:none;border-radius:14px;font-weight:800;font-size:0.95rem;cursor:pointer;box-shadow:0 4px 14px rgba(220,38,38,0.28);">
+          <i class="fas fa-trash"></i> Yes, Delete
+        </button>
+        <button type="button" class="btn-cancel" onclick="closeDelModal()">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openEditModal(id, teacherName, lessonTitle, amount, lessonDate, notes) {
+  document.getElementById('edit-earning-id').value      = id;
+  document.getElementById('edit-teacher-name').value   = teacherName;
+  document.getElementById('edit-lesson-title').value   = lessonTitle;
+  document.getElementById('edit-amount').value         = amount;
+  document.getElementById('edit-lesson-date').value    = lessonDate;
+  document.getElementById('edit-notes').value          = notes;
+  document.getElementById('edit-error').style.display  = 'none';
+  document.getElementById('editModal').classList.add('open');
+  setTimeout(() => document.getElementById('edit-amount').focus(), 100);
+}
+function closeEditModal() {
+  document.getElementById('editModal').classList.remove('open');
+}
+function saveEditEarning() {
+  const id          = document.getElementById('edit-earning-id').value;
+  const teacherName = document.getElementById('edit-teacher-name').value.trim();
+  const lessonTitle = document.getElementById('edit-lesson-title').value.trim();
+  const amount      = parseFloat(document.getElementById('edit-amount').value);
+  const lessonDate  = document.getElementById('edit-lesson-date').value;
+  const notes       = document.getElementById('edit-notes').value.trim();
+  const errEl       = document.getElementById('edit-error');
+
+  if (!amount || amount <= 0) {
+    errEl.textContent = 'Please enter a valid amount.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const btn = document.getElementById('edit-save-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+
+  fetch('teacher_earnings.php', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: new URLSearchParams({
+      action: 'edit_earning',
+      earning_id: id,
+      teacher_name: teacherName,
+      lesson_title: lessonTitle,
+      amount: amount,
+      lesson_date: lessonDate,
+      notes: notes
+    })
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      closeEditModal();
+      window.location.href = 'teacher_earnings.php?month=' + encodeURIComponent(data.month) + '&updated=1';
+    } else {
+      errEl.textContent = data.message || 'Error saving changes.';
+      errEl.style.display = 'block';
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-check"></i> Save Changes';
+    }
+  })
+  .catch(() => {
+    errEl.textContent = 'Request failed. Please try again.';
+    errEl.style.display = 'block';
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-check"></i> Save Changes';
+  });
+}
+
+function openDelModal(id, teacherName, month) {
+  document.getElementById('del-earning-id').value = id;
+  document.getElementById('del-month').value = decodeURIComponent(month);
+  document.getElementById('del-teacher').textContent = teacherName;
+  document.getElementById('delModal').classList.add('open');
+}
+function closeDelModal() {
+  document.getElementById('delModal').classList.remove('open');
+}
+</script>
 
 <script>
 function openEarningModal(classId, teacherId, teacherName, studentName, classDate, classType) {
@@ -676,22 +916,8 @@ function saveEarning() {
   .then(data => {
     if (data.success) {
       closeEarningModal();
-      /* Mark the class row as earned */
-      const cell = document.querySelector('#class-row-' + classId + ' td:last-child');
-      if (cell) cell.innerHTML = '<span style="color:#166534;font-weight:800;font-size:0.85rem"><i class="fas fa-check-circle"></i> Earning Added</span>';
-      /* Prepend to earnings table */
-      const tbody = document.querySelector('#earnings-tbody');
-      if (tbody) {
-        const tr = document.createElement('tr');
-        tr.style.background = '#f0fdf4';
-        tr.innerHTML = `<td>${data.id}</td><td>${teacherName}</td><td>${lessonTitle}</td>
-          <td><span class="money-badge">$${data.amount}</span></td>
-          <td>${date}</td><td>${notes || '—'}</td>
-          <td><a href="edit_earning.php?id=${data.id}" class="action-btn edit-btn">Edit</a>
-              <a href="delete_earning.php?id=${data.id}" class="action-btn delete-btn">Delete</a></td>`;
-        tbody.insertBefore(tr, tbody.firstChild);
-        setTimeout(() => tr.style.background = '', 1500);
-      }
+      // Redirect to the month of the lesson so the new earning is visible
+      window.location.href = 'teacher_earnings.php?month=' + encodeURIComponent(data.month);
     } else {
       errEl.textContent = data.message || 'Error saving earning.';
       errEl.style.display = 'block';

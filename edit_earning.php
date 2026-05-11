@@ -15,6 +15,7 @@ if (!isset($_GET["id"]) || !is_numeric($_GET["id"])) {
 $id = (int) $_GET["id"];
 $adminName = $_SESSION["username"] ?? "Admin";
 $message = "";
+$month = preg_match('/^\d{4}-\d{2}$/', $_GET["month"] ?? "") ? $_GET["month"] : date("Y-m");
 
 $stmt = $conn->prepare("SELECT * FROM teacher_earnings WHERE id = ?");
 $stmt->bind_param("i", $id);
@@ -39,7 +40,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $update->bind_param("ssdssi", $teacher_name, $lesson_title, $amount, $lesson_date, $notes, $id);
 
     if ($update->execute()) {
-        header("Location: teacher_earnings.php?updated=1");
+        header("Location: teacher_earnings.php?month=" . urlencode($month) . "&updated=1");
         exit();
     } else {
         $message = "Error updating earning.";
@@ -83,7 +84,7 @@ body {
 }
 body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: hidden; }
 .sidebar-bottom { padding: 16px 18px; border-top: 1px solid rgba(255,255,255,0.1); }
-.sidebar-top-area { padding: 24px 18px; flex: 1; }
+.sidebar-top-area { padding: 0 18px 18px; flex: 1; }
 .brand-box { display: flex; align-items: center; gap: 12px; padding: 0 4px 22px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; }
 .logo-img { width: 55px; height: 55px; object-fit: contain; border-radius: 12px; flex-shrink: 0; }
 .brand-title { font-weight: 900; font-size: 1.1rem; line-height: 1.15; }
@@ -157,6 +158,7 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: 
       <a href="reports.php"         class="nav-link-custom"><span class="nav-icon"><i class="fas fa-chart-bar"></i></span><span>Reports</span></a>
       <a href="admin_certificates.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-award"></i></span><span>Certificates</span></a>
       <a href="admin_ai_settings.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI Tutor</span></a>
+      <a href="admin_quiz_generator.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-circle-question"></i></span><span>AI Quiz Generator</span></a>
     </div>
       </div>
       <div class="sidebar-bottom">
@@ -216,7 +218,7 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: 
         </div>
         <div style="display:flex;gap:10px;">
           <button type="submit" class="btn-save"><i class="fas fa-check me-1"></i> Save Changes</button>
-          <a href="teacher_earnings.php" class="btn-back"><i class="fas fa-arrow-left me-1"></i> Cancel</a>
+          <a href="teacher_earnings.php?month=<?= urlencode($month) ?>" class="btn-back"><i class="fas fa-arrow-left me-1"></i> Cancel</a>
         </div>
       </form>
     </div>

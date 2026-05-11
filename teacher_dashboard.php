@@ -174,136 +174,8 @@ if ($stmt6) {
 $currentMonth = date("F");
 $currentYear = date("Y");
 
-function renderCrsTable(array $rows): string {
-    if (empty($rows)) return '<div class="empty-box">No courses found.</div>';
-    ob_start(); ?>
-    <div class="table-responsive">
-      <table class="table align-middle">
-        <thead>
-          <tr><th>ID</th><th>Image</th><th>Course Name</th><th>Category</th>
-              <th>Age Group</th><th>Level</th><th>Price</th><th>Type</th>
-              <th>Status</th><th>Duration</th></tr>
-        </thead>
-        <tbody>
-          <?php foreach ($rows as $c): ?>
-          <tr>
-            <td><?= htmlspecialchars($c["id"]) ?></td>
-            <td>
-              <?php if (!empty($c["image"])): ?>
-                <img src="<?= htmlspecialchars($c["image"]) ?>" alt="Course" style="width:48px;height:48px;object-fit:cover;border-radius:10px;border:1px solid #e5edf9;">
-              <?php else: ?><span style="color:#94a3b8;font-size:.75rem;">No Img</span><?php endif; ?>
-            </td>
-            <td><strong><?= htmlspecialchars($c["course_name"]) ?></strong></td>
-            <td><?= htmlspecialchars($c["category"]) ?></td>
-            <td><?= htmlspecialchars($c["age_group"]) ?></td>
-            <td><?= htmlspecialchars($c["level"]) ?></td>
-            <td>$<?= number_format((float)$c["price"], 2) ?></td>
-            <td><span style="display:inline-block;padding:5px 11px;border-radius:999px;font-size:.78rem;font-weight:700;<?= $c['course_type']==='demo' ? 'background:#dbeafe;color:#1d4ed8' : 'background:#dcfce7;color:#166534' ?>"><?= ucfirst(htmlspecialchars($c["course_type"])) ?></span></td>
-            <td><span style="display:inline-block;padding:5px 11px;border-radius:999px;font-size:.78rem;font-weight:700;<?= $c['status']==='active' ? 'background:#dcfce7;color:#166534' : 'background:#fee2e2;color:#991b1b' ?>"><?= ucfirst(htmlspecialchars($c["status"])) ?></span></td>
-            <td><?= htmlspecialchars($c["duration"]) ?></td>
-          </tr>
-          <?php endforeach; ?>
-        </tbody>
-      </table>
-    </div>
-    <?php return ob_get_clean();
-}
 
-/* =========================
-   Courses (read-only)
-========================= */
-// Ensure section column exists
-$chkSec = $conn->query("SHOW COLUMNS FROM courses LIKE 'section'");
-if ($chkSec && $chkSec->num_rows === 0) {
-    $conn->query("ALTER TABLE courses ADD COLUMN section VARCHAR(50) NOT NULL DEFAULT 'kids'");
-}
 
-function fetchCrsSection($conn, $section) {
-    $stmt = $conn->prepare("SELECT * FROM courses WHERE section = ? ORDER BY category ASC, id DESC");
-    if (!$stmt) return [];
-    $stmt->bind_param("s", $section);
-    $stmt->execute();
-    $rows = [];
-    $res = $stmt->get_result();
-    while ($r = $res->fetch_assoc()) $rows[] = $r;
-    return $rows;
-}
-
-function groupByCat(array $rows): array {
-    $g = [];
-    foreach ($rows as $r) {
-        $cat = trim($r['category']) ?: 'General';
-        $g[$cat][] = $r;
-    }
-    return $g;
-}
-
-function catSlug(string $cat): string {
-    return preg_replace('/[^a-z0-9]+/', '_', strtolower(trim($cat)));
-}
-
-$kidsGroups   = groupByCat(fetchCrsSection($conn, 'kids'));
-$juniorGroups = groupByCat(fetchCrsSection($conn, 'junior'));
-$allDemo      = fetchCrsSection($conn, 'demo');
-
-// Ensure course_projects table exists
-$conn->query("CREATE TABLE IF NOT EXISTS course_projects (
-    id INT AUTO_INCREMENT PRIMARY KEY, section VARCHAR(50) NOT NULL DEFAULT 'kids',
-    category VARCHAR(100) NOT NULL DEFAULT '', title VARCHAR(255) NOT NULL,
-    url TEXT NOT NULL, image TEXT NOT NULL DEFAULT '', sort_order INT NOT NULL DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-$conn->query("ALTER TABLE course_projects ADD COLUMN IF NOT EXISTS pdf_url TEXT NOT NULL DEFAULT ''");
-
-function fetchProjSection($conn, $section) {
-    $stmt = $conn->prepare("SELECT * FROM course_projects WHERE section = ? ORDER BY sort_order ASC, id ASC");
-    if (!$stmt) return [];
-    $stmt->bind_param("s", $section);
-    $stmt->execute();
-    $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-    $g = [];
-    foreach ($rows as $r) { $g[trim($r['category']) ?: 'General'][] = $r; }
-    return $g;
-}
-
-function renderTeacherProjects(array $projs): string {
-    if (empty($projs)) return '';
-    ob_start(); ?>
-    <div style="margin-bottom:16px;">
-      <div style="font-size:0.93rem;font-weight:800;color:#0f172a;margin-bottom:10px;">
-        <i class="fas fa-link" style="color:#2563eb;margin-right:6px;"></i>Project Links
-      </div>
-      <?php foreach ($projs as $p): ?>
-        <div class="t-proj-item">
-          <?php if (!empty($p["image"])): ?>
-            <div class="t-proj-icon"><img src="<?= htmlspecialchars($p["image"]) ?>" alt="<?= htmlspecialchars($p["title"]) ?>"></div>
-          <?php else: ?>
-            <div class="t-proj-icon-fb"><i class="fas fa-gamepad"></i></div>
-          <?php endif; ?>
-          <div style="flex:1;min-width:0;">
-            <div style="font-weight:800;color:#0f172a;font-size:0.9rem;"><?= htmlspecialchars($p["title"]) ?></div>
-          </div>
-          <div class="t-proj-actions">
-            <?php if (!empty($p["pdf_url"])): ?>
-              <a href="uploads/pdfs/<?= htmlspecialchars($p["pdf_url"]) ?>" target="_blank" class="t-proj-btn t-proj-pdf">
-                <i class="fas fa-file-pdf"></i> Check Course
-              </a>
-            <?php endif; ?>
-            <?php if (!empty($p["url"])): ?>
-              <a href="<?= htmlspecialchars($p["url"]) ?>" target="_blank" class="t-proj-btn t-proj-link">
-                <i class="fas fa-arrow-up-right-from-square"></i> View Project
-              </a>
-            <?php endif; ?>
-          </div>
-        </div>
-      <?php endforeach; ?>
-    </div>
-    <?php return ob_get_clean();
-}
-
-$kidsProjects   = fetchProjSection($conn, 'kids');
-$juniorProjects = fetchProjSection($conn, 'junior');
-$demoProjects   = fetchProjSection($conn, 'demo');
 ?>
 
 <!DOCTYPE html>
@@ -764,6 +636,11 @@ $demoProjects   = fetchProjSection($conn, 'demo');
       <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span>
       <span>Courses</span>
     </a>
+
+    <a href="teacher_quizzes.php" class="nav-link-custom">
+      <span class="nav-icon"><i class="fas fa-circle-question"></i></span>
+      <span>Quizzes</span>
+    </a>
   </div>
 
   <div class="sidebar-bottom">
@@ -1030,112 +907,6 @@ $demoProjects   = fetchProjSection($conn, 'demo');
     </div>
   </div>
 
-  <!-- ══ VIEW: COURSES ══ -->
-  <div class="view" id="view-courses">
-    <section class="hero">
-      <div>
-        <h2>Courses</h2>
-        <p>Browse all academy courses and programs</p>
-      </div>
-      <div class="month-box">Read Only</div>
-    </section>
-
-    <!-- Tab bar -->
-    <div style="display:flex;gap:10px;margin-bottom:20px;">
-      <button class="crs-tab-btn active" onclick="crsTab('kids',this)">Kids</button>
-      <button class="crs-tab-btn"        onclick="crsTab('junior',this)">Junior</button>
-      <button class="crs-tab-btn"        onclick="crsTab('demo',this)">Demo</button>
-    </div>
-
-    <!-- Kids -->
-    <div id="crs-tab-kids" class="crs-tab-section">
-      <?php if (!empty($kidsGroups)):
-        $kidsCats = array_keys($kidsGroups); ?>
-        <?php if (count($kidsCats) > 1): ?>
-        <div style="position:relative;display:inline-block;margin-bottom:16px;">
-          <button class="btn-zoom" style="background:linear-gradient(135deg,var(--primary),var(--secondary));font-size:0.9rem;padding:10px 16px;border-radius:14px;border:none;" onclick="crsToggleMenu('kids',event)" type="button">
-            Select Kids Module <i class="fas fa-chevron-down ms-2" id="crs-kids-chevron"></i>
-          </button>
-          <div id="crs-kids-dropdown" style="display:none;position:absolute;top:calc(100% + 8px);left:0;background:white;border:1px solid #dbeafe;border-radius:16px;box-shadow:0 12px 32px rgba(15,23,42,0.12);min-width:220px;z-index:100;overflow:hidden;">
-            <?php foreach ($kidsCats as $i => $cat): ?>
-              <button class="crs-drop-item <?= $i === 0 ? 'active' : '' ?>" onclick="crsCat('kids','<?= catSlug($cat) ?>',this)" type="button"><?= htmlspecialchars($cat) ?></button>
-            <?php endforeach; ?>
-          </div>
-        </div>
-        <?php endif; ?>
-        <?php foreach ($kidsCats as $i => $cat): ?>
-          <div id="crs-kids-<?= catSlug($cat) ?>" class="crs-kids-cat" <?= $i !== 0 ? 'style="display:none"' : '' ?>>
-            <div class="panel-card">
-              <div class="panel-title">Kids — <?= htmlspecialchars($cat) ?></div>
-              <?php echo renderTeacherProjects($kidsProjects[$cat] ?? []); ?>
-              <?php echo renderCrsTable($kidsGroups[$cat]); ?>
-            </div>
-          </div>
-        <?php endforeach; ?>
-      <?php else: ?>
-        <div class="empty-box">No Kids courses found.</div>
-      <?php endif; ?>
-    </div>
-
-    <!-- Junior -->
-    <div id="crs-tab-junior" class="crs-tab-section" style="display:none">
-      <?php if (!empty($juniorGroups)):
-        $juniorCats = array_keys($juniorGroups); ?>
-        <?php if (count($juniorCats) > 1): ?>
-        <div style="position:relative;display:inline-block;margin-bottom:16px;">
-          <button class="btn-zoom" style="background:linear-gradient(135deg,var(--primary),var(--secondary));font-size:0.9rem;padding:10px 16px;border-radius:14px;border:none;" onclick="crsToggleMenu('junior',event)" type="button">
-            Select Junior Module <i class="fas fa-chevron-down ms-2" id="crs-junior-chevron"></i>
-          </button>
-          <div id="crs-junior-dropdown" style="display:none;position:absolute;top:calc(100% + 8px);left:0;background:white;border:1px solid #dbeafe;border-radius:16px;box-shadow:0 12px 32px rgba(15,23,42,0.12);min-width:220px;z-index:100;overflow:hidden;">
-            <?php foreach ($juniorCats as $i => $cat): ?>
-              <button class="crs-drop-item <?= $i === 0 ? 'active' : '' ?>" onclick="crsCat('junior','<?= catSlug($cat) ?>',this)" type="button"><?= htmlspecialchars($cat) ?></button>
-            <?php endforeach; ?>
-          </div>
-        </div>
-        <?php endif; ?>
-        <?php foreach ($juniorCats as $i => $cat): ?>
-          <div id="crs-junior-<?= catSlug($cat) ?>" class="crs-junior-cat" <?= $i !== 0 ? 'style="display:none"' : '' ?>>
-            <div class="panel-card">
-              <div class="panel-title">Junior — <?= htmlspecialchars($cat) ?></div>
-              <?php echo renderTeacherProjects($juniorProjects[$cat] ?? []); ?>
-              <?php echo renderCrsTable($juniorGroups[$cat]); ?>
-            </div>
-          </div>
-        <?php endforeach; ?>
-      <?php else: ?>
-        <div class="empty-box">No Junior courses found.</div>
-      <?php endif; ?>
-    </div>
-
-    <!-- Demo -->
-    <div id="crs-tab-demo" class="crs-tab-section" style="display:none">
-      <div class="panel-card">
-        <div class="panel-title">Demo Courses</div>
-        <div style="margin-bottom:20px;">
-          <div style="font-weight:900;margin-bottom:10px;">Little <span style="font-weight:400;color:#64748b;">Grade 1–3</span></div>
-          <div style="display:flex;gap:12px;flex-wrap:wrap;">
-            <a href="https://studio.code.org/courses/courseb-2025/units/1/lessons/3/levels/2" target="_blank" class="grade-link"><i class="fas fa-external-link-alt"></i> Code.org — Course B</a>
-            <a href="https://studio.code.org/flappy/1" target="_blank" class="grade-link"><i class="fas fa-external-link-alt"></i> Code.org — Flappy</a>
-            <a href="https://scratch.mit.edu/projects/889441020/" target="_blank" class="grade-link"><i class="fas fa-external-link-alt"></i> Scratch Project</a>
-          </div>
-        </div>
-        <div style="margin-bottom:20px;">
-          <div style="font-weight:900;margin-bottom:10px;">Junior</div>
-          <div style="display:flex;gap:12px;flex-wrap:wrap;">
-            <a href="https://scratch.mit.edu/projects/889441020/" target="_blank" class="grade-link"><i class="fas fa-external-link-alt"></i> Scratch Project</a>
-            <a href="https://x.thunkable.com/projectPage/65d61cf59f6fe10a3cc8ea2f" target="_blank" class="grade-link"><i class="fas fa-external-link-alt"></i> Thunkable Project</a>
-            <a href="https://www.onlinegdb.com/EIipF2SoF" target="_blank" class="grade-link"><i class="fas fa-external-link-alt"></i> OnlineGDB</a>
-          </div>
-        </div>
-        <?php foreach ($demoProjects as $projs): echo renderTeacherProjects($projs); endforeach; ?>
-        <?php if (!empty($allDemo)): ?>
-          <?php echo renderCrsTable($allDemo); ?>
-        <?php else: ?>
-          <div class="empty-box">No demo courses added yet.</div>
-        <?php endif; ?>
-      </div>
-    </div>
-  </div>
 </div>
 
 <script>
@@ -1143,7 +914,6 @@ $demoProjects   = fetchProjSection($conn, 'demo');
   const VIEW_MAP = {
     '#dashboard': 'view-dashboard',
     '#schedule':  'view-schedule',
-    '#courses':   'view-courses',
   };
 
   const navItems = document.querySelectorAll('.nav-item');
