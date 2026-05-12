@@ -39,7 +39,33 @@ if (empty($questions)) {
 }
 
 // Back link based on role
-$backLink = $role === "admin" ? "admin_quiz_generator.php" : ($role === "teacher" ? "teacher_courses.php" : "student_dashboard.php");
+$backLink = $role === "admin" ? "admin_quiz_generator.php" : ($role === "teacher" ? "teacher_quizzes.php" : "student_quizzes.php");
+
+// Check if student already completed this quiz
+$conn->query("CREATE TABLE IF NOT EXISTS quiz_results (
+    id               INT AUTO_INCREMENT PRIMARY KEY,
+    quiz_id          INT          NOT NULL,
+    student_username VARCHAR(255) NOT NULL,
+    score            INT          NOT NULL DEFAULT 0,
+    total            INT          NOT NULL DEFAULT 0,
+    answers          TEXT         NOT NULL DEFAULT '{}',
+    completed_at     TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_result (quiz_id, student_username),
+    FOREIGN KEY (quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+$alreadyDone = null;
+if ($role === 'student') {
+    $doneStmt = $conn->prepare("SELECT score, total, completed_at FROM quiz_results WHERE quiz_id = ? AND student_username = ?");
+    if ($doneStmt) {
+        $doneStmt->bind_param("is", $quizId, $userName);
+        $doneStmt->execute();
+        $doneRes = $doneStmt->get_result();
+        if ($doneRes && $doneRes->num_rows > 0) {
+            $alreadyDone = $doneRes->fetch_assoc();
+        }
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -141,6 +167,13 @@ body {
 .result-wrong   .result-icon { background:#ef4444; color:white; }
 .result-q-text { font-size:0.88rem; font-weight:700; color:#0f172a; flex:1; }
 .result-ans { font-size:0.8rem; color:var(--muted); margin-top:2px; }
+
+/* Already-done banner */
+.done-card { background:white; border:1px solid #bbf7d0; border-radius:22px; padding:36px 24px; text-align:center; box-shadow:0 8px 24px rgba(37,99,235,0.07); }
+.done-icon { width:80px; height:80px; border-radius:50%; background:linear-gradient(135deg,#22c55e,#16a34a); color:white; display:flex; align-items:center; justify-content:center; margin:0 auto 18px; font-size:2rem; }
+.done-title { font-size:1.4rem; font-weight:900; color:#166534; margin-bottom:8px; }
+.done-sub { color:var(--muted); font-size:0.95rem; margin-bottom:22px; }
+.done-score { display:inline-block; background:#f0fdf4; border:2px solid #bbf7d0; border-radius:14px; padding:12px 28px; font-size:1.5rem; font-weight:900; color:#16a34a; margin-bottom:24px; }
 </style>
 </head>
 <body>
@@ -160,12 +193,27 @@ body {
     </div>
   </div>
 
+  <?php if ($alreadyDone): ?>
+  <!-- Already completed -->
+  <div class="done-card">
+    <div class="done-icon"><i class="fas fa-circle-check"></i></div>
+    <div class="done-title">Quiz Already Completed!</div>
+    <div class="done-sub">You already submitted this quiz on <?= date("d M Y", strtotime($alreadyDone["completed_at"])) ?>.</div>
+    <div class="done-score"><?= (int)$alreadyDone["score"] ?> / <?= (int)$alreadyDone["total"] ?> correct &nbsp;·&nbsp; <?= $alreadyDone["total"] > 0 ? round(($alreadyDone["score"] / $alreadyDone["total"]) * 100) : 0 ?>%</div>
+    <br>
+    <a href="<?= htmlspecialchars($backLink) ?>" class="btn-nav btn-next" style="text-decoration:none;">
+      <i class="fas fa-arrow-left"></i> Back to Quizzes
+    </a>
+  </div>
+  <?php else: ?>
+
   <!-- Progress -->
   <div class="progress-row" id="progress-row">
     <div class="progress-bar-wrap">
       <div class="progress-bar-fill" id="prog-fill" style="width:0%"></div>
     </div>
     <div class="progress-label" id="prog-label">0 / <?= count($questions) ?></div>
+    <div class="timer-box" id="quiz-timer"><i class="fas fa-clock"></i> <span id="timer-text">—</span></div>
   </div>
 
   <!-- Question cards -->
@@ -216,20 +264,54 @@ body {
     <div class="results-title" id="results-title">Quiz Complete!</div>
     <div class="results-sub"  id="results-sub"></div>
     <div id="results-list" style="text-align:left;margin-bottom:24px;"></div>
-    <button class="btn-nav btn-next" onclick="restartQuiz()">
+    <button class="btn-nav btn-next" id="try-again-btn" onclick="restartQuiz()">
       <i class="fas fa-rotate-left"></i> Try Again
     </button>
     <a href="<?= htmlspecialchars($backLink) ?>" class="btn-nav btn-prev" style="margin-left:10px;text-decoration:none;">
       <i class="fas fa-house"></i> Back
     </a>
+    <div id="save-status" style="margin-top:14px;font-size:0.88rem;font-weight:700;display:none;"></div>
   </div>
+
+  <?php endif; ?>
 
 </div>
 
+<?php if (!$alreadyDone): ?>
 <script>
-const totalQ   = <?= count($questions) ?>;
-const answers  = {};      // index → chosen letter
-const correct  = {};      // index → correct letter
+const totalQ    = <?= count($questions) ?>;
+const QUIZ_ID   = <?= $quizId ?>;
+const IS_STUDENT = <?= $role === 'student' ? 'true' : 'false' ?>;
+const answers   = {};
+const correct   = {};
+
+/* ── Timer ── */
+const TOTAL_SECONDS = <?= (int)($quiz["time_limit"] ?? 0) ?>;
+const HAS_TIMER = TOTAL_SECONDS > 0;
+let timeLeft = TOTAL_SECONDS;
+let timerInterval = null;
+if (!HAS_TIMER) document.getElementById('quiz-timer').style.display = 'none';
+
+function startTimer() {
+  const el  = document.getElementById('quiz-timer');
+  const txt = document.getElementById('timer-text');
+  function tick() {
+    const m = Math.floor(timeLeft / 60);
+    const s = timeLeft % 60;
+    txt.textContent = m + ':' + String(s).padStart(2, '0');
+    el.classList.remove('warn', 'danger');
+    if (timeLeft <= 10) el.classList.add('danger');
+    else if (timeLeft <= 30) el.classList.add('warn');
+    if (timeLeft <= 0) { clearInterval(timerInterval); timerInterval = null; showResults(); return; }
+    timeLeft--;
+  }
+  tick();
+  timerInterval = setInterval(tick, 1000);
+}
+
+function stopTimer() {
+  if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+}
 
 // Populate correct answers from DOM
 document.querySelectorAll('.choice-btn').forEach(btn => {
@@ -271,6 +353,7 @@ function updateProgress() {
 }
 
 function showResults() {
+  stopTimer();
   document.querySelectorAll('.q-card').forEach(c => c.style.display = 'none');
   document.getElementById('progress-row').style.display = 'none';
 
@@ -307,6 +390,27 @@ function showResults() {
   });
 
   document.getElementById('results-card').classList.add('visible');
+
+  if (IS_STUDENT) saveResult(score, totalQ);
+}
+
+async function saveResult(score, total) {
+  const statusEl = document.getElementById('save-status');
+  try {
+    const res  = await fetch('save_quiz_result.php', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ quiz_id: QUIZ_ID, score, total, answers }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      const tryAgainBtn = document.getElementById('try-again-btn');
+      if (tryAgainBtn) tryAgainBtn.style.display = 'none';
+      statusEl.textContent = 'Your result has been saved. Your teacher can now see your score.';
+      statusEl.style.color = '#16a34a';
+      statusEl.style.display = 'block';
+    }
+  } catch(e) {}
 }
 
 function restartQuiz() {
@@ -327,6 +431,9 @@ function restartQuiz() {
     if (nextBtn) nextBtn.disabled = true;
   });
 
+  timeLeft = TOTAL_SECONDS;
+  document.getElementById('quiz-timer').classList.remove('warn', 'danger');
+  if (HAS_TIMER) startTimer();
   updateProgress();
 }
 
@@ -335,6 +442,8 @@ function escHtml(s) {
 }
 
 updateProgress();
+if (HAS_TIMER) startTimer();
 </script>
+<?php endif; ?>
 </body>
 </html>

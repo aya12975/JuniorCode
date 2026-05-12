@@ -10,43 +10,46 @@ if (!isset($_SESSION["role"]) || $_SESSION["role"] !== "student") {
 $studentName = $_SESSION["username"] ?? "Student";
 $today       = date("Y-m-d");
 
+/* ── Ensure tables exist ── */
+$conn->query("CREATE TABLE IF NOT EXISTS classes (
+    id INT AUTO_INCREMENT PRIMARY KEY, teacher_id INT DEFAULT NULL,
+    teacher_name VARCHAR(255) NOT NULL DEFAULT '', student_name VARCHAR(255) NOT NULL DEFAULT '',
+    class_date DATE DEFAULT NULL, class_time TIME DEFAULT NULL,
+    type VARCHAR(100) NOT NULL DEFAULT '', details TEXT NOT NULL DEFAULT '',
+    zoom_link TEXT DEFAULT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
 /* ── Stats ── */
-$stmt = $conn->prepare("
-    SELECT
-        COUNT(*) AS total,
-        SUM(class_date >= CURDATE()) AS upcoming
-    FROM classes WHERE student_name = ?
-");
-$stmt->bind_param("s", $studentName);
-$stmt->execute();
-$stats = $stmt->get_result()->fetch_assoc();
-$stmt->close();
-$totalClasses    = (int)($stats["total"]    ?? 0);
-$upcomingClasses = (int)($stats["upcoming"] ?? 0);
+$totalClasses = 0; $upcomingClasses = 0;
+$stmt = $conn->prepare("SELECT COUNT(*) AS total, SUM(class_date >= CURDATE()) AS upcoming FROM classes WHERE student_name = ?");
+if ($stmt) {
+    $stmt->bind_param("s", $studentName);
+    $stmt->execute();
+    $stats = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    $totalClasses    = (int)($stats["total"]    ?? 0);
+    $upcomingClasses = (int)($stats["upcoming"] ?? 0);
+}
 
 /* ── Today's classes ── */
-$stmt2 = $conn->prepare("
-    SELECT teacher_name, class_date, class_time, type, details, zoom_link
-    FROM classes
-    WHERE student_name = ? AND class_date = ?
-    ORDER BY class_time ASC
-");
-$stmt2->bind_param("ss", $studentName, $today);
-$stmt2->execute();
-$todaysClasses = $stmt2->get_result()->fetch_all(MYSQLI_ASSOC);
-$stmt2->close();
+$todaysClasses = [];
+$stmt2 = $conn->prepare("SELECT teacher_name, class_date, class_time, type, details, zoom_link FROM classes WHERE student_name = ? AND class_date = ? ORDER BY class_time ASC");
+if ($stmt2) {
+    $stmt2->bind_param("ss", $studentName, $today);
+    $stmt2->execute();
+    $todaysClasses = $stmt2->get_result()->fetch_all(MYSQLI_ASSOC);
+    $stmt2->close();
+}
 
 /* ── Upcoming classes (future only, not today) ── */
-$stmt3 = $conn->prepare("
-    SELECT teacher_name, class_date, class_time, type, details, zoom_link
-    FROM classes
-    WHERE student_name = ? AND class_date > ?
-    ORDER BY class_date ASC, class_time ASC
-");
-$stmt3->bind_param("ss", $studentName, $today);
-$stmt3->execute();
-$nextClasses = $stmt3->get_result()->fetch_all(MYSQLI_ASSOC);
-$stmt3->close();
+$nextClasses = [];
+$stmt3 = $conn->prepare("SELECT teacher_name, class_date, class_time, type, details, zoom_link FROM classes WHERE student_name = ? AND class_date > ? ORDER BY class_date ASC, class_time ASC");
+if ($stmt3) {
+    $stmt3->bind_param("ss", $studentName, $today);
+    $stmt3->execute();
+    $nextClasses = $stmt3->get_result()->fetch_all(MYSQLI_ASSOC);
+    $stmt3->close();
+}
 
 /* ── Assignments for this student ── */
 $assignments = [];

@@ -909,6 +909,10 @@ function renderCourseTable($result) {
           <span class="nav-icon"><i class="fas fa-circle-question"></i></span>
           <span>AI Quiz Generator</span>
         </a>
+        <a href="admin_email_notifications.php" class="nav-link-custom">
+          <span class="nav-icon"><i class="fas fa-envelope"></i></span>
+          <span>Email Notifications</span>
+        </a>
 
       </div>
       </div>

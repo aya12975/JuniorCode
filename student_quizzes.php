@@ -33,16 +33,28 @@ $conn->query("CREATE TABLE IF NOT EXISTS quiz_assignments (
     FOREIGN KEY (quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+$conn->query("CREATE TABLE IF NOT EXISTS quiz_results (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    quiz_id INT NOT NULL, student_username VARCHAR(255) NOT NULL,
+    score INT NOT NULL DEFAULT 0, total INT NOT NULL DEFAULT 0,
+    answers TEXT NOT NULL DEFAULT '{}',
+    completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_result (quiz_id, student_username),
+    FOREIGN KEY (quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
 $quizzes = [];
 $stmt = $conn->prepare(
     "SELECT q.*, qa.assigned_by, qa.assigned_at AS assigned_time,
-            (SELECT COUNT(*) FROM quiz_questions WHERE quiz_id = q.id) AS q_count
+            (SELECT COUNT(*) FROM quiz_questions WHERE quiz_id = q.id) AS q_count,
+            qr.score AS result_score, qr.total AS result_total, qr.completed_at AS result_date
      FROM quizzes q
      JOIN quiz_assignments qa ON qa.quiz_id = q.id
+     LEFT JOIN quiz_results qr ON qr.quiz_id = q.id AND qr.student_username = ?
      WHERE qa.student_username = ?
      ORDER BY qa.assigned_at DESC"
 );
-$stmt->bind_param("s", $studentName);
+$stmt->bind_param("ss", $studentName, $studentName);
 $stmt->execute();
 $qRes = $stmt->get_result();
 while ($row = $qRes->fetch_assoc()) $quizzes[] = $row;
@@ -109,6 +121,7 @@ body.sidebar-collapsed .main { margin-left:0; }
 
 .btn-take { background:linear-gradient(135deg,#22c55e,#16a34a); color:white; border:none; font-weight:800; border-radius:12px; padding:11px 20px; cursor:pointer; text-decoration:none; font-size:0.9rem; display:inline-flex; align-items:center; gap:7px; }
 .btn-take:hover { opacity:0.9; color:white; }
+.badge-done { display:inline-flex; align-items:center; gap:7px; background:#f0fdf4; border:2px solid #bbf7d0; border-radius:12px; padding:9px 16px; font-size:0.88rem; font-weight:800; color:#16a34a; white-space:nowrap; }
 
 .empty-box { text-align:center; padding:48px 18px; border-radius:18px; background:#f8fbff; color:var(--muted); border:1px dashed #d9e9ff; font-weight:700; }
 </style>
@@ -196,9 +209,18 @@ body.sidebar-collapsed .main { margin-left:0; }
             <?php endif; ?>
           </div>
         </div>
-        <a href="quiz_take.php?id=<?= $qz["id"] ?>" class="btn-take">
-          <i class="fas fa-play"></i> Start Quiz
-        </a>
+        <?php if (!is_null($qz["result_score"])): ?>
+          <div class="badge-done">
+            <i class="fas fa-circle-check"></i>
+            <?= (int)$qz["result_score"] ?>/<?= (int)$qz["result_total"] ?>
+            &nbsp;·&nbsp;
+            <?= $qz["result_total"] > 0 ? round(($qz["result_score"] / $qz["result_total"]) * 100) : 0 ?>%
+          </div>
+        <?php else: ?>
+          <a href="quiz_take.php?id=<?= $qz["id"] ?>" class="btn-take">
+            <i class="fas fa-play"></i> Start Quiz
+          </a>
+        <?php endif; ?>
       </div>
       <?php endforeach; ?>
     <?php endif; ?>

@@ -74,14 +74,26 @@ if ($raw === false) {
 
 $data = json_decode($raw, true);
 
-// If overloaded, retry once with a stable fallback model
 if ($httpCode !== 200) {
     $errMsg = $data['error']['message'] ?? '';
+
+    // Quota exceeded — no point retrying with another model on the same key
+    if ($httpCode === 429 || stripos($errMsg, 'quota') !== false || stripos($errMsg, 'exceeded') !== false) {
+        $retry = '';
+        if (preg_match('/retry in ([\d.]+)s/i', $errMsg, $m)) {
+            $secs = (int)ceil((float)$m[1]);
+            $retry = " Please wait {$secs} seconds and try again.";
+        }
+        echo json_encode(['error' => "API quota exceeded.{$retry} You may need to upgrade your Gemini API plan at ai.google.dev."]);
+        exit();
+    }
+
+    // Overloaded — retry once with fallback model
     $isOverloaded = stripos($errMsg, 'high demand') !== false
                  || stripos($errMsg, 'overloaded') !== false
                  || $httpCode === 503;
-    if ($isOverloaded && $model !== 'gemini-1.5-flash') {
-        [$raw, $httpCode] = callGemini('gemini-1.5-flash', $payload, $apiKey);
+    if ($isOverloaded && $model !== 'gemini-2.0-flash') {
+        [$raw, $httpCode] = callGemini('gemini-2.0-flash', $payload, $apiKey);
         $data = json_decode($raw, true);
     }
 }

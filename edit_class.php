@@ -18,6 +18,22 @@ if (!isset($_GET["id"]) || !is_numeric($_GET["id"])) {
 $id      = (int)$_GET["id"];
 $message = "";
 
+// Ensure required columns exist
+foreach ([
+    "zoom_link"  => "ALTER TABLE classes ADD COLUMN zoom_link VARCHAR(500) DEFAULT NULL",
+    "teacher_id" => "ALTER TABLE classes ADD COLUMN teacher_id INT DEFAULT NULL",
+    "type"       => "ALTER TABLE classes ADD COLUMN type VARCHAR(100) NOT NULL DEFAULT ''",
+    "details"    => "ALTER TABLE classes ADD COLUMN details TEXT NOT NULL DEFAULT ''",
+] as $col => $sql) {
+    $chk = $conn->query("SHOW COLUMNS FROM classes LIKE '$col'");
+    if ($chk && $chk->num_rows === 0) $conn->query($sql);
+}
+
+// Fetch teachers for dropdown
+$teachers = [];
+$tRes = $conn->query("SELECT id, username FROM users WHERE role = 'teacher' ORDER BY username ASC");
+if ($tRes) while ($r = $tRes->fetch_assoc()) $teachers[] = $r;
+
 $stmt = $conn->prepare("SELECT * FROM classes WHERE id = ?");
 $stmt->bind_param("i", $id);
 $stmt->execute();
@@ -29,23 +45,38 @@ if (!$class) {
 }
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    $teacher_name = trim($_POST["teacher_name"]);
-    $student_name = trim($_POST["student_name"]);
-    $class_date   = $_POST["class_date"];
-    $class_time   = $_POST["class_time"];
-    $type         = trim($_POST["type"]);
-    $details      = trim($_POST["details"]);
+    $teacher_id   = (int)($_POST["teacher_id"] ?? 0);
+    $teacher_name = trim($_POST["teacher_name"] ?? "");
+    $student_name = trim($_POST["student_name"] ?? "");
+    $class_date   = $_POST["class_date"]  ?? "";
+    $class_time   = $_POST["class_time"]  ?? "";
+    $type         = trim($_POST["type"]   ?? "");
+    $details      = trim($_POST["details"] ?? "");
     $zoom_link    = trim($_POST["zoom_link"] ?? "");
 
-    if ($teacher_name !== "" && $student_name !== "" && $class_date !== "" && $class_time !== "" && $type !== "") {
-        $stmt2 = $conn->prepare("UPDATE classes SET teacher_name = ?, student_name = ?, class_date = ?, class_time = ?, type = ?, details = ?, zoom_link = ? WHERE id = ?");
-        $stmt2->bind_param("sssssssi", $teacher_name, $student_name, $class_date, $class_time, $type, $details, $zoom_link, $id);
+    // If teacher_id not submitted, look it up by name
+    if ($teacher_id === 0 && $teacher_name !== "") {
+        $tLookup = $conn->prepare("SELECT id FROM users WHERE username = ? AND role = 'teacher' LIMIT 1");
+        if ($tLookup) {
+            $tLookup->bind_param("s", $teacher_name);
+            $tLookup->execute();
+            $tRow = $tLookup->get_result()->fetch_assoc();
+            if ($tRow) $teacher_id = (int)$tRow["id"];
+        }
+    }
 
-        if ($stmt2->execute()) {
-            header("Location: manage_classes.php?updated=1");
-            exit();
+    if ($teacher_name !== "" && $student_name !== "" && $class_date !== "" && $class_time !== "" && $type !== "") {
+        $stmt2 = $conn->prepare("UPDATE classes SET teacher_id = ?, teacher_name = ?, student_name = ?, class_date = ?, class_time = ?, type = ?, details = ?, zoom_link = ? WHERE id = ?");
+        if (!$stmt2) {
+            $message = "Prepare failed: " . $conn->error;
         } else {
-            $message = "Error updating class.";
+            $stmt2->bind_param("isssssssi", $teacher_id, $teacher_name, $student_name, $class_date, $class_time, $type, $details, $zoom_link, $id);
+            if ($stmt2->execute()) {
+                header("Location: manage_classes.php?updated=1");
+                exit();
+            } else {
+                $message = "Error updating class: " . $stmt2->error;
+            }
         }
     } else {
         $message = "Please fill all required fields.";
@@ -190,6 +221,7 @@ function isActive($page, $current) { return $page === $current ? "active" : ""; 
       <a href="admin_certificates.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-award"></i></span><span>Certificates</span></a>
       <a href="admin_ai_settings.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI Tutor</span></a>
       <a href="admin_quiz_generator.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-circle-question"></i></span><span>AI Quiz Generator</span></a>
+      <a href="admin_email_notifications.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-envelope"></i></span><span>Email Notifications</span></a>
     </div>
       </div>
       <div class="sidebar-bottom">
@@ -225,9 +257,22 @@ function isActive($page, $current) { return $page === $current ? "active" : ""; 
         <div class="row g-3">
 
           <div class="col-md-6">
-            <label class="form-label">Teacher Name</label>
-            <input type="text" name="teacher_name" class="form-control"
-                   value="<?= htmlspecialchars($class["teacher_name"]) ?>" required>
+            <label class="form-label">Teacher</label>
+            <select name="teacher_id" class="form-select" required onchange="syncTeacher(this)">
+              <option value="">Select teacher…</option>
+              <?php foreach ($teachers as $t):
+                $selectedByid  = !empty($class['teacher_id']) && (int)$class['teacher_id'] === (int)$t['id'];
+                $selectedByName = !$selectedByid && strtolower($class['teacher_name']) === strtolower($t['username']);
+              ?>
+                <option value="<?= $t['id'] ?>"
+                        data-name="<?= htmlspecialchars($t['username']) ?>"
+                        <?= ($selectedByid || $selectedByName) ? 'selected' : '' ?>>
+                  <?= htmlspecialchars($t['username']) ?>
+                </option>
+              <?php endforeach; ?>
+            </select>
+            <input type="hidden" name="teacher_name" id="teacher_name_hidden"
+                   value="<?= htmlspecialchars($class['teacher_name']) ?>">
           </div>
 
           <div class="col-md-6">
@@ -300,6 +345,11 @@ function isActive($page, $current) { return $page === $current ? "active" : ""; 
 </div>
 
 <script>
+function syncTeacher(select) {
+  const opt = select.options[select.selectedIndex];
+  document.getElementById('teacher_name_hidden').value = opt.dataset.name || '';
+}
+
 function updateZoomPreview(url) {
   const preview = document.getElementById('zoomPreview');
   const openBtn = document.getElementById('zoomOpenBtn');

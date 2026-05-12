@@ -1,6 +1,8 @@
 ﻿<?php
 session_start();
 require_once "db.php";
+require_once "admin_prefs.php";
+require_once "mailer.php";
 
 if (!isset($_SESSION["role"]) || $_SESSION["role"] !== "admin") {
     header("Location: login.php");
@@ -42,6 +44,21 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         if ($stmt->execute()) {
             $newUser = ['username' => $username, 'password' => $password, 'role' => $role, 'email' => $email];
+
+            // Send welcome email to teacher or student
+            if (in_array($role, ['teacher', 'student']) && $email !== '') {
+                $smtpHost = getAdminSetting($conn, 'smtp_host',      '');
+                $smtpPort = (int)getAdminSetting($conn, 'smtp_port', 587);
+                $smtpUser = getAdminSetting($conn, 'smtp_user',      '');
+                $smtpPass = getAdminSetting($conn, 'smtp_pass',      '');
+                $fromName = getAdminSetting($conn, 'smtp_from_name', 'JuniorCode');
+                if ($smtpHost && $smtpUser && $smtpPass) {
+                    $loginUrl = 'http://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . '/JuniorCode/login.php';
+                    $html = buildWelcomeEmail($username, $role, $username, $password, $loginUrl);
+                    (new Mailer($smtpHost, $smtpPort, $smtpUser, $smtpPass, $fromName))
+                        ->send($email, $username, 'Your JuniorCode account is ready', $html);
+                }
+            }
         } else {
             $formError = true;
         }
@@ -486,6 +503,10 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: 
         <span class="nav-icon"><i class="fas fa-circle-question"></i></span>
         <span>AI Quiz Generator</span>
       </a>
+      <a href="admin_email_notifications.php" class="nav-link-custom <?php echo isActive('admin_email_notifications.php', $currentPage); ?>">
+        <span class="nav-icon"><i class="fas fa-envelope"></i></span>
+        <span>Email Notifications</span>
+      </a>
 
     </div>
     </div>
@@ -588,11 +609,14 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: 
             </select>
           </div>
 
-          <div id="teacherFields" style="display:none;">
+          <div id="emailField" style="display:none;">
             <div class="mb-4">
-              <label class="form-label">Teacher Email</label>
-              <input type="email" name="email" class="form-control" placeholder="teacher@example.com">
+              <label class="form-label">Email</label>
+              <input type="email" name="email" class="form-control" placeholder="user@example.com">
             </div>
+          </div>
+
+          <div id="teacherFields" style="display:none;">
             <div class="mb-4">
               <label class="form-label">
                 Personal Zoom Link
@@ -618,6 +642,7 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: 
 
 <script>
 function toggleEmailField(role) {
+  document.getElementById('emailField').style.display   = (role === 'teacher' || role === 'student') ? '' : 'none';
   document.getElementById('teacherFields').style.display = role === 'teacher' ? '' : 'none';
 }
 

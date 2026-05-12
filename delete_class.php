@@ -160,6 +160,7 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: 
       <a href="admin_certificates.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-award"></i></span><span>Certificates</span></a>
       <a href="admin_ai_settings.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI Tutor</span></a>
       <a href="admin_quiz_generator.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-circle-question"></i></span><span>AI Quiz Generator</span></a>
+      <a href="admin_email_notifications.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-envelope"></i></span><span>Email Notifications</span></a>
     </div>
       </div>
       <div class="sidebar-bottom">

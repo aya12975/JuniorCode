@@ -348,6 +348,10 @@ function isActive($page, $cur) { return $page === $cur ? "active" : ""; }
         <span class="nav-icon"><i class="fas fa-circle-question"></i></span>
         <span>AI Quiz Generator</span>
       </a>
+      <a href="admin_email_notifications.php" class="nav-link-custom <?= isActive('admin_email_notifications.php',$currentPage) ?>">
+        <span class="nav-icon"><i class="fas fa-envelope"></i></span>
+        <span>Email Notifications</span>
+      </a>
     </div>
     </div>
     <div class="sidebar-bottom">

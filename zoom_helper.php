@@ -1,12 +1,15 @@
 <?php
 require_once __DIR__ . "/admin_prefs.php";
 
-function getZoomToken($conn) {
+function getZoomToken($conn, &$error = null) {
     $accountId    = getAdminSetting($conn, 'zoom_account_id',    '');
     $clientId     = getAdminSetting($conn, 'zoom_client_id',     '');
     $clientSecret = getAdminSetting($conn, 'zoom_client_secret', '');
 
-    if (!$accountId || !$clientId || !$clientSecret) return null;
+    if (!$accountId || !$clientId || !$clientSecret) {
+        $error = 'Zoom credentials not configured. Go to Settings → Zoom.';
+        return null;
+    }
 
     $ch = curl_init();
     curl_setopt_array($ch, [
@@ -14,20 +17,29 @@ function getZoomToken($conn) {
         CURLOPT_POST           => true,
         CURLOPT_POSTFIELDS     => "",
         CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_SSL_VERIFYPEER => false,
         CURLOPT_HTTPHEADER     => [
             "Authorization: Basic " . base64_encode("$clientId:$clientSecret"),
             "Content-Type: application/x-www-form-urlencoded",
         ],
     ]);
     $response = curl_exec($ch);
+    $curlErr  = curl_error($ch);
     curl_close($ch);
 
+    if ($curlErr) { $error = "Network error: $curlErr"; return null; }
+
     $data = json_decode($response, true);
-    return $data['access_token'] ?? null;
+    if (!isset($data['access_token'])) {
+        $reason = $data['reason'] ?? ($data['message'] ?? $response);
+        $error  = "Zoom token error: $reason";
+        return null;
+    }
+    return $data['access_token'];
 }
 
-function createZoomMeeting($conn, $topic, $startDate, $startTime, $durationMinutes = 60) {
-    $token = getZoomToken($conn);
+function createZoomMeeting($conn, $topic, $startDate, $startTime, $durationMinutes = 60, &$error = null) {
+    $token = getZoomToken($conn, $error);
     if (!$token) return null;
 
     $timezone      = getAdminSetting($conn, 'zoom_timezone', 'UTC');
@@ -54,16 +66,25 @@ function createZoomMeeting($conn, $topic, $startDate, $startTime, $durationMinut
         CURLOPT_POST           => true,
         CURLOPT_POSTFIELDS     => $payload,
         CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_SSL_VERIFYPEER => false,
         CURLOPT_HTTPHEADER     => [
             "Authorization: Bearer $token",
             "Content-Type: application/json",
         ],
     ]);
     $response = curl_exec($ch);
+    $curlErr  = curl_error($ch);
     curl_close($ch);
 
+    if ($curlErr) { $error = "Network error: $curlErr"; return null; }
+
     $data = json_decode($response, true);
-    return $data['join_url'] ?? null;
+    if (!isset($data['join_url'])) {
+        $reason = $data['message'] ?? ($data['reason'] ?? $response);
+        $error  = "Zoom API error: $reason";
+        return null;
+    }
+    return $data['join_url'];
 }
 
 function zoomCredentialsSet($conn) {

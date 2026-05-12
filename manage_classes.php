@@ -1,6 +1,8 @@
 ﻿﻿<?php
 session_start();
 require_once "db.php";
+require_once "admin_prefs.php";
+require_once "mailer.php";
 
 if (!isset($_SESSION["role"]) || $_SESSION["role"] !== "admin") {
     header("Location: login.php");
@@ -22,6 +24,14 @@ if ($colCheck && $colCheck->num_rows === 0) {
 $colCheck2 = $conn->query("SHOW COLUMNS FROM classes LIKE 'teacher_id'");
 if ($colCheck2 && $colCheck2->num_rows === 0) {
     $conn->query("ALTER TABLE classes ADD COLUMN teacher_id INT DEFAULT NULL");
+}
+$colCheck3 = $conn->query("SHOW COLUMNS FROM classes LIKE 'type'");
+if ($colCheck3 && $colCheck3->num_rows === 0) {
+    $conn->query("ALTER TABLE classes ADD COLUMN type VARCHAR(100) NOT NULL DEFAULT ''");
+}
+$colCheck4 = $conn->query("SHOW COLUMNS FROM classes LIKE 'details'");
+if ($colCheck4 && $colCheck4->num_rows === 0) {
+    $conn->query("ALTER TABLE classes ADD COLUMN details TEXT NOT NULL DEFAULT ''");
 }
 /* Backfill teacher_id for any existing rows that were added before this fix */
 $conn->query("
@@ -61,6 +71,43 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $stmt->bind_param("isssssss", $teacher_id, $teacher_name, $student_name, $class_date, $class_time, $type, $details, $zoom_link);
 
             if ($stmt->execute()) {
+                // Send email notifications
+                $smtpHost  = getAdminSetting($conn, "smtp_host",      "");
+                $smtpPort  = (int)getAdminSetting($conn, "smtp_port", 587);
+                $smtpUser  = getAdminSetting($conn, "smtp_user",      "");
+                $smtpPass  = getAdminSetting($conn, "smtp_pass",      "");
+                $fromName  = getAdminSetting($conn, "smtp_from_name", "JuniorCode");
+                $smtpReady = $smtpHost && $smtpUser && $smtpPass;
+
+                if ($smtpReady) {
+                    $timeLabel = date("h:i A", strtotime($class_time));
+                    $subject   = "New class scheduled — $class_date at $timeLabel";
+
+                    // Notify teacher
+                    $tRow = $conn->prepare("SELECT email FROM users WHERE id = ? LIMIT 1");
+                    if ($tRow) {
+                        $tRow->bind_param("i", $teacher_id);
+                        $tRow->execute();
+                        $tEmail = trim($tRow->get_result()->fetch_assoc()["email"] ?? "");
+                        if ($tEmail) {
+                            $html = buildClassNotificationEmail($teacher_name, $class_date, $class_time, $student_name, $type, $details, $zoom_link);
+                            (new Mailer($smtpHost, $smtpPort, $smtpUser, $smtpPass, $fromName))->send($tEmail, $teacher_name, $subject, $html);
+                        }
+                    }
+
+                    // Notify student
+                    $sRow = $conn->prepare("SELECT email FROM users WHERE username = ? AND role = 'student' LIMIT 1");
+                    if ($sRow) {
+                        $sRow->bind_param("s", $student_name);
+                        $sRow->execute();
+                        $sEmail = trim($sRow->get_result()->fetch_assoc()["email"] ?? "");
+                        if ($sEmail) {
+                            $html = buildStudentClassNotificationEmail($student_name, $teacher_name, $class_date, $class_time, $type, $zoom_link);
+                            (new Mailer($smtpHost, $smtpPort, $smtpUser, $smtpPass, $fromName))->send($sEmail, $student_name, "Your class is confirmed — $class_date at $timeLabel", $html);
+                        }
+                    }
+                }
+
                 header("Location: manage_classes.php?added=1");
                 exit();
             } else {
@@ -501,6 +548,10 @@ function isActive($page, $currentPage) {
           <span class="nav-icon"><i class="fas fa-circle-question"></i></span>
           <span>AI Quiz Generator</span>
         </a>
+        <a href="admin_email_notifications.php" class="nav-link-custom">
+          <span class="nav-icon"><i class="fas fa-envelope"></i></span>
+          <span>Email Notifications</span>
+        </a>
 
       </div>
       </div>
@@ -694,8 +745,8 @@ function isActive($page, $currentPage) {
                       <?php endif; ?>
                     </td>
                     <td>
-                      <a href="edit_class.php?id=<?php echo $class["id"]; ?>" class="btn btn-sm btn-warning">Edit</a>
-                      <a href="delete_class.php?id=<?php echo $class["id"]; ?>" class="btn btn-sm btn-danger">Delete</a>
+                      <button class="btn btn-sm btn-warning" onclick="openEditModal(<?php echo $class['id']; ?>)">Edit</button>
+                      <button class="btn btn-sm btn-danger" onclick="openDeleteModal(<?php echo $class['id']; ?>, '<?php echo htmlspecialchars(addslashes($class['teacher_name'])); ?>', '<?php echo htmlspecialchars(addslashes($class['student_name'])); ?>', '<?php echo htmlspecialchars($class['class_date']); ?>')">Delete</button>
                     </td>
                   </tr>
                 <?php endforeach; ?>
@@ -749,6 +800,230 @@ function isActive($page, $currentPage) {
       alert('Network error. Please try again.');
     });
   }
+</script>
+
+<script>
+const classesData  = <?= json_encode(array_column($classes ?? [], null, 'id'), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+const teachersData = <?= json_encode($teachers, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+const typeOptions  = ["Paid","Demo","Half Pay","No Pay","Demo Enrolled","Demo Pending","Demo Other"];
+
+function openEditModal(classId) {
+  const c = classesData[classId];
+  if (!c) return;
+
+  document.getElementById('em-id').value           = c.id;
+  document.getElementById('em-student').value      = c.student_name  || '';
+  document.getElementById('em-date').value         = c.class_date    || '';
+  document.getElementById('em-time').value         = c.class_time    || '';
+  document.getElementById('em-details').value      = c.details       || '';
+  document.getElementById('em-zoom').value         = c.zoom_link     || '';
+
+  // Build teacher dropdown
+  const tSel = document.getElementById('em-teacher');
+  tSel.innerHTML = '<option value="">Select teacher…</option>';
+  teachersData.forEach(t => {
+    const opt = document.createElement('option');
+    opt.value        = t.id;
+    opt.dataset.name = t.username;
+    opt.textContent  = t.username;
+    if (t.id == c.teacher_id || t.username === c.teacher_name) opt.selected = true;
+    tSel.appendChild(opt);
+  });
+
+  // Build type dropdown
+  const typeSel = document.getElementById('em-type');
+  typeSel.innerHTML = '';
+  typeOptions.forEach(opt => {
+    const o = document.createElement('option');
+    o.value = opt; o.textContent = opt;
+    if (opt === c.type) o.selected = true;
+    typeSel.appendChild(o);
+  });
+
+  document.getElementById('em-error').textContent = '';
+  document.getElementById('edit-modal').style.display = 'flex';
+}
+
+function closeEditModal() {
+  document.getElementById('edit-modal').style.display = 'none';
+}
+
+function saveEdit() {
+  const tSel   = document.getElementById('em-teacher');
+  const selOpt = tSel.options[tSel.selectedIndex];
+  const body   = new URLSearchParams({
+    id:           document.getElementById('em-id').value,
+    teacher_id:   tSel.value,
+    teacher_name: selOpt ? (selOpt.dataset.name || selOpt.textContent) : '',
+    student_name: document.getElementById('em-student').value,
+    class_date:   document.getElementById('em-date').value,
+    class_time:   document.getElementById('em-time').value,
+    type:         document.getElementById('em-type').value,
+    details:      document.getElementById('em-details').value,
+    zoom_link:    document.getElementById('em-zoom').value,
+  });
+
+  const saveBtn = document.getElementById('em-save-btn');
+  saveBtn.disabled = true;
+  saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving…';
+
+  fetch('update_class_handler.php', { method:'POST', body })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        closeEditModal();
+        location.reload();
+      } else {
+        document.getElementById('em-error').textContent = data.message || 'Update failed.';
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = '<i class="fas fa-floppy-disk"></i> Save Changes';
+      }
+    })
+    .catch(() => {
+      document.getElementById('em-error').textContent = 'Network error. Please try again.';
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = '<i class="fas fa-floppy-disk"></i> Save Changes';
+    });
+}
+</script>
+
+<!-- Edit Class Modal -->
+<div id="edit-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.45);align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:22px;padding:0;max-width:580px;width:94%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,0,0,0.22);">
+
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#3e5077,#143674);border-radius:22px 22px 0 0;padding:22px 28px;display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <div style="font-size:1.1rem;font-weight:900;color:#fff;"><i class="fas fa-pen me-2"></i>Edit Class</div>
+        <div style="color:rgba(255,255,255,0.7);font-size:0.82rem;margin-top:2px;">Update class details below</div>
+      </div>
+      <button onclick="closeEditModal()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;border-radius:10px;width:34px;height:34px;cursor:pointer;font-size:1.1rem;">&times;</button>
+    </div>
+
+    <!-- Body -->
+    <div style="padding:24px 28px;">
+      <input type="hidden" id="em-id">
+      <div id="em-error" style="color:#dc2626;font-weight:700;font-size:0.88rem;margin-bottom:10px;"></div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+
+        <div>
+          <label style="font-weight:800;font-size:0.88rem;color:#334155;display:block;margin-bottom:5px;">Teacher</label>
+          <select id="em-teacher" style="width:100%;border:1px solid #dbeafe;border-radius:12px;padding:10px 12px;font-size:0.93rem;">
+            <option value="">Select teacher…</option>
+          </select>
+        </div>
+
+        <div>
+          <label style="font-weight:800;font-size:0.88rem;color:#334155;display:block;margin-bottom:5px;">Student Name</label>
+          <input id="em-student" type="text" style="width:100%;border:1px solid #dbeafe;border-radius:12px;padding:10px 12px;font-size:0.93rem;box-sizing:border-box;">
+        </div>
+
+        <div>
+          <label style="font-weight:800;font-size:0.88rem;color:#334155;display:block;margin-bottom:5px;">Date</label>
+          <input id="em-date" type="date" style="width:100%;border:1px solid #dbeafe;border-radius:12px;padding:10px 12px;font-size:0.93rem;box-sizing:border-box;">
+        </div>
+
+        <div>
+          <label style="font-weight:800;font-size:0.88rem;color:#334155;display:block;margin-bottom:5px;">Time</label>
+          <input id="em-time" type="time" style="width:100%;border:1px solid #dbeafe;border-radius:12px;padding:10px 12px;font-size:0.93rem;box-sizing:border-box;">
+        </div>
+
+        <div>
+          <label style="font-weight:800;font-size:0.88rem;color:#334155;display:block;margin-bottom:5px;">Type</label>
+          <select id="em-type" style="width:100%;border:1px solid #dbeafe;border-radius:12px;padding:10px 12px;font-size:0.93rem;"></select>
+        </div>
+
+        <div>
+          <label style="font-weight:800;font-size:0.88rem;color:#334155;display:block;margin-bottom:5px;">Zoom Link <span style="font-weight:500;color:#94a3b8;">(optional)</span></label>
+          <input id="em-zoom" type="url" placeholder="https://zoom.us/j/..." style="width:100%;border:1px solid #dbeafe;border-radius:12px;padding:10px 12px;font-size:0.93rem;box-sizing:border-box;">
+        </div>
+
+        <div style="grid-column:1/-1;">
+          <label style="font-weight:800;font-size:0.88rem;color:#334155;display:block;margin-bottom:5px;">Details</label>
+          <textarea id="em-details" rows="3" style="width:100%;border:1px solid #dbeafe;border-radius:12px;padding:10px 12px;font-size:0.93rem;resize:vertical;box-sizing:border-box;"></textarea>
+        </div>
+
+      </div>
+
+      <!-- Footer buttons -->
+      <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end;">
+        <button onclick="closeEditModal()" style="background:#f1f5f9;color:#334155;border:none;border-radius:12px;padding:11px 22px;font-weight:800;cursor:pointer;">Cancel</button>
+        <button id="em-save-btn" onclick="saveEdit()" style="background:linear-gradient(135deg,#3e5077,#143674);color:#fff;border:none;border-radius:12px;padding:11px 22px;font-weight:800;cursor:pointer;">
+          <i class="fas fa-floppy-disk"></i> Save Changes
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="delete-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.45);align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:22px;padding:0;max-width:420px;width:92%;box-shadow:0 24px 60px rgba(0,0,0,0.22);">
+
+    <div style="background:linear-gradient(135deg,#dc2626,#b91c1c);border-radius:22px 22px 0 0;padding:22px 28px;display:flex;justify-content:space-between;align-items:center;">
+      <div style="font-size:1.1rem;font-weight:900;color:#fff;"><i class="fas fa-trash me-2"></i>Delete Class</div>
+      <button onclick="closeDeleteModal()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;border-radius:10px;width:34px;height:34px;cursor:pointer;font-size:1.1rem;">&times;</button>
+    </div>
+
+    <div style="padding:26px 28px;">
+      <div style="font-size:1rem;font-weight:700;color:#0f172a;margin-bottom:6px;">Are you sure you want to delete this class?</div>
+      <div id="dm-info" style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:12px 16px;font-size:0.9rem;color:#92400e;font-weight:600;margin-bottom:20px;"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button onclick="closeDeleteModal()" style="background:#f1f5f9;color:#334155;border:none;border-radius:12px;padding:11px 22px;font-weight:800;cursor:pointer;">Cancel</button>
+        <button id="dm-confirm-btn" onclick="confirmDelete()" style="background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;border:none;border-radius:12px;padding:11px 22px;font-weight:800;cursor:pointer;">
+          <i class="fas fa-trash"></i> Delete
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+let deleteTargetId = null;
+
+function openDeleteModal(classId, teacher, student, date) {
+  deleteTargetId = classId;
+  document.getElementById('dm-info').innerHTML =
+    '<i class="fas fa-calendar-day me-1"></i> ' + date +
+    ' &nbsp;·&nbsp; <strong>' + teacher + '</strong> &amp; ' + student;
+  document.getElementById('delete-modal').style.display = 'flex';
+}
+
+function closeDeleteModal() {
+  deleteTargetId = null;
+  document.getElementById('delete-modal').style.display = 'none';
+}
+
+function confirmDelete() {
+  if (!deleteTargetId) return;
+  const btn = document.getElementById('dm-confirm-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Deleting…';
+
+  fetch('delete_class_handler.php', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'id=' + deleteTargetId
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.success) {
+      closeDeleteModal();
+      location.reload();
+    } else {
+      alert('Error: ' + (data.message || 'Could not delete.'));
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-trash"></i> Delete';
+    }
+  })
+  .catch(() => {
+    alert('Network error. Please try again.');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-trash"></i> Delete';
+  });
+}
 </script>
 
 <script src="logout-modal.js"></script>

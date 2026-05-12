@@ -17,6 +17,7 @@ $conn->query("CREATE TABLE IF NOT EXISTS quizzes (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 $conn->query("ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS created_by VARCHAR(255) NOT NULL DEFAULT ''");
+$conn->query("ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS time_limit INT DEFAULT NULL");
 
 $conn->query("CREATE TABLE IF NOT EXISTS quiz_questions (
     id INT AUTO_INCREMENT PRIMARY KEY, quiz_id INT NOT NULL,
@@ -34,6 +35,16 @@ $conn->query("CREATE TABLE IF NOT EXISTS quiz_assignments (
     FOREIGN KEY (quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+$conn->query("CREATE TABLE IF NOT EXISTS quiz_results (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    quiz_id INT NOT NULL, student_username VARCHAR(255) NOT NULL,
+    score INT NOT NULL DEFAULT 0, total INT NOT NULL DEFAULT 0,
+    answers TEXT NOT NULL DEFAULT '{}',
+    completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_result (quiz_id, student_username),
+    FOREIGN KEY (quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
 $students = [];
 $sRes = $conn->query("SELECT username FROM users WHERE role='student' ORDER BY username ASC");
 if ($sRes) while ($row = $sRes->fetch_assoc()) $students[] = $row['username'];
@@ -44,11 +55,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["action"] ?? "") === "save_
     $topic      = trim($_POST["topic"]      ?? "");
     $section    = trim($_POST["section"]    ?? "kids");
     $difficulty = trim($_POST["difficulty"] ?? "beginner");
+    $timeLimit  = (int)($_POST["time_limit"] ?? 0);
     $questions  = json_decode($_POST["questions_json"] ?? "[]", true);
 
     if ($title && $topic && is_array($questions) && count($questions) > 0) {
-        $ins = $conn->prepare("INSERT INTO quizzes (title, topic, section, difficulty, created_by) VALUES (?, ?, ?, ?, ?)");
-        $ins->bind_param("sssss", $title, $topic, $section, $difficulty, $teacherName);
+        $ins = $conn->prepare("INSERT INTO quizzes (title, topic, section, difficulty, created_by, time_limit) VALUES (?, ?, ?, ?, ?, ?)");
+        $ins->bind_param("sssssi", $title, $topic, $section, $difficulty, $teacherName, $timeLimit);
         $ins->execute();
         $qid = $conn->insert_id;
 
@@ -188,6 +200,12 @@ body.sidebar-collapsed .main { margin-left:0; }
 .empty-box { text-align:center; padding:36px 18px; border-radius:18px; background:#f8fbff; color:var(--muted); border:1px dashed #d9e9ff; font-weight:700; }
 .btn-send { background:linear-gradient(135deg,#3b82f6,#1d4ed8); color:white; border:none; font-weight:800; border-radius:10px; padding:9px 14px; cursor:pointer; font-size:0.85rem; display:inline-flex; align-items:center; gap:6px; }
 .btn-send:hover { opacity:0.9; }
+.btn-results { background:linear-gradient(135deg,#7c3aed,#5b21b6); color:white; border:none; font-weight:800; border-radius:10px; padding:9px 14px; cursor:pointer; font-size:0.85rem; display:inline-flex; align-items:center; gap:6px; }
+.btn-results:hover { opacity:0.9; }
+.result-row-t { display:flex; align-items:center; gap:12px; padding:11px 14px; border-radius:12px; border:1px solid #e2e8f0; margin-bottom:7px; background:#f8fbff; }
+.result-score-badge { font-size:0.85rem; font-weight:900; padding:5px 14px; border-radius:999px; background:#ede9fe; color:#5b21b6; }
+.result-pct { font-size:0.82rem; color:var(--muted); font-weight:700; }
+.result-date { font-size:0.78rem; color:#94a3b8; font-weight:700; }
 .modal-overlay { display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.45); align-items:center; justify-content:center; }
 .modal-overlay.open { display:flex; }
 .modal-box { background:white; border-radius:22px; padding:28px; max-width:460px; width:92%; max-height:80vh; overflow-y:auto; box-shadow:0 24px 60px rgba(0,0,0,0.2); }
@@ -294,6 +312,17 @@ body.sidebar-collapsed .main { margin-left:0; }
           <option value="10">10 questions</option>
         </select>
       </div>
+      <div>
+        <label class="form-label"><i class="fas fa-clock me-1" style="color:#7c3aed;"></i>Time Limit</label>
+        <select id="time-limit" class="form-select">
+          <option value="0">No timer</option>
+          <option value="300">5 minutes</option>
+          <option value="600">10 minutes</option>
+          <option value="900">15 minutes</option>
+          <option value="1200">20 minutes</option>
+          <option value="1800">30 minutes</option>
+        </select>
+      </div>
     </div>
 
     <div style="margin-top:20px;">
@@ -355,6 +384,9 @@ body.sidebar-collapsed .main { margin-left:0; }
           </div>
         </div>
         <div class="quiz-actions">
+          <button class="btn-results" onclick="openResultsModal(<?= $qz['id'] ?>, <?= htmlspecialchars(json_encode($qz['title']), ENT_QUOTES) ?>)" title="View student results">
+            <i class="fas fa-chart-bar"></i> Results
+          </button>
           <button class="btn-send" onclick="openSendModal(<?= $qz['id'] ?>, <?= htmlspecialchars(json_encode($qz['title']), ENT_QUOTES) ?>)" title="Send to students">
             <i class="fas fa-paper-plane"></i> Send
           </button>
@@ -375,6 +407,20 @@ body.sidebar-collapsed .main { margin-left:0; }
       </div>
       <?php endforeach; ?>
     <?php endif; ?>
+  </div>
+</div>
+
+<!-- Results Modal -->
+<div class="modal-overlay" id="results-modal" onclick="if(event.target===this)closeResultsModal()">
+  <div class="modal-box">
+    <div class="modal-title"><i class="fas fa-chart-bar me-2" style="color:#7c3aed;"></i>Quiz Results</div>
+    <div class="modal-sub" id="results-modal-subtitle"></div>
+    <div id="results-modal-body" style="max-height:340px;overflow-y:auto;">
+      <div style="text-align:center;padding:28px;color:var(--muted);font-weight:700;">Loading…</div>
+    </div>
+    <div style="margin-top:16px;">
+      <button onclick="closeResultsModal()" style="background:#e2e8f0;border:none;color:#334155;font-weight:800;border-radius:12px;padding:12px 18px;cursor:pointer;"><i class="fas fa-xmark me-1"></i> Close</button>
+    </div>
   </div>
 </div>
 
@@ -406,6 +452,7 @@ body.sidebar-collapsed .main { margin-left:0; }
   <input type="hidden" name="topic"          id="sf-topic">
   <input type="hidden" name="section"        id="sf-section">
   <input type="hidden" name="difficulty"     id="sf-difficulty">
+  <input type="hidden" name="time_limit"     id="sf-time-limit">
   <input type="hidden" name="questions_json" id="sf-questions">
 </form>
 
@@ -501,6 +548,7 @@ function saveQuiz() {
   document.getElementById('sf-topic').value      = document.getElementById('topic').value;
   document.getElementById('sf-section').value    = document.getElementById('section').value;
   document.getElementById('sf-difficulty').value = document.getElementById('difficulty').value;
+  document.getElementById('sf-time-limit').value = document.getElementById('time-limit').value;
   document.getElementById('sf-questions').value  = JSON.stringify(generatedQuestions);
   document.getElementById('save-form').submit();
 }
@@ -527,6 +575,46 @@ function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+// --- Results modal ---
+async function openResultsModal(quizId, quizTitle) {
+  document.getElementById('results-modal-subtitle').textContent = quizTitle;
+  document.getElementById('results-modal-body').innerHTML =
+    '<div style="text-align:center;padding:28px;color:var(--muted);font-weight:700;">Loading…</div>';
+  document.getElementById('results-modal').classList.add('open');
+
+  try {
+    const res  = await fetch('get_quiz_results.php?quiz_id=' + quizId);
+    const data = await res.json();
+    const body = document.getElementById('results-modal-body');
+
+    if (data.error) {
+      body.innerHTML = '<div style="color:#dc2626;font-weight:700;padding:16px;">' + escHtml(data.error) + '</div>';
+      return;
+    }
+    if (!data.results.length) {
+      body.innerHTML = '<div style="text-align:center;padding:28px;color:var(--muted);font-weight:700;">No students have completed this quiz yet.</div>';
+      return;
+    }
+    body.innerHTML = data.results.map(r => {
+      const pctColor = r.pct >= 70 ? '#16a34a' : r.pct >= 50 ? '#b45309' : '#dc2626';
+      const date = new Date(r.completed_at).toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'});
+      return `<div class="result-row-t">
+        <div style="flex:1;font-weight:800;color:#0f172a;">${escHtml(r.student)}</div>
+        <span class="result-score-badge">${r.score}/${r.total}</span>
+        <span class="result-pct" style="color:${pctColor};">${r.pct}%</span>
+        <span class="result-date">${date}</span>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    document.getElementById('results-modal-body').innerHTML =
+      '<div style="color:#dc2626;font-weight:700;padding:16px;">Network error. Please try again.</div>';
+  }
+}
+
+function closeResultsModal() {
+  document.getElementById('results-modal').classList.remove('open');
+}
 
 // --- Send modal ---
 let sendQuizId = null;

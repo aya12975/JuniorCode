@@ -2,6 +2,8 @@
 session_start();
 require_once "db.php";
 require_once "zoom_helper.php";
+require_once "admin_prefs.php";
+require_once "mailer.php";
 if (!isset($_SESSION["role"]) || $_SESSION["role"] !== "admin") {
     header("Location: login.php");
     exit();
@@ -13,6 +15,20 @@ $id = (int)($_GET["id"] ?? 0);
 $chkZoom = $conn->query("SHOW COLUMNS FROM users LIKE 'zoom_personal_link'");
 if ($chkZoom && $chkZoom->num_rows === 0) {
     $conn->query("ALTER TABLE users ADD COLUMN zoom_personal_link TEXT NOT NULL DEFAULT ''");
+}
+
+// Ensure classes table has all required columns
+$chkType = $conn->query("SHOW COLUMNS FROM classes LIKE 'type'");
+if ($chkType && $chkType->num_rows === 0) {
+    $conn->query("ALTER TABLE classes ADD COLUMN type VARCHAR(100) NOT NULL DEFAULT ''");
+}
+$chkDetails = $conn->query("SHOW COLUMNS FROM classes LIKE 'details'");
+if ($chkDetails && $chkDetails->num_rows === 0) {
+    $conn->query("ALTER TABLE classes ADD COLUMN details TEXT NOT NULL DEFAULT ''");
+}
+$chkZoomLink = $conn->query("SHOW COLUMNS FROM classes LIKE 'zoom_link'");
+if ($chkZoomLink && $chkZoomLink->num_rows === 0) {
+    $conn->query("ALTER TABLE classes ADD COLUMN zoom_link TEXT NOT NULL DEFAULT ''");
 }
 
 $stmt = $conn->prepare("
@@ -59,7 +75,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     // Auto-generate Zoom link via API if not manually provided
     if ($zoom_link === "" && $zoomReady) {
         $topic   = "JuniorCode — " . $teacherName . " & " . $student;
-        $joinUrl = createZoomMeeting($conn, $topic, $date, $time, $duration);
+        $joinUrl = createZoomMeeting($conn, $topic, $date, $time, $duration, $zoomErr);
         if ($joinUrl) {
             $zoom_link = $joinUrl;
         }
@@ -73,6 +89,38 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $insert->bind_param("isssssss", $teacherId, $teacherName, $student, $date, $time, $type, $details, $zoom_link);
     $insert->execute();
     $insert->close();
+
+    // Load SMTP settings once
+    $smtpHost = getAdminSetting($conn, "smtp_host",      "");
+    $smtpPort = (int)getAdminSetting($conn, "smtp_port", 587);
+    $smtpUser = getAdminSetting($conn, "smtp_user",      "");
+    $smtpPass = getAdminSetting($conn, "smtp_pass",      "");
+    $fromName = getAdminSetting($conn, "smtp_from_name", "JuniorCode");
+    $smtpReady = $smtpHost && $smtpUser && $smtpPass;
+
+    // Notify teacher
+    $teacherEmail = trim($slot["teacher_email"] ?? "");
+    if ($smtpReady && $teacherEmail) {
+        $html   = buildClassNotificationEmail($teacherName, $date, $time, $student, $type, $details, $zoom_link);
+        $mailer = new Mailer($smtpHost, $smtpPort, $smtpUser, $smtpPass, $fromName);
+        $mailer->send($teacherEmail, $teacherName, "New class scheduled — $date at " . date("h:i A", strtotime($time)), $html);
+    }
+
+    // Notify student
+    if ($smtpReady) {
+        $sStmt = $conn->prepare("SELECT email FROM users WHERE username = ? AND role = 'student' LIMIT 1");
+        if ($sStmt) {
+            $sStmt->bind_param("s", $student);
+            $sStmt->execute();
+            $sRow = $sStmt->get_result()->fetch_assoc();
+            $studentEmail = trim($sRow["email"] ?? "");
+            if ($studentEmail) {
+                $html   = buildStudentClassNotificationEmail($student, $teacherName, $date, $time, $type, $zoom_link);
+                $mailer = new Mailer($smtpHost, $smtpPort, $smtpUser, $smtpPass, $fromName);
+                $mailer->send($studentEmail, $student, "Your class is confirmed — $date at " . date("h:i A", strtotime($time)), $html);
+            }
+        }
+    }
 
     $delete = $conn->prepare("DELETE FROM teacher_availability WHERE id = ?");
     $delete->bind_param("i", $id);
@@ -223,6 +271,7 @@ textarea.form-control { height: auto; }
       <a href="admin_certificates.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-award"></i></span><span>Certificates</span></a>
       <a href="admin_ai_settings.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI Tutor</span></a>
       <a href="admin_quiz_generator.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-circle-question"></i></span><span>AI Quiz Generator</span></a>
+      <a href="admin_email_notifications.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-envelope"></i></span><span>Email Notifications</span></a>
     </div>
       </div>
       <div class="sidebar-bottom">

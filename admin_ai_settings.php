@@ -160,6 +160,9 @@ body.sidebar-collapsed .sidebar { width:0; padding:0; min-width:0; }
       <a href="admin_quiz_generator.php" class="nav-link-custom <?= isActive('admin_quiz_generator.php', $currentPage) ?>">
         <span class="nav-icon"><i class="fas fa-circle-question"></i></span><span>AI Quiz Generator</span>
       </a>
+      <a href="admin_email_notifications.php" class="nav-link-custom <?= isActive('admin_email_notifications.php', $currentPage) ?>">
+        <span class="nav-icon"><i class="fas fa-envelope"></i></span><span>Email Notifications</span>
+      </a>
     </div>
     </div>
     <div class="sidebar-bottom">

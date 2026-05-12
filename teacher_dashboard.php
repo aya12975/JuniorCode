@@ -7,8 +7,29 @@ if (!isset($_SESSION["role"]) || $_SESSION["role"] !== "teacher") {
     exit();
 }
 
-$teacherId = (int)($_SESSION["user_id"] ?? 0);
+$teacherId   = (int)($_SESSION["user_id"] ?? 0);
 $teacherName = $_SESSION["username"] ?? "Teacher";
+
+/* ── Ensure tables exist ── */
+$conn->query("CREATE TABLE IF NOT EXISTS teacher_earnings (
+    id INT AUTO_INCREMENT PRIMARY KEY, teacher_id INT DEFAULT NULL,
+    teacher_name VARCHAR(255) NOT NULL DEFAULT '', lesson_title VARCHAR(255) NOT NULL DEFAULT '',
+    amount DECIMAL(10,2) NOT NULL DEFAULT 0, lesson_date DATE DEFAULT NULL,
+    notes TEXT NOT NULL DEFAULT '', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$conn->query("CREATE TABLE IF NOT EXISTS classes (
+    id INT AUTO_INCREMENT PRIMARY KEY, teacher_id INT DEFAULT NULL,
+    teacher_name VARCHAR(255) NOT NULL DEFAULT '', student_name VARCHAR(255) NOT NULL DEFAULT '',
+    class_date DATE DEFAULT NULL, class_time TIME DEFAULT NULL,
+    type VARCHAR(100) NOT NULL DEFAULT '', details TEXT NOT NULL DEFAULT '',
+    zoom_link TEXT DEFAULT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$conn->query("CREATE TABLE IF NOT EXISTS teacher_availability (
+    id INT AUTO_INCREMENT PRIMARY KEY, teacher_id INT NOT NULL DEFAULT 0,
+    teacher_name VARCHAR(255) NOT NULL DEFAULT '', available_date DATE NOT NULL,
+    available_time TIME NOT NULL, status VARCHAR(50) NOT NULL DEFAULT 'available',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
 /* =========================
    Earnings summary
@@ -27,9 +48,7 @@ $stmt = $conn->prepare("
        OR (teacher_id IS NULL AND LOWER(teacher_name) = LOWER(?))
 ");
 
-if (!$stmt) {
-    die("Prepare failed (earnings summary): " . $conn->error);
-}
+if (!$stmt) { $stmt = null; }
 
 $stmt->bind_param("is", $teacherId, $teacherName);
 $stmt->execute();
@@ -124,9 +143,7 @@ $stmt5 = $conn->prepare("
     ORDER BY id DESC
 ");
 
-if (!$stmt5) {
-    die("Prepare failed (earnings table): " . $conn->error);
-}
+if (!$stmt5) { $stmt5 = null; }
 
 $stmt5->bind_param("is", $teacherId, $teacherName);
 $stmt5->execute();

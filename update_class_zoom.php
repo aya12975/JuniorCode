@@ -17,7 +17,7 @@ if (!$classId) {
 }
 
 if (!zoomCredentialsSet($conn)) {
-    echo json_encode(["success" => false, "message" => "Zoom API not configured"]);
+    echo json_encode(["success" => false, "message" => "Zoom API credentials not configured. Go to Settings → Zoom."]);
     exit();
 }
 
@@ -32,11 +32,12 @@ if (!$class) {
     exit();
 }
 
+$zoomErr = null;
 $topic   = "JuniorCode — " . $class["teacher_name"] . " & " . $class["student_name"];
-$joinUrl = createZoomMeeting($conn, $topic, $class["class_date"], $class["class_time"]);
+$joinUrl = createZoomMeeting($conn, $topic, $class["class_date"], $class["class_time"], 60, $zoomErr);
 
 if (!$joinUrl) {
-    echo json_encode(["success" => false, "message" => "Failed to create Zoom meeting"]);
+    echo json_encode(["success" => false, "message" => $zoomErr ?: "Failed to create Zoom meeting."]);
     exit();
 }
 
@@ -47,4 +48,3 @@ $upd->close();
 
 echo json_encode(["success" => true, "join_url" => $joinUrl]);
 exit();
-?>

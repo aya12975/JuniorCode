@@ -10,20 +10,45 @@ if (!isset($_SESSION["role"]) || $_SESSION["role"] !== "admin") {
 $adminName   = $_SESSION["username"] ?? "Admin";
 $currentPage = basename($_SERVER["PHP_SELF"]);
 
+/* ── Ensure tables exist ── */
+$conn->query("CREATE TABLE IF NOT EXISTS classes (
+    id INT AUTO_INCREMENT PRIMARY KEY, teacher_id INT DEFAULT NULL,
+    teacher_name VARCHAR(255) NOT NULL DEFAULT '', student_name VARCHAR(255) NOT NULL DEFAULT '',
+    class_date DATE DEFAULT NULL, class_time TIME DEFAULT NULL,
+    type VARCHAR(100) NOT NULL DEFAULT '', details TEXT NOT NULL DEFAULT '',
+    zoom_link TEXT DEFAULT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$conn->query("CREATE TABLE IF NOT EXISTS teacher_earnings (
+    id INT AUTO_INCREMENT PRIMARY KEY, teacher_id INT DEFAULT NULL,
+    teacher_name VARCHAR(255) NOT NULL DEFAULT '', lesson_title VARCHAR(255) NOT NULL DEFAULT '',
+    amount DECIMAL(10,2) NOT NULL DEFAULT 0, lesson_date DATE DEFAULT NULL,
+    notes TEXT NOT NULL DEFAULT '', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$conn->query("CREATE TABLE IF NOT EXISTS teacher_availability (
+    id INT AUTO_INCREMENT PRIMARY KEY, teacher_id INT NOT NULL DEFAULT 0,
+    teacher_name VARCHAR(255) NOT NULL DEFAULT '', available_date DATE NOT NULL,
+    available_time TIME NOT NULL, status VARCHAR(50) NOT NULL DEFAULT 'available',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
 /* ── Statistics ── */
-$totalUsers     = (int)($conn->query("SELECT COUNT(*) AS c FROM users")->fetch_assoc()["c"] ?? 0);
-$totalStudents  = (int)($conn->query("SELECT COUNT(*) AS c FROM users WHERE role='student'")->fetch_assoc()["c"] ?? 0);
-$totalTeachers  = (int)($conn->query("SELECT COUNT(*) AS c FROM users WHERE role='teacher'")->fetch_assoc()["c"] ?? 0);
-$totalClasses   = (int)($conn->query("SELECT COUNT(*) AS c FROM classes")->fetch_assoc()["c"] ?? 0);
-$totalEarnings  = (float)($conn->query("SELECT COALESCE(SUM(amount),0) AS c FROM teacher_earnings")->fetch_assoc()["c"] ?? 0);
-$availableSlots = (int)($conn->query("SELECT COUNT(*) AS c FROM teacher_availability WHERE status='available'")->fetch_assoc()["c"] ?? 0);
+function safeCount($conn, $sql) { $r = $conn->query($sql); return ($r !== false) ? (int)($r->fetch_assoc()["c"] ?? 0) : 0; }
+$totalUsers     = safeCount($conn, "SELECT COUNT(*) AS c FROM users");
+$totalStudents  = safeCount($conn, "SELECT COUNT(*) AS c FROM users WHERE role='student'");
+$totalTeachers  = safeCount($conn, "SELECT COUNT(*) AS c FROM users WHERE role='teacher'");
+$totalClasses   = safeCount($conn, "SELECT COUNT(*) AS c FROM classes");
+$totalEarnings  = (float)(($r = $conn->query("SELECT COALESCE(SUM(amount),0) AS c FROM teacher_earnings")) !== false ? ($r->fetch_assoc()["c"] ?? 0) : 0);
+$availableSlots = safeCount($conn, "SELECT COUNT(*) AS c FROM teacher_availability WHERE status='available'");
 
 $today = date("Y-m-d");
-$stmt  = $conn->prepare("SELECT COUNT(*) AS c FROM teacher_availability WHERE status='available' AND available_date=?");
-$stmt->bind_param("s", $today);
-$stmt->execute();
-$todaySlots = (int)($stmt->get_result()->fetch_assoc()["c"] ?? 0);
-$stmt->close();
+$todaySlots = 0;
+$stmt = $conn->prepare("SELECT COUNT(*) AS c FROM teacher_availability WHERE status='available' AND available_date=?");
+if ($stmt) {
+    $stmt->bind_param("s", $today);
+    $stmt->execute();
+    $todaySlots = (int)($stmt->get_result()->fetch_assoc()["c"] ?? 0);
+    $stmt->close();
+}
 
 /* ── Recent Users ── */
 $recentUsers = [];
@@ -337,6 +362,9 @@ require_once "admin_prefs.php";
         </a>
         <a href="admin_quiz_generator.php" class="nav-link-custom <?= isActive('admin_quiz_generator.php', $currentPage) ?>">
           <span class="nav-icon"><i class="fas fa-circle-question"></i></span><span>AI Quiz Generator</span>
+        </a>
+        <a href="admin_email_notifications.php" class="nav-link-custom <?= isActive('admin_email_notifications.php', $currentPage) ?>">
+          <span class="nav-icon"><i class="fas fa-envelope"></i></span><span>Email Notifications</span>
         </a>
       </div>
     </div>

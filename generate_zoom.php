@@ -25,12 +25,13 @@ if (!zoomCredentialsSet($conn)) {
     exit();
 }
 
-$joinUrl = createZoomMeeting($conn, $topic, $startDate, $startTime, $duration);
+$zoomError = null;
+$joinUrl   = createZoomMeeting($conn, $topic, $startDate, $startTime, $duration, $zoomError);
 
 if ($joinUrl) {
     echo json_encode(["success" => true, "join_url" => $joinUrl]);
 } else {
-    echo json_encode(["success" => false, "message" => "Failed to create Zoom meeting. Check credentials and that the teacher has a Zoom account with this email."]);
+    echo json_encode(["success" => false, "message" => $zoomError ?: "Failed to create Zoom meeting."]);
 }
 exit();
 ?>

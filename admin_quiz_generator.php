@@ -20,6 +20,8 @@ $conn->query("CREATE TABLE IF NOT EXISTS quizzes (
     difficulty VARCHAR(50)  NOT NULL DEFAULT 'beginner',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$conn->query("ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS time_limit INT DEFAULT NULL");
+$conn->query("ALTER TABLE quizzes ADD COLUMN IF NOT EXISTS created_by VARCHAR(255) NOT NULL DEFAULT ''");
 
 $conn->query("CREATE TABLE IF NOT EXISTS quiz_questions (
     id             INT AUTO_INCREMENT PRIMARY KEY,
@@ -54,11 +56,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["action"] ?? "") === "save_
     $topic      = trim($_POST["topic"]      ?? "");
     $section    = trim($_POST["section"]    ?? "kids");
     $difficulty = trim($_POST["difficulty"] ?? "beginner");
+    $timeLimit  = (int)($_POST["time_limit"] ?? 0);
     $questions  = json_decode($_POST["questions_json"] ?? "[]", true);
 
     if ($title && $topic && is_array($questions) && count($questions) > 0) {
-        $ins = $conn->prepare("INSERT INTO quizzes (title, topic, section, difficulty) VALUES (?, ?, ?, ?)");
-        $ins->bind_param("ssss", $title, $topic, $section, $difficulty);
+        $ins = $conn->prepare("INSERT INTO quizzes (title, topic, section, difficulty, time_limit) VALUES (?, ?, ?, ?, ?)");
+        $ins->bind_param("ssssi", $title, $topic, $section, $difficulty, $timeLimit);
         $ins->execute();
         $qid = $conn->insert_id;
 
@@ -221,6 +224,7 @@ body.sidebar-collapsed .sidebar { width:0; }
       <a href="reports.php"         class="nav-link-custom"><span class="nav-icon"><i class="fas fa-chart-bar"></i></span><span>Reports</span></a>
       <a href="admin_certificates.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-award"></i></span><span>Certificates</span></a>
       <a href="admin_ai_settings.php"  class="nav-link-custom"><span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI Tutor</span></a>
+      <a href="admin_email_notifications.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-envelope"></i></span><span>Email Notifications</span></a>
     </div>
     <div class="sidebar-bottom">
       <a href="settings.php"  class="nav-link-custom"><span class="nav-icon"><i class="fas fa-gear"></i></span><span>Settings</span></a>
@@ -280,6 +284,17 @@ body.sidebar-collapsed .sidebar { width:0; }
             <option value="5" selected>5 questions</option>
             <option value="7">7 questions</option>
             <option value="10">10 questions</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label"><i class="fas fa-clock me-1" style="color:#7c3aed;"></i>Time Limit</label>
+          <select id="time-limit" class="form-select">
+            <option value="0">No timer</option>
+            <option value="300">5 minutes</option>
+            <option value="600">10 minutes</option>
+            <option value="900">15 minutes</option>
+            <option value="1200">20 minutes</option>
+            <option value="1800">30 minutes</option>
           </select>
         </div>
       </div>
@@ -381,6 +396,7 @@ body.sidebar-collapsed .sidebar { width:0; }
   <input type="hidden" name="topic"          id="sf-topic">
   <input type="hidden" name="section"        id="sf-section">
   <input type="hidden" name="difficulty"     id="sf-difficulty">
+  <input type="hidden" name="time_limit"     id="sf-time-limit">
   <input type="hidden" name="questions_json" id="sf-questions">
 </form>
 
@@ -477,8 +493,9 @@ function saveQuiz() {
 
   document.getElementById('sf-title').value     = title;
   document.getElementById('sf-topic').value     = document.getElementById('topic').value;
-  document.getElementById('sf-section').value   = document.getElementById('section').value;
-  document.getElementById('sf-difficulty').value= document.getElementById('difficulty').value;
+  document.getElementById('sf-section').value    = document.getElementById('section').value;
+  document.getElementById('sf-difficulty').value = document.getElementById('difficulty').value;
+  document.getElementById('sf-time-limit').value = document.getElementById('time-limit').value;
   document.getElementById('sf-questions').value  = JSON.stringify(generatedQuestions);
   document.getElementById('save-form').submit();
 }
