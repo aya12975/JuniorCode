@@ -150,6 +150,9 @@ body.sidebar-collapsed .main { margin-left:0; }
       </div>
     </div>
     <a href="student_dashboard.php"   class="nav-link-custom"><span class="nav-icon"><i class="fas fa-house"></i></span><span>Dashboard</span></a>
+    <a href="student_courses.php" class="nav-link-custom">
+      <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>My Courses</span>
+    </a>
     <a href="student_classes.php"     class="nav-link-custom"><span class="nav-icon"><i class="fas fa-book"></i></span><span>My Classes</span></a>
     <a href="student_assignments.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-clipboard-list"></i></span><span>My Assignments</span></a>
     <a href="student_quizzes.php"     class="nav-link-custom active"><span class="nav-icon"><i class="fas fa-circle-question"></i></span><span>Quizzes</span></a>

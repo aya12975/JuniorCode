@@ -75,13 +75,13 @@ body {
   width: 285px;
   background: linear-gradient(180deg, #0f172a 0%, #172554 100%);
   color: white; padding:  0;
-  position: sticky; top: 0; height: 100vh; overflow-y: auto; flex-shrink: 0;
+  position: sticky; top: 0; height: 100vh; flex-shrink: 0;
   transition: width 0.3s ease, padding 0.3s ease, min-width 0.3s ease; overflow: hidden;
-  display: flex; flex-direction: column; justify-content: space-between;
+  display: flex; flex-direction: column;
 }
 body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: hidden; }
 .sidebar-bottom { padding: 16px 18px; border-top: 1px solid rgba(255,255,255,0.1); }
-.sidebar-top-area { padding: 0 18px 18px; flex: 1; }
+.sidebar-top-area { padding: 0 18px 18px; flex: 1; overflow-y: auto; }
 .brand-box { display: flex; align-items: center; gap: 12px; padding: 0 4px 22px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; }
 .logo-img { width: 55px; height: 55px; object-fit: contain; border-radius: 12px; flex-shrink: 0; }
 .brand-title { font-weight: 900; font-size: 1.1rem; line-height: 1.15; }

@@ -86,9 +86,9 @@ body { font-family:Arial,Helvetica,sans-serif; background:radial-gradient(circle
 .app-shell { min-height:100vh; display:flex; }
 
 /* Sidebar */
-.sidebar { width:285px; flex-shrink:0; background:linear-gradient(180deg,#0f172a,#172554); color:#fff; padding:0; justify-content:space-between; position:sticky; top:0; height:100vh; overflow-y:auto; display:flex; flex-direction:column; transition:width .3s,padding .3s,min-width .3s; overflow:hidden; }
+.sidebar { width:285px; flex-shrink:0; background:linear-gradient(180deg,#0f172a,#172554); color:#fff; padding:0; position:sticky; top:0; height:100vh; display:flex; flex-direction:column; transition:width .3s,padding .3s,min-width .3s; overflow:hidden; }
 body.sidebar-collapsed .sidebar { width:0; padding:0; min-width:0; overflow:hidden; }
-.sidebar-top-area { padding: 0 18px 18px; flex: 1; }
+.sidebar-top-area { padding: 0 18px 18px; flex: 1; overflow-y: auto; }
 .brand { display:flex; align-items:center; gap:12px; padding:0 4px 22px; border-bottom:1px solid rgba(255,255,255,0.1); margin-bottom:10px; }
 .brand-logo-img { width:55px; height:55px; object-fit:contain; flex-shrink:0; }
 .brand-title { font-weight:900; font-size:1.1rem; color:#fff; line-height:1.2; }
@@ -162,6 +162,10 @@ body.sidebar-collapsed .sidebar { width:0; padding:0; min-width:0; overflow:hidd
     <div class="nav-custom">
       <a href="admin_dashboard.php"    class="nav-link-custom <?= isActive('admin_dashboard.php',   $currentPage) ?>"><span class="nav-icon"><i class="fas fa-house"></i></span><span><?= t('nav_dashboard') ?></span></a>
       <a href="manage_users.php"       class="nav-link-custom <?= isActive('manage_users.php',      $currentPage) ?>"><span class="nav-icon"><i class="fas fa-users"></i></span><span><?= t('nav_users') ?></span></a>
+      <a href="admin_teacher_students.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-chalkboard-user"></i></span><span>Teacher Students</span></a>
+          <a href="admin_enrollments.php" class="nav-link-custom">
+            <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>Enrollments</span>
+          </a>
       <a href="manage_classes.php"     class="nav-link-custom <?= isActive('manage_classes.php',    $currentPage) ?>"><span class="nav-icon"><i class="fas fa-book"></i></span><span><?= t('nav_classes') ?></span></a>
       <a href="teacher_earnings.php"   class="nav-link-custom <?= isActive('teacher_earnings.php',  $currentPage) ?>"><span class="nav-icon"><i class="fas fa-dollar-sign"></i></span><span><?= t('nav_earnings') ?></span></a>
       <a href="available_slots.php"    class="nav-link-custom <?= isActive('available_slots.php',   $currentPage) ?>"><span class="nav-icon"><i class="fas fa-calendar-days"></i></span><span><?= t('nav_slots') ?></span></a>

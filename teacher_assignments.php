@@ -147,10 +147,10 @@ if ($subCheck && $subCheck->num_rows > 0 && !empty($assignments)) {
 * { box-sizing:border-box; }
 body { margin:0; font-family:Arial,Helvetica,sans-serif; background:radial-gradient(circle at top left,rgba(37,99,235,0.08),transparent 22%),radial-gradient(circle at bottom right,rgba(56,189,248,0.08),transparent 22%),linear-gradient(180deg,#f8fbff 0%,#eef6ff 100%); color:var(--dark); }
 .app-shell { min-height:100vh; display:flex; }
-.sidebar { width:285px; background:linear-gradient(180deg,#0f172a 0%,#172554 100%); color:white; padding:0; justify-content:space-between; position:sticky; top:0; height:100vh; overflow-y:auto; transition:width .3s,padding .3s,min-width .3s; overflow:hidden; display:flex; flex-direction:column; justify-content:space-between; }
+.sidebar { width:285px; background:linear-gradient(180deg,#0f172a 0%,#172554 100%); color:white; padding:0; position:sticky; top:0; height:100vh; transition:width .3s,padding .3s,min-width .3s; overflow:hidden; display:flex; flex-direction:column; }
 .sidebar-bottom { margin-top:auto; border-top:1px solid rgba(255,255,255,0.1); padding-top:12px; }
 body.sidebar-collapsed .sidebar { width:0; padding:0; min-width:0; overflow:hidden; }
-.sidebar-top-area { padding: 0 18px 18px; flex: 1; }
+.sidebar-top-area { padding: 0 18px 18px; flex: 1; overflow-y: auto; }
 .brand-box { display: flex; align-items: center; gap: 12px; padding: 0 4px 22px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; }
 .logo-img { width:55px; height:55px; object-fit:contain; border-radius:12px; flex-shrink:0; }
 .brand-title { font-weight:900; font-size:1.1rem; line-height:1.15; }

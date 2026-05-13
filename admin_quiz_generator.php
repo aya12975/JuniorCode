@@ -117,9 +117,9 @@ if ($qRes) {
 body { margin:0; font-family:Arial,Helvetica,sans-serif; background: radial-gradient(circle at top left,rgba(37,99,235,0.08),transparent 22%), radial-gradient(circle at bottom right,rgba(56,189,248,0.08),transparent 22%), linear-gradient(180deg,#f8fbff 0%,#eef6ff 100%); color:var(--dark); }
 .app-shell { min-height:100vh; display:flex; }
 
-.sidebar { width:285px; background:linear-gradient(180deg,#0f172a 0%,#172554 100%); color:white; position:sticky; top:0; height:100vh; overflow-y:auto; display:flex; flex-direction:column; justify-content:space-between; transition:width 0.3s; overflow:hidden; }
+.sidebar { width:285px; background:linear-gradient(180deg,#0f172a 0%,#172554 100%); color:white; position:sticky; top:0; height:100vh; display:flex; flex-direction:column; transition:width 0.3s; overflow:hidden; }
 body.sidebar-collapsed .sidebar { width:0; }
-.sidebar-top-area { padding:0 18px 18px; flex:1; }
+.sidebar-top-area { padding:0 18px 18px; flex:1; overflow-y:auto; }
 .sidebar-bottom { padding:16px 18px; border-top:1px solid rgba(255,255,255,0.1); }
 .brand-box { display:flex; align-items:center; gap:12px; padding:0 4px 22px; border-bottom:1px solid rgba(255,255,255,0.1); margin-bottom:10px; }
 .logo-img { width:55px; height:55px; object-fit:contain; border-radius:12px; flex-shrink:0; }
@@ -216,6 +216,10 @@ body.sidebar-collapsed .sidebar { width:0; }
       <div class="nav-title">Main</div>
       <a href="admin_dashboard.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-house"></i></span><span>Dashboard</span></a>
       <a href="manage_users.php"    class="nav-link-custom"><span class="nav-icon"><i class="fas fa-users"></i></span><span>Manage Users</span></a>
+      <a href="admin_teacher_students.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-chalkboard-user"></i></span><span>Teacher Students</span></a>
+          <a href="admin_enrollments.php" class="nav-link-custom">
+            <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>Enrollments</span>
+          </a>
       <a href="manage_classes.php"  class="nav-link-custom"><span class="nav-icon"><i class="fas fa-book"></i></span><span>Manage Classes</span></a>
       <a href="teacher_earnings.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-dollar-sign"></i></span><span>Teacher Earnings</span></a>
       <a href="available_slots.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-calendar-days"></i></span><span>Available Slots</span></a>

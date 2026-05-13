@@ -148,13 +148,13 @@ function isActive($page, $cur) { return $page === $cur ? "active" : ""; }
       color: white;
       padding:  0;
       position: sticky; top: 0;
-      height: 100vh; overflow-y: auto; flex-shrink: 0;
+      height: 100vh; flex-shrink: 0;
       transition: width 0.3s ease, padding 0.3s ease, min-width 0.3s ease; overflow: hidden;
-      display: flex; flex-direction: column; justify-content: space-between;
+      display: flex; flex-direction: column;
     }
     .sidebar-bottom { padding: 16px 18px; border-top: 1px solid rgba(255,255,255,0.1); }
     body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: hidden; }
-    .sidebar-top-area { padding: 0 18px 18px; flex: 1; }
+    .sidebar-top-area { padding: 0 18px 18px; flex: 1; overflow-y: auto; }
     .brand-box { display: flex; align-items: center; gap: 12px; padding: 0 4px 22px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; }
     .logo-img { width:55px; height:55px; object-fit:contain; border-radius:12px; background:none; flex-shrink:0; }
     .brand-title { font-weight:900; font-size:1.1rem; line-height:1.15; }
@@ -316,6 +316,12 @@ function isActive($page, $cur) { return $page === $cur ? "active" : ""; }
         <span class="nav-icon"><i class="fas fa-users"></i></span>
         <span><?= t('nav_users') ?></span>
       </a>
+      <a href="admin_teacher_students.php" class="nav-link-custom">
+        <span class="nav-icon"><i class="fas fa-chalkboard-user"></i></span><span>Teacher Students</span>
+      </a>
+          <a href="admin_enrollments.php" class="nav-link-custom">
+            <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>Enrollments</span>
+          </a>
       <a href="manage_classes.php" class="nav-link-custom <?= isActive('manage_classes.php',$currentPage) ?>">
         <span class="nav-icon"><i class="fas fa-book"></i></span>
         <span><?= t('nav_classes') ?></span>

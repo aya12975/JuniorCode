@@ -232,14 +232,13 @@ $currentYear = date("Y");
       background: linear-gradient(180deg, #0f172a 0%, #172554 100%);
       display: flex;
       flex-direction: column;
-      justify-content: space-between;
       z-index: 1000;
-      overflow-y: auto;
+      overflow: hidden;
       transition: transform 0.3s ease;
     }
     body.sidebar-collapsed .sidebar { transform: translateX(-260px); }
 
-    .sidebar-top { padding: 20px 16px; }
+    .sidebar-top { padding: 20px 16px; flex: 1; overflow-y: auto; }
 
     .brand {
       display: flex;
@@ -697,9 +696,9 @@ $currentYear = date("Y");
         <div class="panel-card">
           <div class="panel-title">Paid Classes</div>
           <div class="row g-3">
-            <div class="col-4"><div class="soft-stat soft-green"><div>Full Pay</div><div class="big-stat"><?php echo $fullPay; ?></div></div></div>
-            <div class="col-4"><div class="soft-stat soft-orange"><div>Half Pay</div><div class="big-stat"><?php echo $halfPay; ?></div></div></div>
-            <div class="col-4"><div class="soft-stat soft-red"><div>No Pay</div><div class="big-stat"><?php echo $noPay; ?></div></div></div>
+            <div class="col-4"><div class="soft-stat soft-green"><div><i class="fas fa-circle-check me-1"></i>Full Pay</div><div class="big-stat"><?php echo $fullPay; ?></div></div></div>
+            <div class="col-4"><div class="soft-stat soft-orange"><div><i class="fas fa-circle-half-stroke me-1"></i>Half Pay</div><div class="big-stat"><?php echo $halfPay; ?></div></div></div>
+            <div class="col-4"><div class="soft-stat soft-red"><div><i class="fas fa-circle-xmark me-1"></i>No Pay</div><div class="big-stat"><?php echo $noPay; ?></div></div></div>
           </div>
         </div>
       </div>
@@ -707,9 +706,9 @@ $currentYear = date("Y");
         <div class="panel-card">
           <div class="panel-title">Demo Classes</div>
           <div class="row g-3">
-            <div class="col-4"><div class="soft-stat soft-green"><div>Enrolled</div><div class="big-stat"><?php echo $demoEnrolled; ?></div></div></div>
-            <div class="col-4"><div class="soft-stat soft-blue"><div>Pending</div><div class="big-stat"><?php echo $demoPending; ?></div></div></div>
-            <div class="col-4"><div class="soft-stat soft-orange"><div>Other</div><div class="big-stat"><?php echo $demoOther; ?></div></div></div>
+            <div class="col-4"><div class="soft-stat soft-green"><div><i class="fas fa-user-check me-1"></i>Enrolled</div><div class="big-stat"><?php echo $demoEnrolled; ?></div></div></div>
+            <div class="col-4"><div class="soft-stat soft-blue"><div><i class="fas fa-clock me-1"></i>Pending</div><div class="big-stat"><?php echo $demoPending; ?></div></div></div>
+            <div class="col-4"><div class="soft-stat soft-orange"><div><i class="fas fa-circle-question me-1"></i>Other</div><div class="big-stat"><?php echo $demoOther; ?></div></div></div>
           </div>
         </div>
       </div>
@@ -717,8 +716,8 @@ $currentYear = date("Y");
         <div class="panel-card">
           <div class="panel-title">Conversion Rate</div>
           <div class="big-stat text-primary"><?php echo $conversionRate; ?>%</div>
-          <div class="text-muted">Success Rate</div>
-          <div class="mt-2 text-muted"><?php echo $demoEnrolled; ?> / <?php echo $totalDemos; ?> demos</div>
+          <div class="text-muted"><i class="fas fa-arrow-trend-up me-1"></i>Success Rate</div>
+          <div class="mt-2 text-muted"><i class="fas fa-flask me-1"></i><?php echo $demoEnrolled; ?> / <?php echo $totalDemos; ?> demos</div>
         </div>
       </div>
     </div>
@@ -874,9 +873,9 @@ $currentYear = date("Y");
     </section>
     <div class="panel-card">
       <div class="row g-4 mb-3">
-        <div class="col-md-4"><div class="soft-stat soft-green"><div>Total Earnings</div><div class="big-stat">$<?php echo number_format($totalEarnings, 2); ?></div></div></div>
-        <div class="col-md-4"><div class="soft-stat soft-blue"><div>Paid Sessions</div><div class="big-stat"><?php echo $totalPaidSessions; ?></div></div></div>
-        <div class="col-md-4"><div class="soft-stat soft-purple"><div>Latest Lesson</div><div class="big-stat" style="font-size:1.1rem"><?php echo htmlspecialchars($latestLessonDate); ?></div></div></div>
+        <div class="col-md-4"><div class="soft-stat soft-green"><div><i class="fas fa-dollar-sign me-1"></i>Total Earnings</div><div class="big-stat">$<?php echo number_format($totalEarnings, 2); ?></div></div></div>
+        <div class="col-md-4"><div class="soft-stat soft-blue"><div><i class="fas fa-calendar-check me-1"></i>Paid Sessions</div><div class="big-stat"><?php echo $totalPaidSessions; ?></div></div></div>
+        <div class="col-md-4"><div class="soft-stat soft-purple"><div><i class="fas fa-calendar-days me-1"></i>Latest Lesson</div><div class="big-stat" style="font-size:1.1rem"><?php echo htmlspecialchars($latestLessonDate); ?></div></div></div>
       </div>
       <?php if (!empty($earnings)): ?>
         <div class="table-responsive">

@@ -1,4 +1,4 @@
-﻿﻿<?php
+﻿<?php
 session_start();
 require_once "db.php";
 
@@ -7,13 +7,27 @@ if (!isset($_SESSION["role"]) || $_SESSION["role"] !== "admin") {
     exit();
 }
 
-/* ── Inline AJAX: create class from slot ── */
+/* ── AJAX: auto-create class from slot ── */
 if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["action"] ?? "") === "create_class") {
     header("Content-Type: application/json");
     $slotId = (int)($_POST["slot_id"] ?? 0);
 
+    /* Ensure classes table has all needed columns */
+    foreach ([
+        "type"      => "VARCHAR(100) NOT NULL DEFAULT ''",
+        "details"   => "TEXT NOT NULL DEFAULT ''",
+        "zoom_link" => "TEXT NOT NULL DEFAULT ''",
+    ] as $col => $def) {
+        $chk = $conn->query("SHOW COLUMNS FROM classes LIKE '$col'");
+        if ($chk && $chk->num_rows === 0) {
+            $conn->query("ALTER TABLE classes ADD COLUMN $col $def");
+        }
+    }
+
+    /* Fetch slot + teacher */
     $stmt = $conn->prepare("
-        SELECT ta.id, ta.teacher_id, ta.available_date, ta.available_time, u.username AS teacher_name
+        SELECT ta.id, ta.teacher_id, ta.available_date, ta.available_time,
+               u.username AS teacher_name
         FROM teacher_availability ta
         JOIN users u ON ta.teacher_id = u.id
         WHERE ta.id = ?
@@ -36,11 +50,16 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["action"] ?? "") === "creat
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ");
     if (!$ins) { echo json_encode(["success" => false, "message" => $conn->error]); exit(); }
-    $ins->bind_param("isssssss", $slot["teacher_id"], $slot["teacher_name"], $student, $slot["available_date"], $slot["available_time"], $type, $details, $zoom);
-    $ins->execute();
+    $ins->bind_param("isssssss",
+        $slot["teacher_id"], $slot["teacher_name"],
+        $student, $slot["available_date"], $slot["available_time"],
+        $type, $details, $zoom
+    );
+    if (!$ins->execute()) { echo json_encode(["success" => false, "message" => $ins->error]); exit(); }
     $classId = $conn->insert_id;
     $ins->close();
 
+    /* Remove the slot */
     $del = $conn->prepare("DELETE FROM teacher_availability WHERE id = ?");
     $del->bind_param("i", $slotId);
     $del->execute();
@@ -120,16 +139,15 @@ function isActive($page, $currentPage) {
       position: sticky;
       top: 0;
       height: 100vh;
-      overflow-y: auto;
       flex-shrink: 0;
       transition: width 0.3s ease, padding 0.3s ease, min-width 0.3s ease; overflow: hidden;
-      display: flex; flex-direction: column; justify-content: space-between;
+      display: flex; flex-direction: column;
     }
     .sidebar-bottom { padding: 16px 18px; border-top: 1px solid rgba(255,255,255,0.1); }
 
     body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: hidden; }
 
-    .sidebar-top-area { padding: 0 18px 18px; flex: 1; }
+    .sidebar-top-area { padding: 0 18px 18px; flex: 1; overflow-y: auto; }
     .brand-box { display: flex; align-items: center; gap: 12px; padding: 0 4px 22px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; }
 
     .logo-img {
@@ -360,6 +378,13 @@ function isActive($page, $currentPage) {
           <span>Manage Users</span>
         </a>
 
+        <a href="admin_teacher_students.php" class="nav-link-custom">
+          <span class="nav-icon"><i class="fas fa-chalkboard-user"></i></span><span>Teacher Students</span>
+        </a>
+          <a href="admin_enrollments.php" class="nav-link-custom">
+            <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>Enrollments</span>
+          </a>
+
         <a href="manage_classes.php" class="nav-link-custom <?php echo isActive('manage_classes.php', $currentPage); ?>">
           <span class="nav-icon"><i class="fas fa-book"></i></span>
           <span>Manage Classes</span>
@@ -480,10 +505,14 @@ function createClass(slotId, btn) {
   fetch("available_slots.php", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: "action=create_class&slot_id=" + slotId
+    body: "action=create_class&slot_id=" + encodeURIComponent(slotId)
   })
-  .then(r => r.json())
-  .then(data => {
+  .then(r => r.text())
+  .then(text => {
+    let data;
+    try { data = JSON.parse(text); }
+    catch(e) { throw new Error("Server error: " + text.substring(0, 200)); }
+
     const row = btn.closest("tr");
     if (data.success) {
       row.style.transition = "background 0.3s";
@@ -501,10 +530,10 @@ function createClass(slotId, btn) {
       alert("Error: " + (data.message || "Unknown error"));
     }
   })
-  .catch(() => {
+  .catch(err => {
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-plus"></i> Create Class';
-    alert("Request failed. Please try again.");
+    alert(err.message || "Request failed. Please try again.");
   });
 }
 </script>

@@ -111,12 +111,12 @@ body {
   position: fixed; top: 0; left: 0;
   width: 255px; height: 100vh;
   background: linear-gradient(180deg, #0f172a 0%, #172554 100%);
-  display: flex; flex-direction: column; justify-content: space-between;
-  z-index: 1000; overflow-y: auto;
+  display: flex; flex-direction: column;
+  z-index: 1000; overflow: hidden;
   transition: transform 0.3s ease;
 }
 body.sidebar-collapsed .sidebar { transform: translateX(-255px); }
-.sidebar-top { padding: 20px 16px; }
+.sidebar-top { padding: 20px 16px; flex: 1; overflow-y: auto; }
 .brand {
   display: flex; align-items: center; gap: 12px;
   padding: 10px 10px 18px;
@@ -352,6 +352,9 @@ body.sidebar-collapsed .main { margin-left: 0; }
     <a href="student_dashboard.php" class="nav-link-custom active">
       <span class="nav-icon"><i class="fas fa-house"></i></span><span>Dashboard</span>
     </a>
+    <a href="student_courses.php" class="nav-link-custom">
+      <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>My Courses</span>
+    </a>
     <a href="student_classes.php" class="nav-link-custom">
       <span class="nav-icon"><i class="fas fa-book"></i></span><span>My Classes</span>
     </a>
@@ -392,7 +395,7 @@ body.sidebar-collapsed .main { margin-left: 0; }
   <!-- Topbar -->
   <div class="topbar" id="dashboard">
     <div>
-      <h1>Hello, <?= htmlspecialchars($studentName) ?> 👋</h1>
+      <h1><i class="fas fa-hand me-2" style="font-size:1.4rem;opacity:0.85;"></i>Hello, <?= htmlspecialchars($studentName) ?></h1>
       <p>Welcome to your learning dashboard</p>
     </div>
     <div class="topbar-date"><?= date("l, d F Y") ?></div>
@@ -401,23 +404,23 @@ body.sidebar-collapsed .main { margin-left: 0; }
   <!-- Stat cards -->
   <div class="stat-grid">
     <div class="stat-card">
-      <div class="stat-icon" style="background:#eff6ff;color:#2563eb;"><i class="fas fa-book-open"></i></div>
-      <div class="stat-num" style="color:#2563eb;"><?= $totalClasses ?></div>
+      <div class="stat-icon" style="background:#f1f5f9;color:var(--primary);"><i class="fas fa-book-open"></i></div>
+      <div class="stat-num" style="color:var(--primary);"><?= $totalClasses ?></div>
       <div class="stat-label">Total Classes</div>
     </div>
     <div class="stat-card">
-      <div class="stat-icon" style="background:#f0fdf4;color:#16a34a;"><i class="fas fa-calendar-check"></i></div>
-      <div class="stat-num" style="color:#16a34a;"><?= $upcomingClasses ?></div>
+      <div class="stat-icon" style="background:#f1f5f9;color:var(--primary);"><i class="fas fa-calendar-check"></i></div>
+      <div class="stat-num" style="color:var(--primary);"><?= $upcomingClasses ?></div>
       <div class="stat-label">Upcoming Classes</div>
     </div>
     <div class="stat-card">
-      <div class="stat-icon" style="background:#fef9c3;color:#ca8a04;"><i class="fas fa-star"></i></div>
-      <div class="stat-num" style="color:#ca8a04;"><?= count($todaysClasses) ?></div>
+      <div class="stat-icon" style="background:#f1f5f9;color:var(--primary);"><i class="fas fa-star"></i></div>
+      <div class="stat-num" style="color:var(--primary);"><?= count($todaysClasses) ?></div>
       <div class="stat-label">Today's Classes</div>
     </div>
     <div class="stat-card">
-      <div class="stat-icon" style="background:#fff7ed;color:#f59e0b;"><i class="fas fa-award"></i></div>
-      <div class="stat-num" style="color:#f59e0b;"><?= count($certificates) ?></div>
+      <div class="stat-icon" style="background:#f1f5f9;color:var(--primary);"><i class="fas fa-award"></i></div>
+      <div class="stat-num" style="color:var(--primary);"><?= count($certificates) ?></div>
       <div class="stat-label">Certificates</div>
     </div>
   </div>

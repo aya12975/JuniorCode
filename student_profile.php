@@ -238,6 +238,9 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: 
   <a href="student_dashboard.php" class="nav-link-custom">
     <span class="nav-icon"><i class="fas fa-house"></i></span><span>Dashboard</span>
   </a>
+    <a href="student_courses.php" class="nav-link-custom">
+      <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>My Courses</span>
+    </a>
   <a href="student_classes.php" class="nav-link-custom">
     <span class="nav-icon"><i class="fas fa-book"></i></span><span>My Classes</span>
   </a>

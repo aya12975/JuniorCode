@@ -91,11 +91,11 @@ body{ margin:0; font-family:Arial,Helvetica,sans-serif;
 .sidebar{
   width:285px; background:linear-gradient(180deg,#0f172a 0%,#172554 100%);
   color:white; padding:0; position:sticky; top:0; height:100vh;
-  flex-shrink:0; display:flex; flex-direction:column; justify-content:space-between;
+  flex-shrink:0; display:flex; flex-direction:column;
   transition:width .3s ease,padding .3s ease; overflow:hidden;
 }
 body.sidebar-collapsed .sidebar{ width:0; padding:0; min-width:0; }
-.sidebar-top-area{ padding:0 18px 18px; flex:1; }
+.sidebar-top-area{ padding:0 18px 18px; flex:1; overflow-y:auto; }
 .sidebar-bottom{ padding:16px 18px; border-top:1px solid rgba(255,255,255,.1); }
 .brand-box{ display:flex; align-items:center; gap:12px; padding:0 4px 22px; border-bottom:1px solid rgba(255,255,255,.1); margin-bottom:10px; }
 .logo-img{ width:55px; height:55px; object-fit:contain; border-radius:12px; flex-shrink:0; }
@@ -142,6 +142,10 @@ body.sidebar-collapsed .sidebar{ width:0; padding:0; min-width:0; }
       <div class="nav-custom">
         <a href="admin_dashboard.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-house"></i></span><span>Dashboard</span></a>
         <a href="manage_users.php"    class="nav-link-custom"><span class="nav-icon"><i class="fas fa-users"></i></span><span>Manage Users</span></a>
+        <a href="admin_teacher_students.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-chalkboard-user"></i></span><span>Teacher Students</span></a>
+          <a href="admin_enrollments.php" class="nav-link-custom">
+            <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>Enrollments</span>
+          </a>
         <a href="manage_classes.php"  class="nav-link-custom"><span class="nav-icon"><i class="fas fa-book"></i></span><span>Manage Classes</span></a>
         <a href="teacher_earnings.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-dollar-sign"></i></span><span>Teacher Earnings</span></a>
         <a href="available_slots.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-calendar-days"></i></span><span>Available Slots</span></a>

@@ -35,7 +35,10 @@
       "Bash(grep -v \"^.*\\\\..*css\\\\|admin-badge {\")",
       "Bash(powershell *)",
       "PowerShell($bytes = [System.IO.File]::ReadAllBytes\\(\"C:\\\\xampp\\\\htdocs\\\\JuniorCode\\\\teacher_courses.php\"\\); if \\($bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF\\) { \"HAS BOM\" } else { \"NO BOM\" })",
-      "PowerShell($path = \"C:\\\\xampp\\\\htdocs\\\\JuniorCode\\\\teacher_courses.php\"; $bytes = [System.IO.File]::ReadAllBytes\\($path\\); $stripped = New-Object byte[] \\($bytes.Length - 3\\); [System.Array]::Copy\\($bytes, 3, $stripped, 0, $bytes.Length - 3\\); [System.IO.File]::WriteAllBytes\\($path, $stripped\\); $check = [System.IO.File]::ReadAllBytes\\($path\\); if \\($check[0] -eq 0x3C\\) { \"BOM removed OK\" } else { \"FAILED: first byte is \" + $check[0] })"
+      "PowerShell($path = \"C:\\\\xampp\\\\htdocs\\\\JuniorCode\\\\teacher_courses.php\"; $bytes = [System.IO.File]::ReadAllBytes\\($path\\); $stripped = New-Object byte[] \\($bytes.Length - 3\\); [System.Array]::Copy\\($bytes, 3, $stripped, 0, $bytes.Length - 3\\); [System.IO.File]::WriteAllBytes\\($path, $stripped\\); $check = [System.IO.File]::ReadAllBytes\\($path\\); if \\($check[0] -eq 0x3C\\) { \"BOM removed OK\" } else { \"FAILED: first byte is \" + $check[0] })",
+      "Bash(Get-ChildItem -Path \"C:\\\\xampp\\\\htdocs\\\\JuniorCode\" -Recurse -Filter \"*.php\")",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(python *)"
     ]
   }
 }

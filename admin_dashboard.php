@@ -108,12 +108,12 @@ require_once "admin_prefs.php";
       color: #fff;
       padding: 0;
       position: sticky; top: 0;
-      height: 100vh; overflow-y: auto;
-      display: flex; flex-direction: column; justify-content: space-between;
+      height: 100vh;
+      display: flex; flex-direction: column;
       transition: width 0.3s ease, padding 0.3s ease, min-width 0.3s ease;
       overflow: hidden;
     }
-    .sidebar-top-area { padding: 0 18px 18px; flex: 1; }
+    .sidebar-top-area { padding: 0 18px 18px; flex: 1; overflow-y: auto; }
     .sidebar-bottom { padding: 16px 18px; border-top: 1px solid rgba(255,255,255,0.1); }
     body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; }
 
@@ -339,6 +339,12 @@ require_once "admin_prefs.php";
         <a href="manage_users.php" class="nav-link-custom <?= isActive('manage_users.php', $currentPage) ?>">
           <span class="nav-icon"><i class="fas fa-users"></i></span><span><?= t('nav_users') ?></span>
         </a>
+        <a href="admin_teacher_students.php" class="nav-link-custom">
+          <span class="nav-icon"><i class="fas fa-chalkboard-user"></i></span><span>Teacher Students</span>
+        </a>
+          <a href="admin_enrollments.php" class="nav-link-custom">
+            <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>Enrollments</span>
+          </a>
         <a href="manage_classes.php" class="nav-link-custom <?= isActive('manage_classes.php', $currentPage) ?>">
           <span class="nav-icon"><i class="fas fa-book"></i></span><span><?= t('nav_classes') ?></span>
         </a>

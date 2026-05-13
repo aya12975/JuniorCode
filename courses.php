@@ -1,3 +1,6 @@
+
+
+
 <?php
 session_start();
 require_once "db.php";
@@ -23,6 +26,23 @@ $conn->query("CREATE TABLE IF NOT EXISTS course_projects (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 $conn->query("ALTER TABLE course_projects ADD COLUMN IF NOT EXISTS image   TEXT NOT NULL DEFAULT ''");
 $conn->query("ALTER TABLE course_projects ADD COLUMN IF NOT EXISTS pdf_url TEXT NOT NULL DEFAULT ''");
+
+// Ensure is_unlocked column exists
+$chk = $conn->query("SHOW COLUMNS FROM courses LIKE 'is_unlocked'");
+if ($chk && $chk->num_rows === 0) {
+    $conn->query("ALTER TABLE courses ADD COLUMN is_unlocked TINYINT(1) NOT NULL DEFAULT 0");
+}
+
+// Handle unlock toggle
+if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["toggle_unlock"])) {
+    $toggleId  = (int)($_POST["course_id"]  ?? 0);
+    $activeTabR = trim($_POST["active_tab"] ?? "kids");
+    if ($toggleId > 0) {
+        $conn->query("UPDATE courses SET is_unlocked = 1 - is_unlocked WHERE id = $toggleId");
+    }
+    header("Location: courses.php?tab=" . urlencode($activeTabR) . "&success=1");
+    exit();
+}
 
 // Handle category rename / delete
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["cat_action"])) {
@@ -157,14 +177,8 @@ function isActive($page, $currentPage) {
 }
 
 function renderProjectLinks($projects, $section, $category) {
-    $manageUrl = "manage_projects.php?section=" . urlencode($section) . "&category=" . urlencode($category);
+    $manageUrl = "manage_projects.php";
     ob_start(); ?>
-    <div class="proj-section-header">
-      <span class="proj-section-label"><i class="fas fa-link" style="color:#2563eb;margin-right:6px;"></i>Project Links</span>
-      <a href="<?= htmlspecialchars($manageUrl) ?>" class="btn-manage-proj">
-        <i class="fas fa-pen-to-square"></i> Manage Links
-      </a>
-    </div>
     <?php if (empty($projects)): ?>
       <div class="empty-box" style="margin-bottom:18px;">
         No project links added yet.
@@ -208,13 +222,15 @@ function renderProjectLinks($projects, $section, $category) {
     <?php return ob_get_clean();
 }
 
-function renderCourseTable($result) {
+function renderCourseTable($result, string $activeTab = 'kids') {
     if (!$result || $result->num_rows === 0) {
         return '<div class="empty-box">No courses added yet.</div>';
     }
     ob_start(); ?>
     <div class="course-card-list">
-      <?php while ($c = $result->fetch_assoc()): ?>
+      <?php while ($c = $result->fetch_assoc()):
+        $unlocked = !empty($c["is_unlocked"]);
+      ?>
       <div class="course-card-item">
         <div class="course-card-thumb">
           <?php if (!empty($c["image"])): ?>
@@ -238,9 +254,24 @@ function renderCourseTable($result) {
             <span class="meta-chip"><i class="fas fa-dollar-sign"></i> $<?= number_format((float)$c["price"], 2) ?></span>
             <span class="type-badge <?= $c["course_type"] === "demo" ? "type-demo" : "type-paid" ?>"><?= ucfirst(htmlspecialchars($c["course_type"])) ?></span>
             <span class="status-badge <?= $c["status"] === "active" ? "status-active" : "status-inactive" ?>"><?= ucfirst(htmlspecialchars($c["status"])) ?></span>
+            <span class="status-badge" style="<?= $unlocked ? 'background:#dcfce7;color:#166534;' : 'background:#f1f5f9;color:#64748b;' ?>">
+              <i class="fas <?= $unlocked ? 'fa-lock-open' : 'fa-lock' ?> me-1"></i><?= $unlocked ? 'Unlocked for Preview' : 'Locked' ?>
+            </span>
           </div>
         </div>
         <div class="course-card-actions">
+          <a href="manage_projects.php?course_id=<?= $c["id"] ?>" class="ca-btn" style="background:#ede9fe;color:#5b21b6;">
+            <i class="fas fa-folder-open"></i> Projects
+          </a>
+          <form method="POST" style="margin:0;">
+            <input type="hidden" name="toggle_unlock" value="1">
+            <input type="hidden" name="course_id"    value="<?= $c["id"] ?>">
+            <input type="hidden" name="active_tab"   value="<?= htmlspecialchars($activeTab) ?>">
+            <button type="submit" class="ca-btn" style="border:none;cursor:pointer;width:100%;<?= $unlocked ? 'background:#fef9c3;color:#854d0e;' : 'background:#dcfce7;color:#166534;' ?>">
+              <i class="fas <?= $unlocked ? 'fa-lock' : 'fa-lock-open' ?>"></i>
+              <?= $unlocked ? 'Lock' : 'Unlock' ?>
+            </button>
+          </form>
           <a href="edit_course.php?id=<?= $c["id"] ?>" class="ca-btn ca-edit">
             <i class="fas fa-pen"></i> Edit
           </a>
@@ -300,15 +331,14 @@ function renderCourseTable($result) {
       position: sticky;
       top: 0;
       height: 100vh;
-      overflow-y: auto;
       transition: width 0.3s ease, padding 0.3s ease, min-width 0.3s ease; overflow: hidden;
-      display: flex; flex-direction: column; justify-content: space-between;
+      display: flex; flex-direction: column;
     }
     .sidebar-bottom { padding: 16px 18px; border-top: 1px solid rgba(255,255,255,0.1); }
 
     body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: hidden; }
 
-    .sidebar-top-area { padding: 0 18px 18px; flex: 1; }
+    .sidebar-top-area { padding: 0 18px 18px; flex: 1; overflow-y: auto; }
     .brand-box { display: flex; align-items: center; gap: 12px; padding: 0 4px 22px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; }
 
     .logo-img {
@@ -873,6 +903,13 @@ function renderCourseTable($result) {
           <span>Manage Users</span>
         </a>
 
+        <a href="admin_teacher_students.php" class="nav-link-custom">
+          <span class="nav-icon"><i class="fas fa-chalkboard-user"></i></span><span>Teacher Students</span>
+        </a>
+          <a href="admin_enrollments.php" class="nav-link-custom">
+            <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>Enrollments</span>
+          </a>
+
         <a href="manage_classes.php" class="nav-link-custom">
           <span class="nav-icon"><i class="fas fa-book"></i></span>
           <span>Manage Classes</span>
@@ -1014,7 +1051,7 @@ function renderCourseTable($result) {
               <a href="add_course.php?section=kids&category=<?= $catEnc ?>" class="btn-main">+ Add Course</a>
             </div>
             <?= renderProjectLinks($projs, 'kids', $cat) ?>
-            <?= renderCourseTable($crs) ?>
+            <?= renderCourseTable($crs, 'kids') ?>
           </section>
         </div>
         <?php endforeach; ?>
@@ -1063,7 +1100,7 @@ function renderCourseTable($result) {
               <a href="add_course.php?section=junior&category=<?= $catEnc ?>" class="btn-main">+ Add Course</a>
             </div>
             <?= renderProjectLinks($projs, 'junior', $cat) ?>
-            <?= renderCourseTable($crs) ?>
+            <?= renderCourseTable($crs, 'junior') ?>
           </section>
         </div>
         <?php endforeach; ?>
@@ -1127,7 +1164,7 @@ function renderCourseTable($result) {
             </div>
           </div>
 
-          <?= renderCourseTable($demoResult) ?>
+          <?= renderCourseTable($demoResult, 'demo') ?>
         </section>
       </div>
     </main>
