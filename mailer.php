@@ -398,6 +398,59 @@ function buildWelcomeEmail(
 HTML;
 }
 
+// ── New student assigned notification (to teacher) ───────────────────────────
+function buildNewStudentEmail(string $teacherName, string $studentName, string $type, string $details): string {
+    $detailsRow = $details
+        ? "<tr><td style='padding:10px 16px;font-size:13px;font-weight:700;color:#64748b;width:120px;'>Notes</td>
+           <td style='padding:10px 16px;'>" . htmlspecialchars($details) . "</td></tr>"
+        : "";
+
+    return <<<HTML
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:32px 0;">
+  <tr><td align="center">
+    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+
+      <tr><td style="background:linear-gradient(135deg,#3e5077,#143674);border-radius:18px 18px 0 0;padding:28px 32px;text-align:center;">
+        <div style="font-size:26px;font-weight:900;color:#fff;letter-spacing:-0.5px;">JuniorCode</div>
+        <div style="color:rgba(255,255,255,0.75);font-size:13px;margin-top:4px;letter-spacing:2px;">NEW STUDENT ASSIGNED</div>
+      </td></tr>
+
+      <tr><td style="background:#fff;padding:28px 32px;">
+        <div style="font-size:40px;text-align:center;margin-bottom:18px;">👨‍🎓</div>
+        <p style="margin:0 0 6px;font-size:18px;font-weight:900;color:#0f172a;text-align:center;">You have a new student, {$teacherName}!</p>
+        <p style="margin:0 0 24px;color:#64748b;font-size:14px;text-align:center;">The admin has assigned a new student to you. Here are the details.</p>
+
+        <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;border-collapse:collapse;">
+          <tr><td style="padding:10px 16px;font-size:13px;font-weight:700;color:#64748b;border-bottom:1px solid #f1f5f9;width:120px;">Student</td>
+              <td style="padding:10px 16px;font-weight:800;color:#0f172a;border-bottom:1px solid #f1f5f9;">{$studentName}</td></tr>
+          <tr><td style="padding:10px 16px;font-size:13px;font-weight:700;color:#64748b;border-bottom:1px solid #f1f5f9;">Class Type</td>
+              <td style="padding:10px 16px;border-bottom:1px solid #f1f5f9;">
+                <span style="background:#dbeafe;color:#1d4ed8;border-radius:999px;padding:3px 12px;font-size:12px;font-weight:800;">{$type}</span>
+              </td></tr>
+          {$detailsRow}
+        </table>
+
+        <div style="margin-top:20px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:14px 18px;font-size:14px;color:#166534;font-weight:700;text-align:center;">
+          Log in to your teacher portal to view your updated student list. 🎉
+        </div>
+      </td></tr>
+
+      <tr><td style="background:#f8fbff;border-radius:0 0 18px 18px;padding:18px 32px;text-align:center;border-top:1px solid #e2e8f0;">
+        <p style="margin:0;font-size:12px;color:#94a3b8;">This is an automated notification from JuniorCode.</p>
+      </td></tr>
+
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>
+HTML;
+}
+
 // ── Daily schedule reminder ───────────────────────────────────────────────────
 function buildReminderEmail(string $teacherName, string $date, int $count, array $classes): string {
     $rows = '';

@@ -173,9 +173,7 @@ body.sidebar-collapsed .sidebar { width:0; }
         <a href="courses.php"                   class="nav-link-custom <?= isActive('courses.php',                   $currentPage) ?>"><span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span><?= t('nav_courses') ?></span></a>
         <a href="reports.php"                   class="nav-link-custom <?= isActive('reports.php',                   $currentPage) ?>"><span class="nav-icon"><i class="fas fa-chart-bar"></i></span><span><?= t('nav_reports') ?></span></a>
         <a href="admin_certificates.php"        class="nav-link-custom <?= isActive('admin_certificates.php',        $currentPage) ?>"><span class="nav-icon"><i class="fas fa-award"></i></span><span>Certificates</span></a>
-        <a href="admin_ai_settings.php"         class="nav-link-custom <?= isActive('admin_ai_settings.php',         $currentPage) ?>"><span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI Tutor</span></a>
-        <a href="admin_quiz_generator.php"      class="nav-link-custom <?= isActive('admin_quiz_generator.php',      $currentPage) ?>"><span class="nav-icon"><i class="fas fa-circle-question"></i></span><span>AI Quiz Generator</span></a>
-        <a href="admin_email_notifications.php" class="nav-link-custom <?= isActive('admin_email_notifications.php', $currentPage) ?>"><span class="nav-icon"><i class="fas fa-envelope"></i></span><span>Email Notifications</span></a>
+<a href="admin_email_notifications.php" class="nav-link-custom <?= isActive('admin_email_notifications.php', $currentPage) ?>"><span class="nav-icon"><i class="fas fa-envelope"></i></span><span>Email Notifications</span></a>
       </div>
     </div>
     <div class="sidebar-bottom">

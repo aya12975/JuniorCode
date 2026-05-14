@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 session_start();
 require_once "db.php";
 
@@ -90,6 +90,24 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         }
     }
 
+    // ── AI Tutor ───────────────────────────────────────────────
+    elseif ($action === 'ai_tutor') {
+        $newKey = trim($_POST["claude_api_key"] ?? "");
+        $model  = trim($_POST["claude_model"]   ?? "gemini-2.5-flash");
+        $limit  = max(1, (int)($_POST["daily_limit"] ?? 30));
+
+        if ($newKey && !str_starts_with($newKey, "AIza")) {
+            $message     = "That doesn't look like a valid Google Gemini API key (should start with AIza).";
+            $messageType = "danger";
+        } else {
+            if ($newKey) saveAdminSetting($conn, "claude_api_key", $newKey);
+            saveAdminSetting($conn, "claude_model",     $model);
+            saveAdminSetting($conn, "chat_daily_limit", (string)$limit);
+            $message     = "AI Tutor settings saved.";
+            $messageType = "success";
+        }
+    }
+
     // ── Zoom API Credentials ───────────────────────────────────
     elseif ($action === 'zoom') {
         saveAdminSetting($conn, 'zoom_account_id',    trim($_POST['zoom_account_id']    ?? ''));
@@ -103,6 +121,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 }
 
 $admin_email       = getAdminSetting($conn, "admin_email",       "admin@juniorcode.com");
+$ai_api_key        = getAdminSetting($conn, "claude_api_key",    "");
+$ai_model          = getAdminSetting($conn, "claude_model",      "gemini-2.5-flash");
+$ai_daily_limit    = (int)getAdminSetting($conn, "chat_daily_limit", "30");
+function maskKey(string $k): string {
+    if (strlen($k) < 12) return $k ? "AIza••••••••" : "";
+    return substr($k, 0, 8) . str_repeat("•", max(0, strlen($k) - 12)) . substr($k, -4);
+}
 $zoom_account_id   = getAdminSetting($conn, 'zoom_account_id',   '');
 $zoom_client_id    = getAdminSetting($conn, 'zoom_client_id',    '');
 $zoom_client_secret= getAdminSetting($conn, 'zoom_client_secret','');
@@ -346,15 +371,7 @@ function isActive($page, $cur) { return $page === $cur ? "active" : ""; }
         <span class="nav-icon"><i class="fas fa-award"></i></span>
         <span>Certificates</span>
       </a>
-      <a href="admin_ai_settings.php" class="nav-link-custom <?= isActive('admin_ai_settings.php',$currentPage) ?>">
-        <span class="nav-icon"><i class="fas fa-robot"></i></span>
-        <span>AI Tutor</span>
-      </a>
-      <a href="admin_quiz_generator.php" class="nav-link-custom <?= isActive('admin_quiz_generator.php',$currentPage) ?>">
-        <span class="nav-icon"><i class="fas fa-circle-question"></i></span>
-        <span>AI Quiz Generator</span>
-      </a>
-      <a href="admin_email_notifications.php" class="nav-link-custom <?= isActive('admin_email_notifications.php',$currentPage) ?>">
+<a href="admin_email_notifications.php" class="nav-link-custom <?= isActive('admin_email_notifications.php',$currentPage) ?>">
         <span class="nav-icon"><i class="fas fa-envelope"></i></span>
         <span>Email Notifications</span>
       </a>
@@ -405,6 +422,9 @@ function isActive($page, $cur) { return $page === $cur ? "active" : ""; }
       </button>
       <button class="settings-tab-btn" onclick="showTab('zoom',this)" id="zoom-tab-btn">
         <i class="fab fa-zoom me-1"></i> Zoom API
+      </button>
+      <button class="settings-tab-btn" onclick="showTab('ai_tutor',this)">
+        <i class="fas fa-robot me-1"></i> AI Tutor
       </button>
     </div>
 
@@ -585,13 +605,86 @@ function isActive($page, $cur) { return $page === $cur ? "active" : ""; }
       </form>
     </div>
 
+    <!-- ════════════════════════════════════
+         TAB 4 — AI Tutor
+    ════════════════════════════════════ -->
+    <div id="tab-ai_tutor" style="display:none">
+      <form method="POST">
+        <input type="hidden" name="action" value="ai_tutor">
+
+        <div class="panel-card">
+          <h2 class="panel-title"><i class="fas fa-robot me-2" style="color:#7c3aed"></i>AI Tutor — Gemini API</h2>
+          <p class="panel-sub">Configure the Gemini API key that powers the student coding tutor chat.</p>
+
+          <div class="row g-4">
+            <!-- API Key -->
+            <div class="col-md-6">
+              <label class="form-label">Current API Key</label>
+              <div style="background:#f8fbff;border:1px solid #e2eaf8;border-radius:10px;padding:10px 14px;font-family:monospace;font-size:0.88rem;color:#334155;display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                <span><?= $ai_api_key ? maskKey($ai_api_key) : "Not set" ?></span>
+                <?php if ($ai_api_key): ?>
+                  <span style="color:#16a34a;font-weight:800;font-size:0.78rem;"><i class="fas fa-check-circle me-1"></i>Active</span>
+                <?php else: ?>
+                  <span style="color:#dc2626;font-weight:800;font-size:0.78rem;"><i class="fas fa-times-circle me-1"></i>Missing</span>
+                <?php endif; ?>
+              </div>
+              <label class="form-label">
+                <?= $ai_api_key ? "Replace API Key" : "Enter API Key" ?>
+                <span class="fw-normal text-muted">(<?= $ai_api_key ? "leave blank to keep current" : "required" ?>)</span>
+              </label>
+              <div class="input-group">
+                <input type="password" name="claude_api_key" id="aiKeyInput" class="form-control"
+                       placeholder="AIzaSy..." autocomplete="off" style="font-family:monospace;">
+                <button type="button" class="btn btn-outline-secondary" onclick="toggleAiKey()">
+                  <i class="fas fa-eye" id="aiEyeIcon"></i>
+                </button>
+              </div>
+              <div class="form-text">Get your free key at <a href="https://aistudio.google.com/app/apikey" target="_blank">aistudio.google.com</a></div>
+            </div>
+
+            <!-- Model + Limit -->
+            <div class="col-md-6">
+              <label class="form-label">AI Model</label>
+              <select name="claude_model" class="form-select mb-1">
+                <option value="gemini-2.5-flash" <?= $ai_model === "gemini-2.5-flash" ? "selected" : "" ?>>Gemini 2.5 Flash — Fast &amp; free (recommended)</option>
+                <option value="gemini-2.0-flash" <?= $ai_model === "gemini-2.0-flash" ? "selected" : "" ?>>Gemini 2.0 Flash — Stable</option>
+                <option value="gemini-2.5-pro"   <?= $ai_model === "gemini-2.5-pro"   ? "selected" : "" ?>>Gemini 2.5 Pro — Most powerful</option>
+              </select>
+              <div class="form-text mb-3">Gemini 2.5 Flash is best for tutoring — fast replies with a generous free quota.</div>
+
+              <label class="form-label">Daily Message Limit per Student</label>
+              <input type="number" name="daily_limit" class="form-control" min="1" max="500"
+                     value="<?= $ai_daily_limit ?>">
+              <div class="form-text">Students can send this many messages per day. Recommended: 20–50.</div>
+            </div>
+          </div>
+
+          <button type="submit" class="btn-main mt-4">
+            <i class="fas fa-floppy-disk me-1"></i>Save AI Tutor Settings
+          </button>
+        </div>
+
+        <!-- How-to -->
+        <div class="panel-card">
+          <h2 class="panel-title" style="font-size:0.95rem;"><i class="fas fa-circle-info me-1" style="color:#3b82f6"></i>How to get your Gemini API key</h2>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:12px;">
+            <div style="background:#f8fbff;border:1px solid #dbeafe;border-radius:10px;padding:12px 14px;font-size:0.84rem;color:#475569;"><strong style="color:var(--primary);display:block;margin-bottom:4px;">Step 1</strong>Go to <a href="https://aistudio.google.com/app/apikey" target="_blank">aistudio.google.com</a> and sign in with Google</div>
+            <div style="background:#f8fbff;border:1px solid #dbeafe;border-radius:10px;padding:12px 14px;font-size:0.84rem;color:#475569;"><strong style="color:var(--primary);display:block;margin-bottom:4px;">Step 2</strong>Click <strong>Create API Key</strong></div>
+            <div style="background:#f8fbff;border:1px solid #dbeafe;border-radius:10px;padding:12px 14px;font-size:0.84rem;color:#475569;"><strong style="color:var(--primary);display:block;margin-bottom:4px;">Step 3</strong>Copy the key (starts with <code>AIza</code>)</div>
+            <div style="background:#f8fbff;border:1px solid #dbeafe;border-radius:10px;padding:12px 14px;font-size:0.84rem;color:#475569;"><strong style="color:var(--primary);display:block;margin-bottom:4px;">Step 4</strong>Paste it above and click Save</div>
+          </div>
+        </div>
+
+      </form>
+    </div>
+
   </main>
 </div>
 
 <script>
 // ── Tab switching ──────────────────────────────────────────────
 function showTab(id, btn) {
-  ['appearance','account','zoom'].forEach(function(t) {
+  ['appearance','account','zoom','ai_tutor'].forEach(function(t) {
     document.getElementById('tab-' + t).style.display = (t === id) ? '' : 'none';
   });
   document.querySelectorAll('.settings-tab-btn').forEach(function(b) {
@@ -625,6 +718,14 @@ function selectLangOpt(radio) {
   });
   radio.closest('.lang-opt').classList.add('selected');
   radio.closest('form').submit();
+}
+
+// ── AI key eye toggle ─────────────────────────────────────────
+function toggleAiKey() {
+  var inp = document.getElementById('aiKeyInput');
+  var ico = document.getElementById('aiEyeIcon');
+  if (inp.type === 'password') { inp.type = 'text'; ico.className = 'fas fa-eye-slash'; }
+  else { inp.type = 'password'; ico.className = 'fas fa-eye'; }
 }
 
 // ── Password eye toggle ────────────────────────────────────────

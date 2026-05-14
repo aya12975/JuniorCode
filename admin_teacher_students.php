@@ -1,6 +1,9 @@
 <?php
 session_start();
 require_once "db.php";
+require_once "admin_prefs.php";
+require_once "mailer.php";
+require_once "notifications.php";
 
 if (!isset($_SESSION["role"]) || $_SESSION["role"] !== "admin") {
     header("Location: login.php");
@@ -10,6 +13,30 @@ if (!isset($_SESSION["role"]) || $_SESSION["role"] !== "admin") {
 $currentPage = basename($_SERVER["PHP_SELF"]);
 $adminName   = $_SESSION["username"] ?? "Admin";
 
+/* ── Handle remove student POST ── */
+if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["action"] ?? "") === "remove_student") {
+    $teacherId   = (int)($_POST["teacher_id"]   ?? 0);
+    $studentName = trim($_POST["student_name"]  ?? "");
+    if ($teacherId > 0 && $studentName !== "") {
+        $del = $conn->prepare("DELETE FROM teacher_students WHERE teacher_id = ? AND student_name = ?");
+        if ($del) { $del->bind_param("is", $teacherId, $studentName); $del->execute(); $del->close(); }
+    }
+    header("Location: admin_teacher_students.php?removed=1");
+    exit();
+}
+
+/* ── Ensure dedicated teacher_students table ── */
+$conn->query("CREATE TABLE IF NOT EXISTS teacher_students (
+    id           INT AUTO_INCREMENT PRIMARY KEY,
+    teacher_id   INT          NOT NULL,
+    teacher_name VARCHAR(255) NOT NULL,
+    student_name VARCHAR(255) NOT NULL,
+    type         VARCHAR(100) NOT NULL DEFAULT 'Paid',
+    details      TEXT         NOT NULL DEFAULT '',
+    assigned_at  TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_ts (teacher_id, student_name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
 /* ── Handle Add Student POST ── */
 $successMsg = "";
 $errorMsg   = "";
@@ -17,18 +44,45 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["add_student"])) {
     $teacherId   = (int)($_POST["teacher_id"]   ?? 0);
     $teacherName = trim($_POST["teacher_name"]  ?? "");
     $studentName = trim($_POST["student_name"]  ?? "");
-    $classDate   = date("Y-m-d");
-    $classTime   = date("H:i:s");
     $type        = trim($_POST["type"]          ?? "Paid");
     $details     = trim($_POST["details"]       ?? "");
 
     if ($studentName !== "" && $teacherName !== "") {
-        $ins = $conn->prepare("INSERT INTO classes (teacher_id, teacher_name, student_name, class_date, class_time, type, details, zoom_link) VALUES (?,?,?,?,?,?,?,'')");
+        $ins = $conn->prepare("INSERT IGNORE INTO teacher_students (teacher_id, teacher_name, student_name, type, details) VALUES (?,?,?,?,?)");
+
         if ($ins) {
-            $ins->bind_param("issssss", $teacherId, $teacherName, $studentName, $classDate, $classTime, $type, $details);
+            $ins->bind_param("issss", $teacherId, $teacherName, $studentName, $type, $details);
             $ins->execute();
             $ins->close();
             $successMsg = "Student assigned successfully!";
+
+            /* ── In-app notification for teacher ── */
+            addNotification($conn, $teacherId, "student",
+                "New student assigned",
+                "Admin assigned a new student to you: <strong>" . htmlspecialchars($studentName) . "</strong>."
+            );
+
+            /* ── Notify teacher by email ── */
+            $smtpHost = getAdminSetting($conn, "smtp_host", "");
+            $smtpPort = (int)getAdminSetting($conn, "smtp_port", 587);
+            $smtpUser = getAdminSetting($conn, "smtp_user", "");
+            $smtpPass = getAdminSetting($conn, "smtp_pass", "");
+            $fromName = getAdminSetting($conn, "smtp_from_name", "JuniorCode");
+            if ($smtpHost && $smtpUser && $smtpPass) {
+                $tStmt = $conn->prepare("SELECT email FROM users WHERE id = ? AND role = 'teacher' LIMIT 1");
+                if ($tStmt) {
+                    $tStmt->bind_param("i", $teacherId);
+                    $tStmt->execute();
+                    $tRow = $tStmt->get_result()->fetch_assoc();
+                    $tStmt->close();
+                    $teacherEmail = trim($tRow["email"] ?? "");
+                    if ($teacherEmail) {
+                        $html   = buildNewStudentEmail($teacherName, $studentName, $type, $details);
+                        $mailer = new Mailer($smtpHost, $smtpPort, $smtpUser, $smtpPass, $fromName);
+                        $mailer->send($teacherEmail, $teacherName, "New student assigned to you — $studentName", $html);
+                    }
+                }
+            }
         } else {
             $errorMsg = "Database error. Please try again.";
         }
@@ -46,17 +100,18 @@ if ($sRes) {
     }
 }
 
-/* ── Get all teachers with their distinct students ── */
+/* ── Get all teachers with their explicitly assigned students ── */
 $teachers = [];
 $stmt = $conn->prepare("
     SELECT
         u.id,
         u.username AS teacher_name,
-        COUNT(DISTINCT c.student_name)                             AS student_count,
-        GROUP_CONCAT(DISTINCT c.student_name ORDER BY c.student_name SEPARATOR '||') AS student_names,
-        COUNT(c.id)                                                AS total_classes,
-        MAX(c.class_date)                                          AS latest_class
+        COUNT(DISTINCT ts.student_name)                                    AS student_count,
+        GROUP_CONCAT(DISTINCT ts.student_name ORDER BY ts.student_name SEPARATOR '||') AS student_names,
+        COUNT(c.id)                                                        AS total_classes,
+        MAX(c.class_date)                                                  AS latest_class
     FROM users u
+    LEFT JOIN teacher_students ts ON ts.teacher_id = u.id
     LEFT JOIN classes c ON (c.teacher_id = u.id OR LOWER(c.teacher_name) = LOWER(u.username))
     WHERE u.role = 'teacher'
     GROUP BY u.id, u.username
@@ -404,13 +459,7 @@ $totalClasses  = array_sum(array_column($teachers, "total_classes"));
           <a href="admin_certificates.php" class="nav-link-custom">
             <span class="nav-icon"><i class="fas fa-award"></i></span><span>Certificates</span>
           </a>
-          <a href="admin_ai_settings.php" class="nav-link-custom">
-            <span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI Tutor</span>
-          </a>
-          <a href="admin_quiz_generator.php" class="nav-link-custom">
-            <span class="nav-icon"><i class="fas fa-circle-question"></i></span><span>AI Quiz Generator</span>
-          </a>
-          <a href="admin_email_notifications.php" class="nav-link-custom">
+<a href="admin_email_notifications.php" class="nav-link-custom">
             <span class="nav-icon"><i class="fas fa-envelope"></i></span><span>Email Notifications</span>
           </a>
         </div>
@@ -533,6 +582,12 @@ $totalClasses  = array_sum(array_column($teachers, "total_classes"));
                     <span class="student-tag">
                       <i class="fas fa-user"></i>
                       <?= htmlspecialchars($s) ?>
+                      <button type="button"
+                        onclick="openRemoveModal(<?= $t['id'] ?>, <?= htmlspecialchars(json_encode($s)) ?>, <?= htmlspecialchars(json_encode($tName)) ?>)"
+                        style="background:none;border:none;color:#ef4444;cursor:pointer;padding:0 0 0 4px;font-size:0.78rem;line-height:1;"
+                        title="Remove student">
+                        <i class="fas fa-times"></i>
+                      </button>
                     </span>
                   <?php endforeach; ?>
                 </div>
@@ -596,6 +651,30 @@ $totalClasses  = array_sum(array_column($teachers, "total_classes"));
     </div>
   </div>
 
+  <!-- Remove Student Modal -->
+  <div class="modal-overlay" id="removeModal">
+    <div class="modal-box" style="text-align:center;">
+      <div style="width:60px;height:60px;border-radius:50%;background:#fee2e2;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:1.4rem;color:#dc2626;">
+        <i class="fas fa-trash"></i>
+      </div>
+      <div class="modal-title" style="color:#dc2626;">Remove Student</div>
+      <p class="modal-sub">Remove <strong id="removeStudentName"></strong> from <strong id="removeTeacherName"></strong>? Class records will not be deleted.</p>
+      <form method="POST">
+        <input type="hidden" name="action"       value="remove_student">
+        <input type="hidden" name="teacher_id"   id="remove_teacher_id">
+        <input type="hidden" name="student_name" id="remove_student_name">
+        <div style="display:flex;gap:12px;justify-content:center;margin-top:20px;">
+          <button type="submit" style="background:linear-gradient(135deg,#dc2626,#b91c1c);border:none;color:#fff;font-weight:800;border-radius:12px;padding:11px 24px;cursor:pointer;">
+            <i class="fas fa-trash me-1"></i>Yes, Remove
+          </button>
+          <button type="button" onclick="closeRemoveModal()" style="background:#f1f5f9;border:none;color:#334155;font-weight:800;border-radius:12px;padding:11px 24px;cursor:pointer;">
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
     function openAddModal(teacherId, teacherName) {
@@ -609,6 +688,20 @@ $totalClasses  = array_sum(array_column($teachers, "total_classes"));
     }
     document.getElementById('addModal').addEventListener('click', function(e) {
       if (e.target === this) closeAddModal();
+    });
+
+    function openRemoveModal(teacherId, studentName, teacherName) {
+      document.getElementById('remove_teacher_id').value  = teacherId;
+      document.getElementById('remove_student_name').value = studentName;
+      document.getElementById('removeStudentName').textContent = studentName;
+      document.getElementById('removeTeacherName').textContent = teacherName;
+      document.getElementById('removeModal').classList.add('open');
+    }
+    function closeRemoveModal() {
+      document.getElementById('removeModal').classList.remove('open');
+    }
+    document.getElementById('removeModal').addEventListener('click', function(e) {
+      if (e.target === this) closeRemoveModal();
     });
   </script>
 

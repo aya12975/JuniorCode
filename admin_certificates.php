@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 session_start();
 require_once "db.php";
 require_once "admin_prefs.php";
@@ -172,9 +172,7 @@ body.sidebar-collapsed .sidebar { width:0; padding:0; min-width:0; overflow:hidd
       <a href="courses.php"            class="nav-link-custom <?= isActive('courses.php',           $currentPage) ?>"><span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span><?= t('nav_courses') ?></span></a>
       <a href="reports.php"            class="nav-link-custom <?= isActive('reports.php',           $currentPage) ?>"><span class="nav-icon"><i class="fas fa-chart-bar"></i></span><span><?= t('nav_reports') ?></span></a>
       <a href="admin_certificates.php" class="nav-link-custom <?= isActive('admin_certificates.php',$currentPage) ?>"><span class="nav-icon"><i class="fas fa-award"></i></span><span>Certificates</span></a>
-      <a href="admin_ai_settings.php"  class="nav-link-custom <?= isActive('admin_ai_settings.php', $currentPage) ?>"><span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI Tutor</span></a>
-      <a href="admin_quiz_generator.php" class="nav-link-custom <?= isActive('admin_quiz_generator.php', $currentPage) ?>"><span class="nav-icon"><i class="fas fa-circle-question"></i></span><span>AI Quiz Generator</span></a>
-    </div>
+</div>
     </div>
     <div class="sidebar-bottom">
       <a href="settings.php"           class="nav-link-custom <?= isActive('settings.php',          $currentPage) ?>"><span class="nav-icon"><i class="fas fa-gear"></i></span><span><?= t('nav_settings') ?></span></a>

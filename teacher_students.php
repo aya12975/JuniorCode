@@ -1,7 +1,10 @@
 <?php
 session_start();
 require_once "db.php";
-
+require_once 'notifications.php';
+$__teacherId     = (int)($_SESSION['user_id'] ?? 0);
+$__notifCount    = $__teacherId ? getUnreadCount($conn, $__teacherId) : 0;
+$__notifications = $__teacherId ? getNotifications($conn, $__teacherId) : [];
 if (!isset($_SESSION["role"]) || $_SESSION["role"] !== "teacher") {
     header("Location: login.php");
     exit();
@@ -10,25 +13,39 @@ if (!isset($_SESSION["role"]) || $_SESSION["role"] !== "teacher") {
 $teacherId   = (int)($_SESSION["user_id"] ?? 0);
 $teacherName = $_SESSION["username"] ?? "Teacher";
 
-/* ── Per-student summary ── */
+/* ── Handle delete student ── */
+if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["action"] ?? "") === "remove_student") {
+    $studentName = trim($_POST["student_name"] ?? "");
+    if ($studentName !== "") {
+        $del = $conn->prepare("DELETE FROM teacher_students WHERE teacher_id = ? AND student_name = ?");
+        if ($del) { $del->bind_param("is", $teacherId, $studentName); $del->execute(); $del->close(); }
+    }
+    header("Location: teacher_students.php?removed=1");
+    exit();
+}
+
+/* ── Per-student summary (from assigned list + class stats) ── */
 $students = [];
 $stmt = $conn->prepare("
     SELECT
-        student_name,
-        COUNT(*)                                                        AS total_classes,
-        SUM(CASE WHEN LOWER(type) = 'paid'     THEN 1 ELSE 0 END)     AS paid,
-        SUM(CASE WHEN LOWER(type) = 'demo'     THEN 1 ELSE 0 END)     AS demo,
-        SUM(CASE WHEN LOWER(type) = 'half pay' THEN 1 ELSE 0 END)     AS half_pay,
-        SUM(CASE WHEN LOWER(type) = 'no pay'   THEN 1 ELSE 0 END)     AS no_pay,
-        MAX(class_date)                                                 AS latest_class,
-        MIN(CASE WHEN class_date >= CURDATE() THEN class_date END)     AS next_class
-    FROM classes
-    WHERE teacher_id = ? OR LOWER(teacher_name) = LOWER(?)
-    GROUP BY student_name
+        ts.student_name,
+        ts.type                                                             AS assigned_type,
+        COUNT(c.id)                                                         AS total_classes,
+        SUM(CASE WHEN LOWER(c.type) = 'paid'     THEN 1 ELSE 0 END)       AS paid,
+        SUM(CASE WHEN LOWER(c.type) = 'demo'     THEN 1 ELSE 0 END)       AS demo,
+        SUM(CASE WHEN LOWER(c.type) = 'half pay' THEN 1 ELSE 0 END)       AS half_pay,
+        SUM(CASE WHEN LOWER(c.type) = 'no pay'   THEN 1 ELSE 0 END)       AS no_pay,
+        MAX(c.class_date)                                                   AS latest_class,
+        MIN(CASE WHEN c.class_date >= CURDATE() THEN c.class_date END)     AS next_class
+    FROM teacher_students ts
+    LEFT JOIN classes c ON LOWER(c.student_name) = LOWER(ts.student_name)
+        AND (c.teacher_id = ts.teacher_id OR LOWER(c.teacher_name) = LOWER(?))
+    WHERE ts.teacher_id = ?
+    GROUP BY ts.student_name, ts.type
     ORDER BY total_classes DESC
 ");
 if ($stmt) {
-    $stmt->bind_param("is", $teacherId, $teacherName);
+    $stmt->bind_param("si", $teacherName, $teacherId);
     $stmt->execute();
     $result = $stmt->get_result();
     while ($row = $result->fetch_assoc()) {
@@ -416,7 +433,58 @@ $withUpcoming   = count(array_filter($students, fn($s) => !empty($s["next_class"
       .students-grid { grid-template-columns: 1fr; }
       .topbar h1 { font-size: 1.4rem; }
     }
-  </style>
+  
+    /* ── Notification Bell ── */
+    .notif-bell-wrap { position:relative; }
+    .notif-bell-btn {
+      width:100%; display:flex; align-items:center; gap:10px;
+      background:rgba(255,255,255,0.08); border:none; color:rgba(255,255,255,0.85);
+      border-radius:14px; padding:11px 14px; font-size:0.97rem; cursor:pointer;
+      font-weight:700; transition:background 0.2s; position:relative;
+    }
+    .notif-bell-btn:hover { background:rgba(255,255,255,0.14); color:#fff; }
+    .notif-badge {
+      position:absolute; top:7px; right:10px;
+      background:#ef4444; color:#fff; font-size:0.7rem; font-weight:900;
+      border-radius:999px; padding:1px 6px; min-width:18px; text-align:center;
+    }
+    .notif-dropdown {
+      display:none; position:absolute; left:calc(100% + 10px); top:0;
+      width:320px; background:#fff; border-radius:18px;
+      box-shadow:0 20px 50px rgba(0,0,0,0.18); border:1px solid #e2e8f0;
+      z-index:9999; overflow:hidden;
+    }
+    .notif-dropdown.open { display:block; }
+    .notif-header {
+      display:flex; justify-content:space-between; align-items:center;
+      padding:14px 18px; background:linear-gradient(135deg,#3e5077,#143674);
+      color:#fff; font-weight:800; font-size:0.9rem;
+    }
+    .notif-mark-read {
+      background:rgba(255,255,255,0.2); border:none; color:#fff;
+      border-radius:8px; padding:4px 10px; font-size:0.75rem; font-weight:700; cursor:pointer;
+    }
+    .notif-mark-read:hover { background:rgba(255,255,255,0.3); }
+    .notif-list { max-height:360px; overflow-y:auto; }
+    .notif-item {
+      display:flex; gap:12px; padding:13px 16px;
+      border-bottom:1px solid #f1f5f9; transition:background 0.15s;
+    }
+    .notif-item:last-child { border-bottom:none; }
+    .notif-item.unread { background:#f0f7ff; }
+    .notif-item:hover { background:#f8fbff; }
+    .notif-icon {
+      width:36px; height:36px; border-radius:10px; flex-shrink:0;
+      display:flex; align-items:center; justify-content:center; font-size:0.9rem;
+    }
+    .notif-icon.student { background:#dbeafe; color:#1d4ed8; }
+    .notif-icon.info    { background:#f3e8ff; color:#7c3aed; }
+    .notif-body { flex:1; min-width:0; }
+    .notif-title { font-weight:800; font-size:0.84rem; color:#0f172a; }
+    .notif-msg   { font-size:0.8rem; color:#475569; margin-top:2px; line-height:1.4; }
+    .notif-time  { font-size:0.73rem; color:#94a3b8; margin-top:4px; }
+    .notif-empty { padding:24px; text-align:center; color:#94a3b8; font-size:0.88rem; font-weight:700; }
+    </style>
 </head>
 <body>
 
@@ -471,6 +539,42 @@ $withUpcoming   = count(array_filter($students, fn($s) => !empty($s["next_class"
     </a>
   </div>
 
+      <!-- Notification Bell -->
+  <div style="padding:0 16px 10px;">
+    <div class="notif-bell-wrap" id="notifWrap">
+      <button class="notif-bell-btn" id="notifBellBtn" onclick="toggleNotifDropdown()" title="Notifications">
+        <i class="fas fa-bell"></i>
+        <?php if ($__notifCount > 0): ?>
+          <span class="notif-badge" id="notifBadge"><?= $__notifCount ?></span>
+        <?php endif; ?>
+      </button>
+      <div class="notif-dropdown" id="notifDropdown">
+        <div class="notif-header">
+          <span><i class="fas fa-bell me-1"></i> Notifications</span>
+          <?php if ($__notifCount > 0): ?>
+            <button class="notif-mark-read" onclick="markAllRead()">Mark all read</button>
+          <?php endif; ?>
+        </div>
+        <div class="notif-list" id="notifList">
+          <?php if (empty($__notifications)): ?>
+            <div class="notif-empty">No notifications yet.</div>
+          <?php else: foreach ($__notifications as $__n): ?>
+            <div class="notif-item <?= $__n['is_read'] ? '' : 'unread' ?>">
+              <div class="notif-icon <?= $__n['type'] ?>">
+                <?php if ($__n['type'] === 'student'): ?><i class="fas fa-user-plus"></i>
+                <?php else: ?><i class="fas fa-bell"></i><?php endif; ?>
+              </div>
+              <div class="notif-body">
+                <div class="notif-title"><?= htmlspecialchars($__n['title']) ?></div>
+                <div class="notif-msg"><?= $__n['message'] ?></div>
+                <div class="notif-time"><?= date('d M Y, h:i A', strtotime($__n['created_at'])) ?></div>
+              </div>
+            </div>
+          <?php endforeach; endif; ?>
+        </div>
+      </div>
+    </div>
+  </div>
   <div class="sidebar-bottom">
     <a href="teacher_profile.php" class="nav-link-custom">
       <span class="nav-icon"><i class="fas fa-gear"></i></span><span>Settings</span>
@@ -558,13 +662,18 @@ $withUpcoming   = count(array_filter($students, fn($s) => !empty($s["next_class"
         <!-- Header -->
         <div class="card-head">
           <div class="s-avatar"><?php echo strtoupper(substr($name, 0, 1)); ?></div>
-          <div>
+          <div style="flex:1">
             <p class="s-name"><?php echo htmlspecialchars($name); ?></p>
             <span class="s-total">
               <i class="fas fa-layer-group"></i>
               <?php echo $total; ?> class<?php echo $total !== 1 ? "es" : ""; ?>
             </span>
           </div>
+          <button onclick="confirmRemove('<?= htmlspecialchars($name, ENT_QUOTES) ?>')"
+            style="background:#fee2e2;border:none;color:#dc2626;border-radius:10px;width:34px;height:34px;cursor:pointer;flex-shrink:0;font-size:0.9rem;"
+            title="Remove student">
+            <i class="fas fa-trash"></i>
+          </button>
         </div>
 
         <!-- Type breakdown -->
@@ -643,6 +752,65 @@ $withUpcoming   = count(array_filter($students, fn($s) => !empty($s["next_class"
   }
 </script>
 
+<!-- Remove Student Modal -->
+<div id="removeModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:22px;padding:32px;max-width:420px;width:90%;box-shadow:0 24px 60px rgba(0,0,0,0.2);text-align:center;">
+    <div style="width:60px;height:60px;border-radius:50%;background:#fee2e2;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:1.5rem;color:#dc2626;">
+      <i class="fas fa-trash"></i>
+    </div>
+    <h5 style="font-weight:900;margin:0 0 8px;">Remove Student?</h5>
+    <p style="color:#64748b;font-size:0.92rem;margin:0 0 24px;">
+      Remove <strong id="removeStudentName"></strong> from your student list? Their class records will not be deleted.
+    </p>
+    <form method="POST" id="removeForm">
+      <input type="hidden" name="action" value="remove_student">
+      <input type="hidden" name="student_name" id="removeStudentInput">
+      <div style="display:flex;gap:12px;justify-content:center;">
+        <button type="submit" style="background:linear-gradient(135deg,#dc2626,#b91c1c);border:none;color:#fff;font-weight:800;border-radius:12px;padding:11px 24px;cursor:pointer;">
+          <i class="fas fa-trash me-1"></i>Yes, Remove
+        </button>
+        <button type="button" onclick="closeRemoveModal()" style="background:#f1f5f9;border:none;color:#334155;font-weight:800;border-radius:12px;padding:11px 24px;cursor:pointer;">
+          Cancel
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <script src="logout-modal.js"></script>
+
+<script>
+function confirmRemove(name) {
+  document.getElementById('removeStudentName').textContent  = name;
+  document.getElementById('removeStudentInput').value = name;
+  document.getElementById('removeModal').style.display = 'flex';
+}
+function closeRemoveModal() {
+  document.getElementById('removeModal').style.display = 'none';
+}
+document.getElementById('removeModal').addEventListener('click', function(e) {
+  if (e.target === this) closeRemoveModal();
+});
+
+function toggleNotifDropdown() {
+  var dd = document.getElementById('notifDropdown');
+  dd.classList.toggle('open');
+}
+document.addEventListener('click', function(e) {
+  var wrap = document.getElementById('notifWrap');
+  if (wrap && !wrap.contains(e.target)) {
+    document.getElementById('notifDropdown').classList.remove('open');
+  }
+});
+function markAllRead() {
+  fetch('mark_notifications_read.php', { method:'POST' })
+    .then(function() {
+      document.querySelectorAll('.notif-item.unread').forEach(function(el) { el.classList.remove('unread'); });
+      var badge = document.getElementById('notifBadge');
+      if (badge) badge.remove();
+      document.querySelector('.notif-mark-read') && document.querySelector('.notif-mark-read').remove();
+    });
+}
+</script>
 </body>
 </html>
