@@ -9,12 +9,17 @@ if (!isset($_SESSION["role"]) || $_SESSION["role"] !== "student") {
 
 $studentName = $_SESSION["username"] ?? "Student";
 
-/* ── Fetch today + future classes only ── */
+/* ── Fetch yesterday / today / tomorrow classes ── */
 $classSessions = [];
+$today     = date("Y-m-d");
+$yesterday = date("Y-m-d", strtotime("-1 day"));
+$tomorrow  = date("Y-m-d", strtotime("+1 day"));
 $stmt = $conn->prepare("
     SELECT id, teacher_name, student_name, class_date, class_time, type, details, zoom_link
     FROM classes
-    WHERE student_name = ? AND class_date >= CURDATE()
+    WHERE student_name = ?
+      AND class_date BETWEEN DATE_SUB(CURDATE(), INTERVAL 1 DAY)
+                         AND DATE_ADD(CURDATE(), INTERVAL 1 DAY)
     ORDER BY class_date ASC, class_time ASC
 ");
 if ($stmt) {
@@ -26,16 +31,12 @@ if ($stmt) {
     }
     $stmt->close();
 }
-
-$today         = date("Y-m-d");
-$total         = count($classSessions);
-$todayCount    = 0;
-$upcomingCount = 0;
-
+$yesterdayCount = 0; $todayCount = 0; $tomorrowCount = 0;
 foreach ($classSessions as $c) {
     $d = $c["class_date"] ?? "";
-    if ($d === $today)   $todayCount++;
-    else                 $upcomingCount++;
+    if ($d === $yesterday)     $yesterdayCount++;
+    elseif ($d === $today)     $todayCount++;
+    elseif ($d === $tomorrow)  $tomorrowCount++;
 }
 ?>
 <!DOCTYPE html>
@@ -155,7 +156,7 @@ foreach ($classSessions as $c) {
 
     .nav-link-custom.active .nav-icon { background: rgba(255,255,255,0.18); }
 
-    .sidebar-bottom { padding: 16px; border-top: 1px solid rgba(255,255,255,0.1); }
+    .sidebar-bottom { padding: 16px; }
 
     /* ── Main ── */
     .main { margin-left: 255px; padding: 28px; min-height: 100vh; transition: margin-left 0.3s ease; }
@@ -258,8 +259,9 @@ foreach ($classSessions as $c) {
     }
 
     .class-card:hover { transform: translateY(-4px); box-shadow: 0 18px 40px rgba(37,99,235,0.13); }
-    .class-card.is-today  { border-color: var(--primary); border-width: 2px; }
-    .class-card.is-past   { opacity: 0.72; }
+    .class-card.is-today     { border-color: var(--primary); border-width: 2px; }
+    .class-card.is-yesterday { opacity: 0.72; }
+    .class-card.is-tomorrow  { border-color: #16a34a; border-width: 2px; }
 
     .today-ribbon {
       position: absolute; top: 16px; right: 16px;
@@ -309,22 +311,13 @@ foreach ($classSessions as $c) {
     }
     .btn-zoom:hover { background: #1a6fd4; color: #fff; transform: translateY(-2px); }
 
-    .zoom-url-row {
-      display: flex; align-items: center; gap: 8px;
-      background: #f0f7ff; border: 1px solid #bfdbfe;
-      border-radius: 10px; padding: 8px 12px; margin-top: 6px;
+    .zoom-locked {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      color: #94a3b8; font-size: 0.88rem; font-weight: 700;
+      background: #f8fafc; border: 1px solid #e2e8f0;
+      border-radius: 14px; padding: 12px; width: 100%;
+      margin-top: auto; box-sizing: border-box;
     }
-    .zoom-url-text {
-      flex: 1; font-size: 0.78rem; color: #2563eb;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    .zoom-copy-btn {
-      border: none; background: #2D8CFF; color: #fff;
-      border-radius: 8px; padding: 4px 10px; font-size: 0.78rem;
-      font-weight: 700; cursor: pointer; white-space: nowrap; flex-shrink: 0;
-      transition: background 0.2s;
-    }
-    .zoom-copy-btn:hover { background: #1a6fd4; }
 
     .no-zoom {
       display: flex; align-items: center; justify-content: center; gap: 8px;
@@ -393,9 +386,6 @@ foreach ($classSessions as $c) {
 <a href="student_chat.php" class="nav-link-custom">
       <span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI Tutor</span>
     </a>
-    <a href="student_contact.php" class="nav-link-custom">
-      <span class="nav-icon"><i class="fas fa-comments"></i></span><span>Contact Admin</span>
-    </a>
   </div>
 
   <div class="sidebar-bottom">
@@ -422,7 +412,7 @@ foreach ($classSessions as $c) {
   <div class="topbar">
     <div>
       <h1>My Classes</h1>
-      <p>All classes assigned to you by the admin</p>
+      <p>Yesterday, today and tomorrow's classes</p>
     </div>
     <div class="topbar-date">
       <?php echo date("l, d F Y"); ?>
@@ -432,24 +422,24 @@ foreach ($classSessions as $c) {
   <!-- Stat cards -->
   <div class="stat-grid">
     <div class="stat-card">
-      <div class="stat-num c-blue"><?php echo $total; ?></div>
-      <div class="stat-label">Total Classes</div>
+      <div class="stat-num c-gray"><?php echo $yesterdayCount; ?></div>
+      <div class="stat-label">Yesterday</div>
     </div>
     <div class="stat-card">
-      <div class="stat-num c-green"><?php echo $todayCount; ?></div>
+      <div class="stat-num c-blue"><?php echo $todayCount; ?></div>
       <div class="stat-label">Today</div>
     </div>
     <div class="stat-card">
-      <div class="stat-num c-orange"><?php echo $upcomingCount; ?></div>
-      <div class="stat-label">Upcoming</div>
+      <div class="stat-num c-green"><?php echo $tomorrowCount; ?></div>
+      <div class="stat-label">Tomorrow</div>
     </div>
   </div>
 
   <!-- Filter tabs -->
   <div class="filter-bar">
-    <button class="filter-btn active" onclick="filterClasses('all', this)">All (<?php echo $total; ?>)</button>
-    <button class="filter-btn" onclick="filterClasses('today', this)">Today (<?php echo $todayCount; ?>)</button>
-    <button class="filter-btn" onclick="filterClasses('upcoming', this)">Upcoming (<?php echo $upcomingCount; ?>)</button>
+    <button class="filter-btn" onclick="filterClasses('yesterday', this)">Yesterday (<?php echo $yesterdayCount; ?>)</button>
+    <button class="filter-btn active" onclick="filterClasses('today', this)">Today (<?php echo $todayCount; ?>)</button>
+    <button class="filter-btn" onclick="filterClasses('tomorrow', this)">Tomorrow (<?php echo $tomorrowCount; ?>)</button>
   </div>
 
   <!-- Classes grid -->
@@ -470,9 +460,9 @@ foreach ($classSessions as $c) {
         $cZoom    = $c["zoom_link"]    ?? "";
         $cTeacher = $c["teacher_name"] ?? "";
 
-        if ($cDate === $today)   $when = "today";
-        elseif ($cDate > $today) $when = "upcoming";
-        else                     $when = "past";
+        if ($cDate === $yesterday)     $when = "yesterday";
+        elseif ($cDate === $today)     $when = "today";
+        else                           $when = "tomorrow";
 
         $t = strtolower(trim($cType));
         if ($t === "paid")              $tClass = "t-paid";
@@ -483,11 +473,18 @@ foreach ($classSessions as $c) {
         else                            $tClass = "t-other";
     ?>
 
-      <div class="class-card <?php echo $when === 'today' ? 'is-today' : ($when === 'past' ? 'is-past' : ''); ?>"
-           data-when="<?php echo $when; ?>">
+      <div class="class-card <?php
+            if ($when === 'today')         echo 'is-today';
+            elseif ($when === 'yesterday') echo 'is-yesterday';
+            elseif ($when === 'tomorrow')  echo 'is-tomorrow';
+          ?>" data-when="<?php echo $when; ?>">
 
         <?php if ($when === "today"): ?>
           <div class="today-ribbon">TODAY</div>
+        <?php elseif ($when === "yesterday"): ?>
+          <div class="today-ribbon" style="background:#64748b;">YESTERDAY</div>
+        <?php elseif ($when === "tomorrow"): ?>
+          <div class="today-ribbon" style="background:#16a34a;">TOMORROW</div>
         <?php endif; ?>
 
         <!-- Teacher header -->
@@ -522,29 +519,23 @@ foreach ($classSessions as $c) {
           </div>
         <?php endif; ?>
 
-        <!-- Zoom button -->
-        <?php if (!empty($cZoom)): ?>
-          <a href="<?php echo htmlspecialchars($cZoom); ?>"
-             target="_blank" rel="noopener"
-             class="btn-zoom">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4z"/>
-            </svg>
-            Join Class on Zoom
-          </a>
-          <div class="zoom-url-row">
-            <span class="zoom-url-text"><?php echo htmlspecialchars($cZoom); ?></span>
-            <button class="zoom-copy-btn" onclick="copyZoom(this, <?php echo json_encode($cZoom); ?>)">Copy</button>
-          </div>
-        <?php else: ?>
-          <div class="no-zoom">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4z"/>
-              <line x1="1" y1="1" x2="23" y2="23"/>
-            </svg>
-            No Zoom link added yet
-          </div>
-        <?php endif; ?>
+        <!-- Zoom slot (timer-gated) -->
+        <div style="margin-top:auto;">
+          <?php if (!empty($cZoom)): ?>
+            <span class="zoom-slot"
+              data-url="<?= htmlspecialchars($cZoom) ?>"
+              data-date="<?= $cDate ?>"
+              data-time="<?= $cTime ?>"></span>
+          <?php else: ?>
+            <div class="no-zoom">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4z"/>
+                <line x1="1" y1="1" x2="23" y2="23"/>
+              </svg>
+              No Zoom link added yet
+            </div>
+          <?php endif; ?>
+        </div>
 
       </div>
 
@@ -553,24 +544,42 @@ foreach ($classSessions as $c) {
 </div>
 
 <script>
-  function copyZoom(btn, url) {
-    navigator.clipboard.writeText(url).then(() => {
-      const orig = btn.textContent;
-      btn.textContent = "Copied!";
-      btn.style.background = "#16a34a";
-      setTimeout(() => { btn.textContent = orig; btn.style.background = ""; }, 2000);
+  function renderZoomSlots() {
+    document.querySelectorAll('.zoom-slot').forEach(function(slot) {
+      var url = slot.dataset.url;
+      if (!url) return;
+      var classAt = new Date(slot.dataset.date + 'T' + slot.dataset.time);
+      var now     = new Date();
+      var diffMin = (classAt - now) / 60000;
+      if (diffMin <= 10) {
+        var a = document.createElement('a');
+        a.href = url; a.target = '_blank'; a.rel = 'noopener';
+        a.className = 'btn-zoom';
+        a.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4z"/></svg> Join Class on Zoom';
+        slot.innerHTML = ''; slot.appendChild(a);
+      } else {
+        var h = classAt.getHours().toString().padStart(2,'0');
+        var m = classAt.getMinutes().toString().padStart(2,'0');
+        slot.innerHTML = '<span class="zoom-locked"><i class="fas fa-lock"></i> Opens at ' + h + ':' + m + '</span>';
+        if (!slot.dataset.timerSet) {
+          slot.dataset.timerSet = '1';
+          var delay = (classAt - now) - 10 * 60000;
+          if (delay > 0) setTimeout(renderZoomSlots, delay);
+        }
+      }
     });
   }
+  renderZoomSlots();
+  setInterval(renderZoomSlots, 30000);
 
   function filterClasses(filter, btn) {
     document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
+    if (btn) btn.classList.add("active");
 
     const cards = document.querySelectorAll(".class-card");
     let visible = 0;
-
     cards.forEach(card => {
-      const show = filter === "all" || card.dataset.when === filter;
+      const show = card.dataset.when === filter;
       card.style.display = show ? "" : "none";
       if (show) visible++;
     });
@@ -583,8 +592,8 @@ foreach ($classSessions as $c) {
         empty.className = "empty-state";
         empty.innerHTML = `
           <div class="empty-icon"><i class="fas fa-magnifying-glass"></i></div>
-          <h5>No classes found</h5>
-          <p>No classes match this filter.</p>
+          <h5>No classes for this day</h5>
+          <p>No classes scheduled for this period.</p>
         `;
         document.getElementById("classesGrid").appendChild(empty);
       }
@@ -593,8 +602,14 @@ foreach ($classSessions as $c) {
       empty.style.display = "none";
     }
   }
+
+  (function() {
+    var todayBtn = document.querySelector('.filter-btn.active');
+    filterClasses('today', todayBtn);
+  })();
 </script>
 
 <script src="logout-modal.js"></script>
 </body>
 </html>
+

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 require_once "db.php";
 
@@ -110,12 +110,12 @@ $totalCourses  = count($kidsCourses) + count($juniorCourses);
     .sidebar {
       position:fixed; top:0; left:0; width:255px; height:100vh;
       background:linear-gradient(180deg,#0f172a 0%,#172554 100%);
-      display:flex; flex-direction:column; z-index:1000; overflow:hidden;
+      display:flex; flex-direction:column; z-index:1000; overflow-y: auto;
       transition:transform 0.3s ease;
     }
     body.sidebar-collapsed .sidebar { transform:translateX(-255px); }
-    .sidebar-top { padding:20px 16px; flex:1; overflow-y:auto; }
-    .sidebar-bottom { padding:16px; border-top:1px solid rgba(255,255,255,0.1); }
+    .sidebar-top { padding:20px 16px; }
+    .sidebar-bottom { padding:16px; }
 
     .brand { display:flex; align-items:center; gap:12px; padding:10px 10px 18px;
       border-bottom:1px solid rgba(255,255,255,0.1); margin-bottom:16px; }
@@ -395,9 +395,6 @@ $totalCourses  = count($kidsCourses) + count($juniorCourses);
     <a href="student_chat.php" class="nav-link-custom">
       <span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI Tutor</span>
     </a>
-    <a href="student_contact.php" class="nav-link-custom">
-      <span class="nav-icon"><i class="fas fa-envelope"></i></span><span>Contact</span>
-    </a>
   </div>
   <div class="sidebar-bottom">
     <a href="student_profile.php" class="nav-link-custom">
@@ -576,3 +573,5 @@ function switchTab(name, btn) {
 <script src="logout-modal.js"></script>
 </body>
 </html>
+
+

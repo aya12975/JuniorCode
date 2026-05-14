@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 require_once "db.php";
 require_once 'notifications.php';
@@ -19,12 +19,16 @@ if ($colCheck && $colCheck->num_rows === 0) {
     $conn->query("ALTER TABLE classes ADD COLUMN teacher_id INT DEFAULT NULL");
 }
 
-/* ── Fetch upcoming classes for this teacher (today and future only) ── */
+/* ── Ensure session notes column exists ── */
+$conn->query("ALTER TABLE classes ADD COLUMN IF NOT EXISTS teacher_notes TEXT DEFAULT NULL");
+
+/* ── Fetch yesterday / today / tomorrow classes for this teacher ── */
 $classSessions = [];
 $stmt = $conn->prepare("
     SELECT * FROM classes
     WHERE (teacher_id = ? OR LOWER(teacher_name) = LOWER(?))
-      AND class_date >= CURDATE()
+      AND class_date BETWEEN DATE_SUB(CURDATE(), INTERVAL 1 DAY)
+                         AND DATE_ADD(CURDATE(), INTERVAL 1 DAY)
     ORDER BY class_date ASC, class_time ASC
 ");
 if ($stmt) {
@@ -38,14 +42,18 @@ if ($stmt) {
 }
 
 $today         = date("Y-m-d");
+$yesterday     = date("Y-m-d", strtotime("-1 day"));
+$tomorrow      = date("Y-m-d", strtotime("+1 day"));
 $total         = count($classSessions);
-$todayCount    = 0;
-$upcomingCount = 0;
+$yesterdayCount = 0;
+$todayCount     = 0;
+$tomorrowCount  = 0;
 
 foreach ($classSessions as $c) {
     $d = $c["class_date"] ?? "";
-    if ($d === $today)   $todayCount++;
-    else                 $upcomingCount++;
+    if ($d === $yesterday)   $yesterdayCount++;
+    elseif ($d === $today)   $todayCount++;
+    elseif ($d === $tomorrow) $tomorrowCount++;
 }
 ?>
 <!DOCTYPE html>
@@ -177,7 +185,6 @@ foreach ($classSessions as $c) {
 
     .sidebar-bottom {
       padding: 16px;
-      border-top: 1px solid rgba(255,255,255,0.1);
     }
 
     /* ── Main ── */
@@ -327,7 +334,8 @@ foreach ($classSessions as $c) {
       border-width: 2px;
     }
 
-    .class-card.is-past { opacity: 0.72; }
+    .class-card.is-yesterday { opacity: 0.72; }
+    .class-card.is-tomorrow  { border-color: #16a34a; border-width: 2px; }
 
     /* Today ribbon */
     .today-ribbon {
@@ -435,40 +443,13 @@ foreach ($classSessions as $c) {
       box-shadow: 0 10px 24px rgba(45,140,255,0.35);
     }
 
-    .zoom-url-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      background: #f0f9ff;
-      border: 1px solid #bae6fd;
-      border-radius: 10px;
-      padding: 8px 12px;
-      margin-top: 8px;
+    .zoom-locked {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      color: #94a3b8; font-size: 0.88rem; font-weight: 700;
+      background: #f8fafc; border: 1px solid #e2e8f0;
+      border-radius: 14px; padding: 12px; width: 100%;
+      margin-top: auto; box-sizing: border-box;
     }
-
-    .zoom-url-text {
-      flex: 1;
-      font-size: 0.78rem;
-      color: #0369a1;
-      word-break: break-all;
-      font-family: monospace;
-      line-height: 1.4;
-    }
-
-    .zoom-copy-btn {
-      background: #e0f2fe;
-      border: 1px solid #bae6fd;
-      border-radius: 7px;
-      padding: 4px 10px;
-      color: #0369a1;
-      font-size: 0.78rem;
-      font-weight: 700;
-      cursor: pointer;
-      white-space: nowrap;
-      flex-shrink: 0;
-    }
-    .zoom-copy-btn:hover { background: #bae6fd; }
-    .zoom-copy-btn.copied { background: #0369a1; color: #fff; border-color: #0369a1; }
 
     .no-zoom {
       display: flex;
@@ -483,6 +464,38 @@ foreach ($classSessions as $c) {
       padding: 12px;
       margin-top: auto;
     }
+
+    /* ── Session notes ── */
+    .notes-section {
+      border-top: 1px solid #f1f5f9;
+      padding-top: 12px;
+      margin-top: 4px;
+    }
+    .notes-label {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 0.8rem; font-weight: 800; color: #64748b;
+      margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .notes-textarea {
+      width: 100%; border: 1.5px solid #e2e8f0; border-radius: 12px;
+      padding: 10px 12px; font-size: 0.85rem; color: #334155;
+      background: #f8fafc; resize: none; outline: none;
+      font-family: inherit; transition: border-color 0.2s, background 0.2s;
+      min-height: 72px;
+    }
+    .notes-textarea:focus { border-color: var(--primary); background: #fff; }
+    .notes-textarea::placeholder { color: #94a3b8; }
+    .notes-save-row {
+      display: flex; justify-content: flex-end; margin-top: 6px; gap: 8px; align-items: center;
+    }
+    .notes-saved-msg { font-size: 0.78rem; color: #16a34a; font-weight: 700; display:none; }
+    .notes-save-btn {
+      border: none; background: var(--primary); color: #fff;
+      border-radius: 10px; padding: 6px 16px; font-size: 0.82rem;
+      font-weight: 800; cursor: pointer; transition: background 0.2s;
+    }
+    .notes-save-btn:hover { background: var(--primary-dark); }
+    .notes-save-btn:disabled { background: #94a3b8; cursor: default; }
 
     /* Empty state */
     .empty-state {
@@ -674,7 +687,7 @@ foreach ($classSessions as $c) {
   <div class="topbar">
     <div>
       <h1>My Classes</h1>
-      <p>All classes assigned to you by the admin</p>
+      <p>Yesterday, today and tomorrow's classes</p>
     </div>
     <div class="topbar-date">
       <?php echo date("l, d F Y"); ?>
@@ -684,24 +697,24 @@ foreach ($classSessions as $c) {
   <!-- Stat cards -->
   <div class="stat-grid">
     <div class="stat-card">
-      <div class="stat-num c-blue"><?php echo $total; ?></div>
-      <div class="stat-label">Total</div>
+      <div class="stat-num c-gray"><?php echo $yesterdayCount; ?></div>
+      <div class="stat-label">Yesterday</div>
     </div>
     <div class="stat-card">
-      <div class="stat-num c-green"><?php echo $todayCount; ?></div>
+      <div class="stat-num c-blue"><?php echo $todayCount; ?></div>
       <div class="stat-label">Today</div>
     </div>
     <div class="stat-card">
-      <div class="stat-num c-orange"><?php echo $upcomingCount; ?></div>
-      <div class="stat-label">Upcoming</div>
+      <div class="stat-num c-green"><?php echo $tomorrowCount; ?></div>
+      <div class="stat-label">Tomorrow</div>
     </div>
   </div>
 
   <!-- Filter tabs -->
   <div class="filter-bar">
-    <button class="filter-btn active" onclick="filterClasses('all', this)">All (<?php echo $total; ?>)</button>
-    <button class="filter-btn" onclick="filterClasses('today', this)">Today (<?php echo $todayCount; ?>)</button>
-    <button class="filter-btn" onclick="filterClasses('upcoming', this)">Upcoming (<?php echo $upcomingCount; ?>)</button>
+    <button class="filter-btn" onclick="filterClasses('yesterday', this)">Yesterday (<?php echo $yesterdayCount; ?>)</button>
+    <button class="filter-btn active" onclick="filterClasses('today', this)">Today (<?php echo $todayCount; ?>)</button>
+    <button class="filter-btn" onclick="filterClasses('tomorrow', this)">Tomorrow (<?php echo $tomorrowCount; ?>)</button>
   </div>
 
   <!-- Classes grid -->
@@ -722,9 +735,9 @@ foreach ($classSessions as $c) {
         $cZoom    = $c["zoom_link"] ?? "";
         $cStudent = $c["student_name"] ?? "";
 
-        if ($cDate === $today)   $when = "today";
-        elseif ($cDate > $today) $when = "upcoming";
-        else                     $when = "past";
+        if ($cDate === $yesterday)     $when = "yesterday";
+        elseif ($cDate === $today)    $when = "today";
+        else                          $when = "tomorrow";
 
         $t = strtolower(trim($cType));
         if ($t === "paid")                   $tClass = "t-paid";
@@ -735,11 +748,18 @@ foreach ($classSessions as $c) {
         else                                 $tClass = "t-other";
     ?>
 
-      <div class="class-card <?php echo $when === 'today' ? 'is-today' : ($when === 'past' ? 'is-past' : ''); ?>"
-           data-when="<?php echo $when; ?>">
+      <div class="class-card <?php
+            if ($when === 'today')     echo 'is-today';
+            elseif ($when === 'yesterday') echo 'is-yesterday';
+            elseif ($when === 'tomorrow')  echo 'is-tomorrow';
+          ?>" data-when="<?php echo $when; ?>">
 
         <?php if ($when === "today"): ?>
           <div class="today-ribbon">TODAY</div>
+        <?php elseif ($when === "yesterday"): ?>
+          <div class="today-ribbon" style="background:#64748b;">YESTERDAY</div>
+        <?php elseif ($when === "tomorrow"): ?>
+          <div class="today-ribbon" style="background:#16a34a;">TOMORROW</div>
         <?php endif; ?>
 
         <!-- Student header -->
@@ -772,34 +792,39 @@ foreach ($classSessions as $c) {
           </div>
         <?php endif; ?>
 
-        <!-- Zoom button -->
-        <?php if (!empty($cZoom)): ?>
-          <div style="margin-top:auto;">
-            <a href="<?php echo htmlspecialchars($cZoom); ?>"
-               target="_blank" rel="noopener"
-               class="btn-zoom">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+        <!-- Zoom slot (timer-gated) -->
+        <div style="margin-top:auto;">
+          <?php if (!empty($cZoom)): ?>
+            <span class="zoom-slot"
+              data-url="<?= htmlspecialchars($cZoom) ?>"
+              data-date="<?= $cDate ?>"
+              data-time="<?= $cTime ?>"></span>
+          <?php else: ?>
+            <div class="no-zoom">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4z"/>
+                <line x1="1" y1="1" x2="23" y2="23"/>
               </svg>
-              Start Class on Zoom
-            </a>
-            <div class="zoom-url-row">
-              <span class="zoom-url-text"><?php echo htmlspecialchars($cZoom); ?></span>
-              <button type="button" class="zoom-copy-btn"
-                      onclick="copyZoom(this, <?php echo json_encode($cZoom); ?>)">
-                <i class="fas fa-copy"></i> Copy
-              </button>
+              No Zoom link added yet
             </div>
+          <?php endif; ?>
+        </div>
+
+        <!-- Session notes -->
+        <div class="notes-section">
+          <div class="notes-label">
+            <i class="fas fa-pen-to-square"></i> Session Notes
           </div>
-        <?php else: ?>
-          <div class="no-zoom">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4z"/>
-              <line x1="1" y1="1" x2="23" y2="23"/>
-            </svg>
-            No Zoom link added yet
+          <textarea
+            class="notes-textarea"
+            data-class-id="<?= $c['id'] ?>"
+            placeholder="What did you cover this session? Topics, homework, progress…"
+          ><?= htmlspecialchars($c['teacher_notes'] ?? '') ?></textarea>
+          <div class="notes-save-row">
+            <span class="notes-saved-msg"><i class="fas fa-check"></i> Saved</span>
+            <button class="notes-save-btn" onclick="saveNotes(this)">Save</button>
           </div>
-        <?php endif; ?>
+        </div>
 
       </div>
 
@@ -808,34 +833,47 @@ foreach ($classSessions as $c) {
 </div>
 
 <script>
-  function copyZoom(btn, url) {
-    navigator.clipboard.writeText(url).then(() => {
-      btn.classList.add('copied');
-      btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
-      setTimeout(() => {
-        btn.classList.remove('copied');
-        btn.innerHTML = '<i class="fas fa-copy"></i> Copy';
-      }, 2000);
+  function renderZoomSlots() {
+    document.querySelectorAll('.zoom-slot').forEach(function(slot) {
+      var url = slot.dataset.url;
+      if (!url) return;
+      var classAt = new Date(slot.dataset.date + 'T' + slot.dataset.time);
+      var now     = new Date();
+      var diffMin = (classAt - now) / 60000;
+      if (diffMin <= 10) {
+        var a = document.createElement('a');
+        a.href = url; a.target = '_blank'; a.rel = 'noopener';
+        a.className = 'btn-zoom';
+        a.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4z"/></svg> Start Class on Zoom';
+        slot.innerHTML = ''; slot.appendChild(a);
+      } else {
+        var h = classAt.getHours().toString().padStart(2,'0');
+        var m = classAt.getMinutes().toString().padStart(2,'0');
+        slot.innerHTML = '<span class="zoom-locked"><i class="fas fa-lock"></i> Opens at ' + h + ':' + m + '</span>';
+        if (!slot.dataset.timerSet) {
+          slot.dataset.timerSet = '1';
+          var delay = (classAt - now) - 10 * 60000;
+          if (delay > 0) setTimeout(renderZoomSlots, delay);
+        }
+      }
     });
   }
+  renderZoomSlots();
+  setInterval(renderZoomSlots, 30000);
 
   function filterClasses(filter, btn) {
-    // Update active button
     document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
+    if (btn) btn.classList.add("active");
 
-    // Show/hide cards
     const cards = document.querySelectorAll(".class-card");
     let visible = 0;
 
     cards.forEach(card => {
-      const when = card.dataset.when;
-      const show = filter === "all" || when === filter;
+      const show = card.dataset.when === filter;
       card.style.display = show ? "" : "none";
       if (show) visible++;
     });
 
-    // Empty state
     let empty = document.getElementById("emptyFiltered");
     if (visible === 0) {
       if (!empty) {
@@ -844,8 +882,8 @@ foreach ($classSessions as $c) {
         empty.className = "empty-state";
         empty.innerHTML = `
           <div class="empty-icon"><i class="fas fa-magnifying-glass"></i></div>
-          <h5>No classes found</h5>
-          <p>No classes match this filter.</p>
+          <h5>No classes for this day</h5>
+          <p>No classes scheduled for this period.</p>
         `;
         document.getElementById("classesGrid").appendChild(empty);
       }
@@ -853,6 +891,42 @@ foreach ($classSessions as $c) {
     } else if (empty) {
       empty.style.display = "none";
     }
+  }
+
+  // Default: show today's classes on load
+  (function() {
+    var todayBtn = document.querySelector('.filter-btn.active');
+    filterClasses('today', todayBtn);
+  })();
+
+  function saveNotes(btn) {
+    var section  = btn.closest('.notes-section');
+    var textarea = section.querySelector('.notes-textarea');
+    var savedMsg = section.querySelector('.notes-saved-msg');
+    var classId  = textarea.dataset.classId;
+    var notes    = textarea.value;
+
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+
+    var body = new FormData();
+    body.append('class_id', classId);
+    body.append('notes', notes);
+
+    fetch('save_class_notes.php', { method: 'POST', body: body })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        btn.textContent = 'Save';
+        btn.disabled = false;
+        if (data.ok) {
+          savedMsg.style.display = 'inline';
+          setTimeout(function() { savedMsg.style.display = 'none'; }, 2500);
+        }
+      })
+      .catch(function() {
+        btn.textContent = 'Save';
+        btn.disabled = false;
+      });
   }
 </script>
 
@@ -881,3 +955,4 @@ function markAllRead() {
 </script>
 </body>
 </html>
+

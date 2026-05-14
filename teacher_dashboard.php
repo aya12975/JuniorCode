@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 require_once "db.php";
 require_once 'notifications.php';
@@ -92,10 +92,20 @@ if ($stmt2) {
     $stmt2->close();
 }
 
-/* Upcoming classes only (today and future) — used for My Classes view */
-$upcomingClasses = array_values(array_filter($classSessions, function($c) {
-    return ($c["class_date"] ?? "") >= date("Y-m-d");
+/* Yesterday / today / tomorrow — used for My Classes & My Schedule views */
+$yesterday3 = date("Y-m-d", strtotime("-1 day"));
+$tomorrow3  = date("Y-m-d", strtotime("+1 day"));
+$upcomingClasses = array_values(array_filter($classSessions, function($c) use ($yesterday3, $tomorrow3) {
+    $d = $c["class_date"] ?? "";
+    return $d >= $yesterday3 && $d <= $tomorrow3;
 }));
+$dashYesterdayCount = 0; $dashTodayCount = 0; $dashTomorrowCount = 0;
+foreach ($upcomingClasses as $c) {
+    $d = $c["class_date"] ?? "";
+    if ($d === $yesterday3) $dashYesterdayCount++;
+    elseif ($d === date("Y-m-d")) $dashTodayCount++;
+    elseif ($d === $tomorrow3)  $dashTomorrowCount++;
+}
 
 /* =========================
    Stats from real classes
@@ -233,15 +243,13 @@ $currentYear = date("Y");
       width: 260px;
       height: 100vh;
       background: linear-gradient(180deg, #0f172a 0%, #172554 100%);
-      display: flex;
-      flex-direction: column;
       z-index: 1000;
-      overflow: hidden;
+      overflow-y: auto;
       transition: transform 0.3s ease;
     }
     body.sidebar-collapsed .sidebar { transform: translateX(-260px); }
 
-    .sidebar-top { padding: 20px 16px; flex: 1; overflow-y: auto; }
+    .sidebar-top { padding: 20px 16px; }
 
     .brand {
       display: flex;
@@ -349,7 +357,6 @@ $currentYear = date("Y");
 
     .sidebar-bottom {
       padding: 16px;
-      border-top: 1px solid rgba(255,255,255,0.1);
     }
 
     /* ── Main content ── */
@@ -503,6 +510,7 @@ $currentYear = date("Y");
       text-decoration: none;
       white-space: nowrap;
       transition: all 0.2s ease;
+      border: none; cursor: pointer;
     }
 
     .btn-zoom:hover {
@@ -512,10 +520,25 @@ $currentYear = date("Y");
       box-shadow: 0 6px 16px rgba(45,140,255,0.3);
     }
 
+    .zoom-locked {
+      display: inline-flex; align-items: center; gap: 6px;
+      color: #94a3b8; font-size: 0.82rem; font-weight: 600;
+      background: #f8fafc; border: 1px solid #e2e8f0;
+      border-radius: 10px; padding: 6px 12px; white-space: nowrap;
+    }
     .zoom-none {
       color: #cbd5e1;
       font-size: 0.85rem;
     }
+
+    .filter-btn-dash {
+      border: 2px solid #e2e8f0; background: #fff;
+      border-radius: 999px; padding: 5px 14px;
+      font-weight: 700; font-size: 0.82rem; color: #64748b; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .filter-btn-dash:hover  { border-color: #3e5077; color: #3e5077; }
+    .filter-btn-dash.active { background: #3e5077; border-color: #3e5077; color: #fff; }
 
     .badge-type {
       border-radius: 999px;
@@ -827,7 +850,10 @@ $currentYear = date("Y");
                 <span class="ms-2" style="font-size:0.82rem;color:#64748b"><?php echo htmlspecialchars($class["type"]); ?></span>
               </div>
               <?php if (!empty($class["zoom_link"])): ?>
-                <a href="<?php echo htmlspecialchars($class["zoom_link"]); ?>" target="_blank" rel="noopener" class="btn-zoom"><i class="fas fa-video"></i> Join Zoom</a>
+                <span class="zoom-slot"
+                  data-url="<?= htmlspecialchars($class['zoom_link']) ?>"
+                  data-date="<?= $class['class_date'] ?>"
+                  data-time="<?= $class['class_time'] ?>"></span>
               <?php endif; ?>
             </li>
           <?php endforeach; ?>
@@ -843,18 +869,22 @@ $currentYear = date("Y");
     <section class="hero">
       <div>
         <h2>My Classes</h2>
-        <p>All your assigned teaching sessions</p>
+        <p>Yesterday, today and tomorrow's sessions</p>
       </div>
-      <div class="month-box"><?php echo count($upcomingClasses); ?> upcoming</div>
+      <div class="month-box"><?php echo $dashTodayCount; ?> today</div>
     </section>
     <div class="panel-card">
       <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <div class="panel-title mb-0">My Classes</div>
-        <span class="badge bg-primary rounded-pill"><?php echo count($upcomingClasses); ?> upcoming</span>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="filter-btn-dash" onclick="filterDashTable('classes','yesterday',this)">Yesterday (<?= $dashYesterdayCount ?>)</button>
+          <button class="filter-btn-dash active" onclick="filterDashTable('classes','today',this)">Today (<?= $dashTodayCount ?>)</button>
+          <button class="filter-btn-dash" onclick="filterDashTable('classes','tomorrow',this)">Tomorrow (<?= $dashTomorrowCount ?>)</button>
+        </div>
       </div>
       <?php if (!empty($upcomingClasses)): ?>
         <div class="table-responsive">
-          <table class="table align-middle">
+          <table class="table align-middle" id="dash-classes-table">
             <thead>
               <tr>
                 <th>Student</th>
@@ -867,16 +897,17 @@ $currentYear = date("Y");
             </thead>
             <tbody>
               <?php foreach ($upcomingClasses as $class):
-                $isToday = ($class["class_date"] ?? "") === date("Y-m-d");
+                $classWhen = ($class["class_date"] ?? "") === $yesterday3 ? "yesterday"
+                           : (($class["class_date"] ?? "") === date("Y-m-d") ? "today" : "tomorrow");
                 $t = strtolower(trim($class["type"] ?? ""));
                 if ($t === "paid")                   $badgeClass = "badge-paid";
                 elseif (strpos($t,"demo") !== false) $badgeClass = "badge-demo";
                 else                                 $badgeClass = "badge-other";
               ?>
-                <tr class="<?php echo $isToday ? 'row-today' : ''; ?>">
+                <tr data-when="<?= $classWhen ?>">
                   <td>
                     <strong><?php echo htmlspecialchars($class["student_name"]); ?></strong>
-                    <?php if ($isToday): ?><span class="badge bg-success ms-1" style="font-size:0.7rem">Today</span><?php endif; ?>
+                    <?php if ($classWhen === "today"): ?><span class="badge bg-success ms-1" style="font-size:0.7rem">Today</span><?php endif; ?>
                   </td>
                   <td><?php echo date("d M Y", strtotime($class["class_date"])); ?></td>
                   <td><?php echo date("h:i A", strtotime($class["class_time"])); ?></td>
@@ -884,7 +915,10 @@ $currentYear = date("Y");
                   <td><?php echo htmlspecialchars($class["details"] ?? "—"); ?></td>
                   <td>
                     <?php if (!empty($class["zoom_link"])): ?>
-                      <a href="<?php echo htmlspecialchars($class["zoom_link"]); ?>" target="_blank" rel="noopener" class="btn-zoom"><i class="fas fa-video"></i> Join Zoom</a>
+                      <span class="zoom-slot"
+                        data-url="<?= htmlspecialchars($class['zoom_link']) ?>"
+                        data-date="<?= $class['class_date'] ?>"
+                        data-time="<?= $class['class_time'] ?>"></span>
                     <?php else: ?>
                       <span class="zoom-none">— No link</span>
                     <?php endif; ?>
@@ -894,10 +928,11 @@ $currentYear = date("Y");
             </tbody>
           </table>
         </div>
+        <div id="dash-classes-empty" class="empty-box" style="display:none">No classes for this day.</div>
       <?php else: ?>
         <div class="empty-box">
           <div style="font-size:2rem;margin-bottom:8px"><i class="fas fa-book-open" style="color:#94a3b8"></i></div>
-          No upcoming classes. All done for now!
+          No classes in this period.
         </div>
       <?php endif; ?>
     </div>
@@ -908,35 +943,43 @@ $currentYear = date("Y");
     <section class="hero">
       <div>
         <h2>My Schedule</h2>
-        <p>Upcoming sessions from today onwards</p>
+        <p>Yesterday, today and tomorrow's sessions</p>
       </div>
-      <div class="month-box"><?php echo count($upcomingClasses); ?> upcoming</div>
+      <div class="month-box"><?php echo $dashTodayCount; ?> today</div>
     </section>
     <div class="panel-card">
       <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <div class="panel-title mb-0">My Schedule</div>
-        <span class="text-muted" style="font-size:0.9rem"><?php echo date("l, d F Y"); ?></span>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="filter-btn-dash" onclick="filterDashTable('schedule','yesterday',this)">Yesterday (<?= $dashYesterdayCount ?>)</button>
+          <button class="filter-btn-dash active" onclick="filterDashTable('schedule','today',this)">Today (<?= $dashTodayCount ?>)</button>
+          <button class="filter-btn-dash" onclick="filterDashTable('schedule','tomorrow',this)">Tomorrow (<?= $dashTomorrowCount ?>)</button>
+        </div>
       </div>
       <?php if (!empty($upcomingClasses)): ?>
         <div class="table-responsive">
-          <table class="table align-middle">
+          <table class="table align-middle" id="dash-schedule-table">
             <thead>
               <tr><th>Student</th><th>Date</th><th>Time</th><th>Type</th><th>Zoom</th></tr>
             </thead>
             <tbody>
               <?php foreach ($upcomingClasses as $class):
-                $isToday = ($class["class_date"] ?? "") === date("Y-m-d");
+                $classWhen = ($class["class_date"] ?? "") === $yesterday3 ? "yesterday"
+                           : (($class["class_date"] ?? "") === date("Y-m-d") ? "today" : "tomorrow");
               ?>
-                <tr class="<?php echo $isToday ? 'row-today' : ''; ?>">
+                <tr data-when="<?= $classWhen ?>">
                   <td><strong><?php echo htmlspecialchars($class["student_name"]); ?></strong>
-                    <?php if ($isToday): ?><span class="badge bg-success ms-1" style="font-size:0.7rem">Today</span><?php endif; ?>
+                    <?php if ($classWhen === "today"): ?><span class="badge bg-success ms-1" style="font-size:0.7rem">Today</span><?php endif; ?>
                   </td>
                   <td><?php echo date("d M Y", strtotime($class["class_date"])); ?></td>
                   <td><?php echo date("h:i A", strtotime($class["class_time"])); ?></td>
                   <td><?php echo htmlspecialchars($class["type"]); ?></td>
                   <td>
                     <?php if (!empty($class["zoom_link"])): ?>
-                      <a href="<?php echo htmlspecialchars($class["zoom_link"]); ?>" target="_blank" rel="noopener" class="btn-zoom"><i class="fas fa-video"></i> Join Zoom</a>
+                      <span class="zoom-slot"
+                        data-url="<?= htmlspecialchars($class['zoom_link']) ?>"
+                        data-date="<?= $class['class_date'] ?>"
+                        data-time="<?= $class['class_time'] ?>"></span>
                     <?php else: ?>
                       <span class="zoom-none">— No link</span>
                     <?php endif; ?>
@@ -946,8 +989,9 @@ $currentYear = date("Y");
             </tbody>
           </table>
         </div>
+        <div id="dash-schedule-empty" class="empty-box" style="display:none">No classes for this day.</div>
       <?php else: ?>
-        <div class="empty-box">No upcoming classes. All done for now!</div>
+        <div class="empty-box">No classes in this period.</div>
       <?php endif; ?>
     </div>
   </div>
@@ -1080,6 +1124,67 @@ $currentYear = date("Y");
     });
   });
 </script>
+<script>
+function renderZoomSlots() {
+  document.querySelectorAll('.zoom-slot').forEach(function(slot) {
+    var url = slot.dataset.url;
+    if (!url) return;
+    var classAt = new Date(slot.dataset.date + 'T' + slot.dataset.time);
+    var now     = new Date();
+    var diffMin = (classAt - now) / 60000;
+
+    if (diffMin <= 10) {
+      var a = document.createElement('a');
+      a.href = url; a.target = '_blank'; a.rel = 'noopener';
+      a.className = 'btn-zoom';
+      a.innerHTML = '<i class="fas fa-video"></i> Join Zoom';
+      slot.innerHTML = '';
+      slot.appendChild(a);
+    } else {
+      var h = classAt.getHours().toString().padStart(2,'0');
+      var m = classAt.getMinutes().toString().padStart(2,'0');
+      slot.innerHTML = '<span class="zoom-locked"><i class="fas fa-lock"></i> Opens at ' + h + ':' + m + '</span>';
+      if (!slot.dataset.timerSet) {
+        slot.dataset.timerSet = '1';
+        var delay = (classAt - now) - 10 * 60000;
+        if (delay > 0) setTimeout(renderZoomSlots, delay);
+      }
+    }
+  });
+}
+renderZoomSlots();
+setInterval(renderZoomSlots, 30000);
+
+function filterDashTable(view, when, btn) {
+  var tableId = 'dash-' + view + '-table';
+  var emptyId = 'dash-' + view + '-empty';
+  var table   = document.getElementById(tableId);
+  var emptyEl = document.getElementById(emptyId);
+  if (!table) return;
+
+  // Update active button within the same button group
+  var group = btn.parentElement;
+  group.querySelectorAll('.filter-btn-dash').forEach(function(b) { b.classList.remove('active'); });
+  btn.classList.add('active');
+
+  var rows    = table.querySelectorAll('tbody tr');
+  var visible = 0;
+  rows.forEach(function(row) {
+    var show = row.dataset.when === when;
+    row.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  if (emptyEl) emptyEl.style.display = (visible === 0) ? '' : 'none';
+}
+
+// Pre-apply "today" filter for both views on page load
+document.addEventListener('DOMContentLoaded', function() {
+  ['classes', 'schedule'].forEach(function(view) {
+    var todayBtn = document.querySelector('#view-' + view + ' .filter-btn-dash.active');
+    if (todayBtn) filterDashTable(view, 'today', todayBtn);
+  });
+});
+</script>
 <script src="logout-modal.js"></script>
 
 <script>
@@ -1105,3 +1210,4 @@ function markAllRead() {
 </script>
 </body>
 </html>
+

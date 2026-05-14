@@ -1,4 +1,4 @@
-
+﻿
 
 
 <?php
@@ -31,6 +31,41 @@ $conn->query("ALTER TABLE course_projects ADD COLUMN IF NOT EXISTS pdf_url TEXT 
 $chk = $conn->query("SHOW COLUMNS FROM courses LIKE 'is_unlocked'");
 if ($chk && $chk->num_rows === 0) {
     $conn->query("ALTER TABLE courses ADD COLUMN is_unlocked TINYINT(1) NOT NULL DEFAULT 0");
+}
+
+// Handle quick add project
+if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["action"] ?? "") === "quick_add_project") {
+    $qCourseId = (int)($_POST["course_id"] ?? 0);
+    $qTitle    = trim($_POST["title"]    ?? "");
+    $qUrl      = trim($_POST["url"]      ?? "");
+    $qImage    = trim($_POST["image"]    ?? "");
+    $qPdfUrl   = "";
+    $qPdfLink  = trim($_POST["pdf_link"] ?? "");
+    $qTab      = trim($_POST["active_tab"] ?? "kids");
+
+    if ($qCourseId > 0 && $qTitle !== "") {
+        $courseRow = null;
+        $cr = $conn->prepare("SELECT section, category FROM courses WHERE id = ?");
+        if ($cr) { $cr->bind_param("i", $qCourseId); $cr->execute(); $courseRow = $cr->get_result()->fetch_assoc(); $cr->close(); }
+        $qSec = $courseRow["section"]  ?? "";
+        $qCat = $courseRow["category"] ?? "";
+
+        if (!empty($_FILES["pdf_file"]["name"])) {
+            if (!is_dir("uploads/pdfs")) mkdir("uploads/pdfs", 0755, true);
+            $ext = strtolower(pathinfo($_FILES["pdf_file"]["name"], PATHINFO_EXTENSION));
+            if ($ext === "pdf") {
+                $fname = uniqid("proj_", true) . ".pdf";
+                if (move_uploaded_file($_FILES["pdf_file"]["tmp_name"], "uploads/pdfs/" . $fname)) $qPdfUrl = $fname;
+            }
+        } elseif ($qPdfLink !== "") {
+            $qPdfUrl = $qPdfLink;
+        }
+
+        $ins = $conn->prepare("INSERT INTO course_projects (course_id, section, category, title, url, image, pdf_url) VALUES (?,?,?,?,?,?,?)");
+        if ($ins) { $ins->bind_param("issssss", $qCourseId, $qSec, $qCat, $qTitle, $qUrl, $qImage, $qPdfUrl); $ins->execute(); }
+    }
+    header("Location: courses.php?tab=" . urlencode($qTab) . "&proj_added=" . $qCourseId);
+    exit();
 }
 
 // Handle unlock toggle
@@ -260,9 +295,10 @@ function renderCourseTable($result, string $activeTab = 'kids') {
           </div>
         </div>
         <div class="course-card-actions">
-          <a href="manage_projects.php?course_id=<?= $c["id"] ?>" class="ca-btn" style="background:#ede9fe;color:#5b21b6;">
+          <button type="button" class="ca-btn" style="background:#ede9fe;color:#5b21b6;border:none;cursor:pointer;"
+            onclick="openProjModal(<?= $c['id'] ?>, <?= htmlspecialchars(json_encode($c['course_name'])) ?>, '<?= htmlspecialchars($activeTab) ?>')">
             <i class="fas fa-folder-open"></i> Projects
-          </a>
+          </button>
           <form method="POST" style="margin:0;">
             <input type="hidden" name="toggle_unlock" value="1">
             <input type="hidden" name="course_id"    value="<?= $c["id"] ?>">
@@ -327,18 +363,17 @@ function renderCourseTable($result, string $activeTab = 'kids') {
       width: 285px;
       background: linear-gradient(180deg, #0f172a 0%, #172554 100%);
       color: white;
-      padding:  0;
+      padding: 0;
       position: sticky;
       top: 0;
       height: 100vh;
-      transition: width 0.3s ease, padding 0.3s ease, min-width 0.3s ease; overflow: hidden;
-      display: flex; flex-direction: column;
+      overflow-y: auto;
+      transition: width 0.3s ease, padding 0.3s ease, min-width 0.3s ease;
     }
-    .sidebar-bottom { padding: 16px 18px; border-top: 1px solid rgba(255,255,255,0.1); }
 
-    body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: hidden; }
+    body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow-y: auto; }
 
-    .sidebar-top-area { padding: 0 18px 18px; flex: 1; overflow-y: auto; }
+    .sidebar-top-area { padding: 0 18px 18px; }
     .brand-box { display: flex; align-items: center; gap: 12px; padding: 0 4px 22px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; }
 
     .logo-img {
@@ -938,23 +973,19 @@ function renderCourseTable($result, string $activeTab = 'kids') {
           <span class="nav-icon"><i class="fas fa-award"></i></span>
           <span>Certificates</span>
         </a>
-<a href="admin_email_notifications.php" class="nav-link-custom">
-          <span class="nav-icon"><i class="fas fa-envelope"></i></span>
-          <span>Email Notifications</span>
-        </a>
 
       </div>
-      </div>
-      <div class="sidebar-bottom">
-        <a href="settings.php" class="nav-link-custom">
-          <span class="nav-icon"><i class="fas fa-gear"></i></span>
-          <span>Settings</span>
-        </a>
-        <div style="height:1px;background:rgba(255,255,255,0.1);margin:8px 0;"></div>
-        <a href="logout.php" class="nav-link-custom">
-          <span class="nav-icon"><i class="fas fa-right-from-bracket"></i></span>
-          <span>Logout</span>
-        </a>
+
+      <div style="border-top:1px solid rgba(255,255,255,0.1);margin:8px 0;"></div>
+      <a href="settings.php" class="nav-link-custom">
+        <span class="nav-icon"><i class="fas fa-gear"></i></span>
+        <span>Settings</span>
+      </a>
+      <div style="height:1px;background:rgba(255,255,255,0.1);margin:4px 0;"></div>
+      <a href="logout.php" class="nav-link-custom">
+        <span class="nav-icon"><i class="fas fa-right-from-bracket"></i></span>
+        <span>Logout</span>
+      </a>
       </div>
     </aside>
 
@@ -974,6 +1005,9 @@ function renderCourseTable($result, string $activeTab = 'kids') {
 
       <?php if (isset($_GET["success"])): ?>
         <div class="alert alert-success">Action completed successfully.</div>
+      <?php endif; ?>
+      <?php if (isset($_GET["proj_added"])): ?>
+        <div class="alert alert-success"><i class="fas fa-circle-check me-2"></i>Project added successfully.</div>
       <?php endif; ?>
 
       <?php if (isset($_GET["error"])): ?>
@@ -1302,5 +1336,106 @@ function switchTab(tab) {
 }
 </script>
 <script src="logout-modal.js"></script>
+
+<!-- ── Add Project Modal ── -->
+<div id="projModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.5);z-index:1050;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:22px;padding:30px;width:100%;max-width:540px;box-shadow:0 24px 60px rgba(15,23,42,0.2);max-height:90vh;overflow-y:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <div>
+        <div style="font-size:1.1rem;font-weight:900;color:#0f172a;">Add Project</div>
+        <div id="projModalCourseName" style="font-size:0.88rem;color:#3e5077;font-weight:700;margin-top:2px;"></div>
+      </div>
+      <button onclick="closeProjModal()" style="background:#f1f5f9;border:none;border-radius:10px;width:36px;height:36px;font-size:1rem;cursor:pointer;color:#64748b;">✕</button>
+    </div>
+
+    <!-- Existing projects list -->
+    <div id="projModalList" style="margin-bottom:20px;"></div>
+
+    <!-- Add form -->
+    <form method="POST" enctype="multipart/form-data" id="projAddForm">
+      <input type="hidden" name="action"     value="quick_add_project">
+      <input type="hidden" name="course_id"  id="projModalCourseId">
+      <input type="hidden" name="active_tab" id="projModalTab">
+
+      <div style="border-top:1px solid #f1f5f9;padding-top:16px;margin-bottom:12px;font-weight:900;font-size:0.9rem;color:#0f172a;">
+        <i class="fas fa-plus-circle me-1" style="color:#3e5077;"></i> New Project
+      </div>
+
+      <div class="mb-3">
+        <label style="font-weight:700;font-size:0.88rem;display:block;margin-bottom:6px;">Project Title <span style="color:#dc2626;">*</span></label>
+        <input type="text" name="title" class="form-control" placeholder="e.g. Dino Run" required>
+      </div>
+      <div class="mb-3">
+        <label style="font-weight:700;font-size:0.88rem;display:block;margin-bottom:6px;">Image URL <span style="color:#94a3b8;font-weight:400;">(optional)</span></label>
+        <input type="text" name="image" class="form-control" placeholder="images/photo.png or https://...">
+      </div>
+      <div class="mb-3">
+        <label style="font-weight:700;font-size:0.88rem;display:block;margin-bottom:6px;">View Project Link <span style="color:#94a3b8;font-weight:400;">(optional)</span></label>
+        <input type="text" name="url" class="form-control" placeholder="https://scratch.mit.edu/...">
+      </div>
+      <div class="mb-3">
+        <label style="font-weight:700;font-size:0.88rem;display:block;margin-bottom:6px;">Course PDF / Lesson File</label>
+        <input type="file" name="pdf_file" accept=".pdf" class="form-control" style="margin-bottom:6px;">
+        <div style="font-size:0.78rem;color:#94a3b8;text-align:center;margin:4px 0;">— or paste a link —</div>
+        <input type="text" name="pdf_link" class="form-control" placeholder="https://drive.google.com/...">
+      </div>
+      <div style="display:flex;gap:10px;margin-top:6px;">
+        <button type="submit" style="background:linear-gradient(135deg,#3e5077,#143674);border:none;color:#fff;font-weight:800;border-radius:12px;padding:11px 22px;cursor:pointer;font-size:0.92rem;">
+          <i class="fas fa-plus me-1"></i> Add Project
+        </button>
+        <a id="projModalManageLink" href="#" style="display:inline-flex;align-items:center;gap:6px;background:#ede9fe;color:#5b21b6;font-weight:800;border-radius:12px;padding:11px 18px;font-size:0.88rem;text-decoration:none;">
+          <i class="fas fa-folder-open"></i> Manage All
+        </a>
+        <button type="button" onclick="closeProjModal()" style="background:#f1f5f9;border:none;color:#64748b;font-weight:800;border-radius:12px;padding:11px 18px;cursor:pointer;">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openProjModal(courseId, courseName, tab) {
+  document.getElementById('projModalCourseId').value   = courseId;
+  document.getElementById('projModalTab').value        = tab;
+  document.getElementById('projModalCourseName').textContent = courseName;
+  document.getElementById('projModalManageLink').href  = 'manage_projects.php?course_id=' + courseId;
+
+  // Load existing projects
+  fetch('get_course_projects.php?course_id=' + courseId)
+    .then(r => r.json())
+    .then(projects => {
+      const list = document.getElementById('projModalList');
+      if (!projects.length) {
+        list.innerHTML = '<div style="text-align:center;padding:12px;color:#94a3b8;font-size:0.88rem;font-weight:700;background:#f8fafc;border-radius:12px;">No projects yet — add the first one below.</div>';
+      } else {
+        list.innerHTML = '<div style="font-weight:800;font-size:0.82rem;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Existing Projects (' + projects.length + ')</div>'
+          + projects.map(p => `
+            <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:#f8fbff;border:1px solid #dbeafe;border-radius:12px;margin-bottom:6px;">
+              <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#3e5077,#143674);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.8rem;">
+                <i class="fas fa-gamepad"></i>
+              </div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-weight:800;font-size:0.88rem;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.title}</div>
+              </div>
+              ${p.url ? `<a href="${p.url}" target="_blank" style="font-size:0.75rem;color:#2563eb;font-weight:700;background:#dbeafe;border-radius:8px;padding:4px 10px;text-decoration:none;white-space:nowrap;"><i class="fas fa-arrow-up-right-from-square me-1"></i>View</a>` : ''}
+              ${p.pdf_url ? `<a href="${p.pdf_url.startsWith('http') ? p.pdf_url : 'uploads/pdfs/' + p.pdf_url}" target="_blank" style="font-size:0.75rem;color:#f97316;font-weight:700;background:#ffedd5;border-radius:8px;padding:4px 10px;text-decoration:none;white-space:nowrap;"><i class="fas fa-file-pdf me-1"></i>PDF</a>` : ''}
+            </div>`).join('');
+      }
+    })
+    .catch(() => {
+      document.getElementById('projModalList').innerHTML = '';
+    });
+
+  const modal = document.getElementById('projModal');
+  modal.style.display = 'flex';
+}
+
+function closeProjModal() {
+  document.getElementById('projModal').style.display = 'none';
+}
+
+document.getElementById('projModal').addEventListener('click', function(e) {
+  if (e.target === this) closeProjModal();
+});
+</script>
 </body>
 </html>

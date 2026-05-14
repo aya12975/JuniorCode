@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 require_once "db.php";
 require_once "admin_prefs.php";
@@ -86,16 +86,16 @@ body { font-family:Arial,Helvetica,sans-serif; background:radial-gradient(circle
 .app-shell { min-height:100vh; display:flex; }
 
 /* Sidebar */
-.sidebar { width:285px; flex-shrink:0; background:linear-gradient(180deg,#0f172a,#172554); color:#fff; padding:0; position:sticky; top:0; height:100vh; display:flex; flex-direction:column; transition:width .3s,padding .3s,min-width .3s; overflow:hidden; }
-body.sidebar-collapsed .sidebar { width:0; padding:0; min-width:0; overflow:hidden; }
-.sidebar-top-area { padding: 0 18px 18px; flex: 1; overflow-y: auto; }
+.sidebar { width:285px; flex-shrink:0; background:linear-gradient(180deg,#0f172a,#172554); color:#fff; padding:0; position:sticky; top:0; height:100vh; display:flex; flex-direction:column; transition:width .3s,padding .3s,min-width .3s; overflow-y: auto; }
+body.sidebar-collapsed .sidebar { width:0; padding:0; min-width:0; overflow-y: auto; }
+.sidebar-top-area { padding: 0 18px 18px; }
 .brand { display:flex; align-items:center; gap:12px; padding:0 4px 22px; border-bottom:1px solid rgba(255,255,255,0.1); margin-bottom:10px; }
 .brand-logo-img { width:55px; height:55px; object-fit:contain; flex-shrink:0; }
 .brand-title { font-weight:900; font-size:1.1rem; color:#fff; line-height:1.2; }
 .brand-sub   { font-size:0.75rem; color:rgba(255,255,255,0.55); letter-spacing:1px; margin-top:3px; }
 .nav-title { font-size:0.78rem; text-transform:uppercase; letter-spacing:1.3px; color:rgba(255,255,255,0.45); margin:20px 10px 10px; font-weight:700; }
 .nav-custom { display:flex; flex-direction:column; gap:4px; }
-.sidebar-bottom { padding:16px 18px; border-top:1px solid rgba(255,255,255,0.1); }
+.sidebar-bottom { padding:16px 18px; }
 .nav-link-custom { display:flex; align-items:center; gap:12px; color:rgba(255,255,255,0.78); text-decoration:none; padding:12px 14px; border-radius:14px; transition:all .22s; font-weight:700; }
 .nav-link-custom:hover { background:rgba(255,255,255,0.08); color:#fff; }
 .nav-link-custom.active { background:linear-gradient(135deg,var(--primary),var(--secondary)); color:#fff; box-shadow:0 8px 20px rgba(30,50,100,0.35); }
@@ -364,3 +364,5 @@ document.getElementById('certModal').addEventListener('click', function(e){ if(e
 <script src="logout-modal.js"></script>
 </body>
 </html>
+
+

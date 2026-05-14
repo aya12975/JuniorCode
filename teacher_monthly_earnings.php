@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 require_once "db.php";
 require_once 'notifications.php';
@@ -99,7 +99,7 @@ $monthNames = ['','January','February','March','April','May','June','July','Augu
     .nav-link-custom:hover { background:rgba(255,255,255,0.09);color:#fff; }
     .nav-link-custom.active { background:linear-gradient(135deg,var(--primary),var(--secondary));color:#fff; }
     .nav-icon { width:32px;height:32px;border-radius:10px;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;flex-shrink:0; }
-    .sidebar-bottom { padding:16px;border-top:1px solid rgba(255,255,255,0.1); }
+    .sidebar-bottom { padding:16px; }
 
     /* Main */
     .main { margin-left:260px;padding:26px;min-height:100vh;transition:margin-left 0.3s ease; }
@@ -461,3 +461,4 @@ function markAllRead() {
 </script>
 </body>
 </html>
+

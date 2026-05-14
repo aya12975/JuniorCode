@@ -41,16 +41,6 @@ if ($stmt2) {
     $stmt2->close();
 }
 
-/* ── Upcoming classes (future only, not today) ── */
-$nextClasses = [];
-$stmt3 = $conn->prepare("SELECT teacher_name, class_date, class_time, type, details, zoom_link FROM classes WHERE student_name = ? AND class_date > ? ORDER BY class_date ASC, class_time ASC");
-if ($stmt3) {
-    $stmt3->bind_param("ss", $studentName, $today);
-    $stmt3->execute();
-    $nextClasses = $stmt3->get_result()->fetch_all(MYSQLI_ASSOC);
-    $stmt3->close();
-}
-
 /* ── Assignments for this student ── */
 $assignments = [];
 $connCheck = $conn->query("SHOW TABLES LIKE 'assignments'");
@@ -112,11 +102,11 @@ body {
   width: 255px; height: 100vh;
   background: linear-gradient(180deg, #0f172a 0%, #172554 100%);
   display: flex; flex-direction: column;
-  z-index: 1000; overflow: hidden;
+  z-index: 1000; overflow-y: auto;
   transition: transform 0.3s ease;
 }
 body.sidebar-collapsed .sidebar { transform: translateX(-255px); }
-.sidebar-top { padding: 20px 16px; flex: 1; overflow-y: auto; }
+.sidebar-top { padding: 20px 16px; }
 .brand {
   display: flex; align-items: center; gap: 12px;
   padding: 10px 10px 18px;
@@ -162,7 +152,7 @@ body.sidebar-collapsed .sidebar { transform: translateX(-255px); }
   font-size: 15px; flex-shrink: 0;
 }
 .nav-link-custom.active .nav-icon { background: rgba(255,255,255,0.18); }
-.sidebar-bottom { padding: 16px; border-top: 1px solid rgba(255,255,255,0.1); }
+.sidebar-bottom { padding: 16px; }
 
 /* ── Main ── */
 .main { margin-left: 255px; padding: 28px; min-height: 100vh; transition: margin-left 0.3s ease; }
@@ -256,12 +246,19 @@ body.sidebar-collapsed .main { margin-left: 0; }
   background: #2D8CFF; color: #fff; font-weight: 700;
   border-radius: 10px; padding: 7px 14px; font-size: 0.85rem;
   text-decoration: none; white-space: nowrap; transition: all 0.2s;
+  border: none; cursor: pointer;
 }
 .btn-zoom:hover {
   background: #1a6fd4; color: #fff;
   transform: translateY(-1px); box-shadow: 0 6px 16px rgba(45,140,255,0.3);
 }
 .no-zoom { color: #cbd5e1; font-size: 0.85rem; }
+.zoom-locked {
+  display: inline-flex; align-items: center; gap: 6px;
+  color: #94a3b8; font-size: 0.82rem; font-weight: 600;
+  background: #f8fafc; border: 1px solid #e2e8f0;
+  border-radius: 10px; padding: 6px 12px; white-space: nowrap;
+}
 
 /* ── Today schedule list ── */
 .schedule-list { list-style: none; margin: 0; padding: 0; }
@@ -366,9 +363,6 @@ body.sidebar-collapsed .main { margin-left: 0; }
 <a href="student_chat.php" class="nav-link-custom">
       <span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI Tutor</span>
     </a>
-    <a href="student_contact.php" class="nav-link-custom">
-      <span class="nav-icon"><i class="fas fa-comments"></i></span><span>Contact Admin</span>
-    </a>
   </div>
 
   <div class="sidebar-bottom">
@@ -395,7 +389,7 @@ body.sidebar-collapsed .main { margin-left: 0; }
   <!-- Topbar -->
   <div class="topbar" id="dashboard">
     <div>
-      <h1><i class="fas fa-hand me-2" style="font-size:1.4rem;opacity:0.85;"></i>Hello, <?= htmlspecialchars($studentName) ?></h1>
+      <h1>Hello, <?= htmlspecialchars($studentName) ?></h1>
       <p>Welcome to your learning dashboard</p>
     </div>
     <div class="topbar-date"><?= date("l, d F Y") ?></div>
@@ -451,9 +445,10 @@ body.sidebar-collapsed .main { margin-left: 0; }
               ?>
               <span class="badge-type <?= $tc ?>"><?= htmlspecialchars($c['type']) ?></span>
               <?php if (!empty($c['zoom_link'])): ?>
-                <a href="<?= htmlspecialchars($c['zoom_link']) ?>" target="_blank" rel="noopener" class="btn-zoom">
-                  <i class="fas fa-video"></i> Join Class
-                </a>
+                <span class="zoom-slot"
+                  data-url="<?= htmlspecialchars($c['zoom_link']) ?>"
+                  data-date="<?= $c['class_date'] ?>"
+                  data-time="<?= $c['class_time'] ?>"></span>
               <?php endif; ?>
             </div>
           </li>
@@ -463,63 +458,6 @@ body.sidebar-collapsed .main { margin-left: 0; }
       <div class="empty-state">
         <i class="fas fa-mug-hot"></i>
         <p>No classes today — enjoy your day!</p>
-      </div>
-    <?php endif; ?>
-  </div>
-
-  <!-- My Upcoming Classes -->
-  <div class="panel-card" id="classes">
-    <div class="panel-title"><i class="fas fa-chalkboard me-2"></i>My Upcoming Classes</div>
-
-    <?php if (!empty($nextClasses)): ?>
-      <div class="table-responsive">
-        <table class="table align-middle">
-          <thead>
-            <tr>
-              <th>Teacher</th>
-              <th>Date</th>
-              <th>Time</th>
-              <th>Type</th>
-              <th>Details</th>
-              <th>Zoom</th>
-            </tr>
-          </thead>
-          <tbody>
-            <?php foreach ($nextClasses as $c):
-              $t  = strtolower(trim($c['type']));
-              $tc = $t === 'paid' ? 't-paid' : (strpos($t,'demo') !== false ? 't-demo' : 't-other');
-            ?>
-              <tr>
-                <td>
-                  <div style="display:flex;align-items:center;gap:10px;">
-                    <div class="sched-avatar" style="width:34px;height:34px;font-size:0.9rem;">
-                      <?= strtoupper(substr($c['teacher_name'], 0, 1)) ?>
-                    </div>
-                    <strong><?= htmlspecialchars($c['teacher_name']) ?></strong>
-                  </div>
-                </td>
-                <td><?= date("D, d M Y", strtotime($c['class_date'])) ?></td>
-                <td><?= date("h:i A", strtotime($c['class_time'])) ?></td>
-                <td><span class="badge-type <?= $tc ?>"><?= htmlspecialchars($c['type']) ?></span></td>
-                <td style="color:var(--muted);font-size:0.85rem;"><?= htmlspecialchars($c['details'] ?: '—') ?></td>
-                <td>
-                  <?php if (!empty($c['zoom_link'])): ?>
-                    <a href="<?= htmlspecialchars($c['zoom_link']) ?>" target="_blank" rel="noopener" class="btn-zoom">
-                      <i class="fas fa-video"></i> Join
-                    </a>
-                  <?php else: ?>
-                    <span class="no-zoom">— No link yet</span>
-                  <?php endif; ?>
-                </td>
-              </tr>
-            <?php endforeach; ?>
-          </tbody>
-        </table>
-      </div>
-    <?php else: ?>
-      <div class="empty-state">
-        <i class="fas fa-calendar-xmark"></i>
-        <p>No upcoming classes scheduled.</p>
       </div>
     <?php endif; ?>
   </div>
@@ -572,24 +510,6 @@ body.sidebar-collapsed .main { margin-left: 0; }
     <?php endif; ?>
   </div>
 
-  <!-- Contact Admin -->
-  <div class="panel-card" id="contact">
-    <div class="panel-title"><i class="fas fa-comments me-2"></i>Contact Admin</div>
-    <?php
-      $wa    = preg_replace('/\D/', '', $whatsapp);
-      $waUrl = $wa ? "https://wa.me/$wa" : "#";
-    ?>
-    <div class="contact-row">
-      <div class="contact-wa-icon"><i class="fab fa-whatsapp"></i></div>
-      <div class="contact-text">
-        <strong>Need help?</strong>
-        <p>For questions about scheduling, payments, or your classes, contact the admin directly on WhatsApp.</p>
-        <a href="<?= htmlspecialchars($waUrl) ?>" target="_blank" rel="noopener" class="btn-whatsapp">
-          <i class="fab fa-whatsapp"></i> Chat on WhatsApp
-        </a>
-      </div>
-    </div>
-  </div>
 
   <!-- Certificates -->
   <div class="panel-card" style="margin-top:22px;">
@@ -621,6 +541,39 @@ body.sidebar-collapsed .main { margin-left: 0; }
 
 </div>
 
+<script>
+function renderZoomSlots() {
+  document.querySelectorAll('.zoom-slot').forEach(function(slot) {
+    var url  = slot.dataset.url;
+    if (!url) return;
+    var classAt  = new Date(slot.dataset.date + 'T' + slot.dataset.time);
+    var now      = new Date();
+    var diffMin  = (classAt - now) / 60000;
+
+    if (diffMin <= 10) {
+      var a = document.createElement('a');
+      a.href = url; a.target = '_blank'; a.rel = 'noopener';
+      a.className = 'btn-zoom';
+      a.innerHTML = '<i class="fas fa-video"></i> Join Class';
+      slot.innerHTML = '';
+      slot.appendChild(a);
+    } else {
+      var h = classAt.getHours().toString().padStart(2,'0');
+      var m = classAt.getMinutes().toString().padStart(2,'0');
+      slot.innerHTML = '<span class="zoom-locked"><i class="fas fa-lock"></i> Opens at ' + h + ':' + m + '</span>';
+      if (!slot.dataset.timerSet) {
+        slot.dataset.timerSet = '1';
+        var delay = (classAt - now) - 10 * 60000;
+        if (delay > 0) setTimeout(renderZoomSlots, delay);
+      }
+    }
+  });
+}
+renderZoomSlots();
+setInterval(renderZoomSlots, 30000);
+</script>
 <script src="logout-modal.js"></script>
 </body>
 </html>
+
+

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 require_once "db.php";
 require_once 'notifications.php';
@@ -186,7 +186,6 @@ $withUpcoming   = count(array_filter($students, fn($s) => !empty($s["next_class"
 
     .sidebar-bottom {
       padding: 16px;
-      border-top: 1px solid rgba(255,255,255,0.1);
     }
 
     /* ── Main ── */
@@ -814,3 +813,4 @@ function markAllRead() {
 </script>
 </body>
 </html>
+

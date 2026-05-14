@@ -207,7 +207,7 @@ body.sidebar-collapsed .sidebar { transform: translateX(-255px); }
   font-size: 15px; flex-shrink: 0;
 }
 .nav-link-custom.active .nav-icon { background: rgba(255,255,255,0.18); }
-.sidebar-bottom { padding: 16px; border-top: 1px solid rgba(255,255,255,0.1); }
+.sidebar-bottom { padding: 16px; }
 
 /* ── Main ── */
 .main { margin-left: 255px; padding: 28px; min-height: 100vh; transition: margin-left 0.3s ease; }
@@ -416,9 +416,6 @@ body.sidebar-collapsed .main { margin-left: 0; }
 <a href="student_chat.php" class="nav-link-custom">
       <span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI Tutor</span>
     </a>
-    <a href="student_contact.php" class="nav-link-custom">
-      <span class="nav-icon"><i class="fas fa-comments"></i></span><span>Contact Admin</span>
-    </a>
   </div>
   <div class="sidebar-bottom">
     <a href="student_profile.php" class="nav-link-custom">
@@ -592,3 +589,4 @@ document.getElementById('submitModal').addEventListener('click', function(e) {
 <script src="logout-modal.js"></script>
 </body>
 </html>
+

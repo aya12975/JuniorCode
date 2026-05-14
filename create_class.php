@@ -1,9 +1,10 @@
-<?php
+﻿<?php
 session_start();
 require_once "db.php";
 require_once "zoom_helper.php";
 require_once "admin_prefs.php";
 require_once "mailer.php";
+require_once "notifications.php";
 if (!isset($_SESSION["role"]) || $_SESSION["role"] !== "admin") {
     header("Location: login.php");
     exit();
@@ -90,6 +91,28 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $insert->execute();
     $insert->close();
 
+    // In-app notification — teacher
+    $classLabel = date("d M Y", strtotime($date)) . " at " . date("g:i A", strtotime($time));
+    addNotification($conn, $teacherId, "class",
+        "New class scheduled",
+        "A new class with student <strong>" . htmlspecialchars($student) . "</strong> has been scheduled for $classLabel."
+    );
+
+    // In-app notification — student
+    $sIdStmt = $conn->prepare("SELECT id FROM users WHERE username = ? AND role = 'student' LIMIT 1");
+    if ($sIdStmt) {
+        $sIdStmt->bind_param("s", $student);
+        $sIdStmt->execute();
+        $sIdRow = $sIdStmt->get_result()->fetch_assoc();
+        $sIdStmt->close();
+        if ($sIdRow) {
+            addNotification($conn, (int)$sIdRow["id"], "class",
+                "New class scheduled",
+                "A new class with <strong>" . htmlspecialchars($teacherName) . "</strong> has been scheduled for $classLabel."
+            );
+        }
+    }
+
     // Load SMTP settings once
     $smtpHost = getAdminSetting($conn, "smtp_host",      "");
     $smtpPort = (int)getAdminSetting($conn, "smtp_port", 587);
@@ -106,18 +129,51 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $mailer->send($teacherEmail, $teacherName, "New class scheduled — $date at " . date("h:i A", strtotime($time)), $html);
     }
 
-    // Notify student
+    // Notify student via email (reuse ID row fetched above for in-app notif)
     if ($smtpReady) {
-        $sStmt = $conn->prepare("SELECT email FROM users WHERE username = ? AND role = 'student' LIMIT 1");
-        if ($sStmt) {
-            $sStmt->bind_param("s", $student);
-            $sStmt->execute();
-            $sRow = $sStmt->get_result()->fetch_assoc();
-            $studentEmail = trim($sRow["email"] ?? "");
+        $sEmailStmt = $conn->prepare("SELECT email FROM users WHERE username = ? AND role = 'student' LIMIT 1");
+        if ($sEmailStmt) {
+            $sEmailStmt->bind_param("s", $student);
+            $sEmailStmt->execute();
+            $sEmailRow    = $sEmailStmt->get_result()->fetch_assoc();
+            $studentEmail = trim($sEmailRow["email"] ?? "");
+            $sEmailStmt->close();
             if ($studentEmail) {
                 $html   = buildStudentClassNotificationEmail($student, $teacherName, $date, $time, $type, $zoom_link);
                 $mailer = new Mailer($smtpHost, $smtpPort, $smtpUser, $smtpPass, $fromName);
                 $mailer->send($studentEmail, $student, "Your class is confirmed — $date at " . date("h:i A", strtotime($time)), $html);
+            }
+        }
+    }
+
+    // Session milestone check — notify student every 8 sessions
+    $cntStmt = $conn->prepare("SELECT COUNT(*) AS total FROM classes WHERE student_name = ?");
+    if ($cntStmt) {
+        $cntStmt->bind_param("s", $student);
+        $cntStmt->execute();
+        $sessionCount = (int)$cntStmt->get_result()->fetch_assoc()["total"];
+        $cntStmt->close();
+        if ($sessionCount > 0 && $sessionCount % 8 === 0) {
+            $msStmt = $conn->prepare("SELECT id, email FROM users WHERE username = ? AND role = 'student' LIMIT 1");
+            if ($msStmt) {
+                $msStmt->bind_param("s", $student);
+                $msStmt->execute();
+                $msRow = $msStmt->get_result()->fetch_assoc();
+                $msStmt->close();
+                if ($msRow) {
+                    addNotification($conn, (int)$msRow["id"], "session",
+                        "Session milestone reached!",
+                        "You've completed <strong>$sessionCount sessions</strong>! Please renew your registration to continue."
+                    );
+                    if ($smtpReady) {
+                        $msEmail = trim($msRow["email"] ?? "");
+                        if ($msEmail) {
+                            $html = buildSessionMilestoneEmail($student, $sessionCount);
+                            (new Mailer($smtpHost, $smtpPort, $smtpUser, $smtpPass, $fromName))
+                                ->send($msEmail, $student, "You've completed $sessionCount sessions — time to renew!", $html);
+                        }
+                    }
+                }
             }
         }
     }
@@ -163,12 +219,12 @@ body {
   background: linear-gradient(180deg, #0f172a 0%, #172554 100%);
   color: white; padding:  0;
   position: sticky; top: 0; height: 100vh;
-  transition: width 0.3s ease, padding 0.3s ease, min-width 0.3s ease; overflow: hidden;
+  transition: width 0.3s ease, padding 0.3s ease, min-width 0.3s ease; overflow-y: auto;
   display: flex; flex-direction: column;
 }
-body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: hidden; }
-.sidebar-bottom { padding: 16px 18px; border-top: 1px solid rgba(255,255,255,0.1); }
-.sidebar-top-area { padding: 0 18px 18px; flex: 1; overflow-y: auto; }
+body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow-y: auto; }
+.sidebar-bottom { padding: 16px 18px; }
+.sidebar-top-area { padding: 0 18px 18px; }
 .brand-box { display: flex; align-items: center; gap: 12px; padding: 0 4px 22px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; }
 .logo-img { width: 55px; height: 55px; object-fit: contain; border-radius: 12px; flex-shrink: 0; }
 .brand-title { font-weight: 900; font-size: 1.1rem; line-height: 1.15; }
@@ -273,7 +329,6 @@ textarea.form-control { height: auto; }
       <a href="courses.php"          class="nav-link-custom"><span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>Courses</span></a>
       <a href="reports.php"          class="nav-link-custom"><span class="nav-icon"><i class="fas fa-chart-bar"></i></span><span>Reports</span></a>
       <a href="admin_certificates.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-award"></i></span><span>Certificates</span></a>
-<a href="admin_email_notifications.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-envelope"></i></span><span>Email Notifications</span></a>
     </div>
       </div>
       <div class="sidebar-bottom">
@@ -344,32 +399,11 @@ textarea.form-control { height: auto; }
           <textarea name="details" class="form-control" rows="3" placeholder="Optional notes…"></textarea>
         </div>
 
-        <!-- Zoom section -->
         <input type="hidden" name="teacher_email" value="<?= htmlspecialchars($slot["teacher_email"]) ?>">
-
         <?php if ($zoomReady): ?>
-          <div class="zoom-section">
-            <div class="zoom-section-title">
-              <i class="fas fa-video"></i> Zoom Meeting — Auto-Generation
-            </div>
-            <div style="font-size:0.88rem;color:#166534;margin-bottom:14px;">
-              <i class="fas fa-wand-magic-sparkles me-1"></i>
-              A Zoom meeting will be created automatically when you save the class. The link will be visible to the teacher.
-            </div>
-            <div>
-              <label class="form-label" style="color:#15803d;">Override Zoom Link <span style="font-weight:400;color:var(--muted);">(optional)</span></label>
-              <input type="url" name="zoom_link" class="form-control" placeholder="Leave empty to auto-generate…">
-            </div>
-          </div>
-
-        <?php else: ?>
-          <div class="zoom-not-ready">
-            <i class="fas fa-triangle-exclamation"></i>
-            Zoom API not configured. <a href="settings.php" style="color:#854d0e;font-weight:800;">Go to Settings → Zoom</a> to add your credentials.
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Zoom Link <span class="text-muted fw-normal">(optional)</span></label>
-            <input type="url" name="zoom_link" class="form-control" placeholder="https://zoom.us/j/...">
+          <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:12px;padding:12px 16px;font-size:0.88rem;color:#166534;font-weight:700;">
+            <i class="fas fa-wand-magic-sparkles me-1"></i>
+            A Zoom meeting will be created automatically when you save the class.
           </div>
         <?php endif; ?>
 
@@ -388,3 +422,5 @@ textarea.form-control { height: auto; }
 <script src="logout-modal.js"></script>
 </body>
 </html>
+
+

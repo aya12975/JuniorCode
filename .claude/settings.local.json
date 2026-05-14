@@ -38,7 +38,8 @@
       "PowerShell($path = \"C:\\\\xampp\\\\htdocs\\\\JuniorCode\\\\teacher_courses.php\"; $bytes = [System.IO.File]::ReadAllBytes\\($path\\); $stripped = New-Object byte[] \\($bytes.Length - 3\\); [System.Array]::Copy\\($bytes, 3, $stripped, 0, $bytes.Length - 3\\); [System.IO.File]::WriteAllBytes\\($path, $stripped\\); $check = [System.IO.File]::ReadAllBytes\\($path\\); if \\($check[0] -eq 0x3C\\) { \"BOM removed OK\" } else { \"FAILED: first byte is \" + $check[0] })",
       "Bash(Get-ChildItem -Path \"C:\\\\xampp\\\\htdocs\\\\JuniorCode\" -Recurse -Filter \"*.php\")",
       "Bash(Select-Object -ExpandProperty FullName)",
-      "Bash(python *)"
+      "Bash(python *)",
+      "Bash(xargs -I{} grep -n \"sidebar-top-area\\\\|sidebar-bottom\\\\|flex-direction.*column\\\\|overflow.*hidden\" {})"
     ]
   }
 }

@@ -1,8 +1,9 @@
-<?php
+﻿<?php
 session_start();
 require_once "db.php";
 require_once "admin_prefs.php";
 require_once "mailer.php";
+require_once "notifications.php";
 
 if (!isset($_SESSION["role"]) || $_SESSION["role"] !== "admin") {
     header("Location: login.php");
@@ -71,39 +72,89 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $stmt->bind_param("isssssss", $teacher_id, $teacher_name, $student_name, $class_date, $class_time, $type, $details, $zoom_link);
 
             if ($stmt->execute()) {
-                // Send email notifications
                 $smtpHost  = getAdminSetting($conn, "smtp_host",      "");
                 $smtpPort  = (int)getAdminSetting($conn, "smtp_port", 587);
                 $smtpUser  = getAdminSetting($conn, "smtp_user",      "");
                 $smtpPass  = getAdminSetting($conn, "smtp_pass",      "");
                 $fromName  = getAdminSetting($conn, "smtp_from_name", "JuniorCode");
                 $smtpReady = $smtpHost && $smtpUser && $smtpPass;
+                $timeLabel = date("h:i A", strtotime($class_time));
+                $classLabel = date("d M Y", strtotime($class_date)) . " at " . date("g:i A", strtotime($class_time));
+
+                // In-app — teacher
+                addNotification($conn, $teacher_id, "class",
+                    "New class scheduled",
+                    "A new class with student <strong>" . htmlspecialchars($student_name) . "</strong> has been scheduled for $classLabel."
+                );
+
+                // In-app + email — student
+                $sRow = $conn->prepare("SELECT id, email FROM users WHERE username = ? AND role = 'student' LIMIT 1");
+                $sEmail = "";
+                if ($sRow) {
+                    $sRow->bind_param("s", $student_name);
+                    $sRow->execute();
+                    $sData = $sRow->get_result()->fetch_assoc();
+                    $sRow->close();
+                    if ($sData) {
+                        addNotification($conn, (int)$sData["id"], "class",
+                            "New class scheduled",
+                            "A new class with <strong>" . htmlspecialchars($teacher_name) . "</strong> has been scheduled for $classLabel."
+                        );
+                        $sEmail = trim($sData["email"] ?? "");
+                    }
+                }
 
                 if ($smtpReady) {
-                    $timeLabel = date("h:i A", strtotime($class_time));
-                    $subject   = "New class scheduled — $class_date at $timeLabel";
+                    $subject = "New class scheduled — $class_date at $timeLabel";
 
-                    // Notify teacher
+                    // Email teacher
                     $tRow = $conn->prepare("SELECT email FROM users WHERE id = ? LIMIT 1");
                     if ($tRow) {
                         $tRow->bind_param("i", $teacher_id);
                         $tRow->execute();
                         $tEmail = trim($tRow->get_result()->fetch_assoc()["email"] ?? "");
+                        $tRow->close();
                         if ($tEmail) {
                             $html = buildClassNotificationEmail($teacher_name, $class_date, $class_time, $student_name, $type, $details, $zoom_link);
                             (new Mailer($smtpHost, $smtpPort, $smtpUser, $smtpPass, $fromName))->send($tEmail, $teacher_name, $subject, $html);
                         }
                     }
 
-                    // Notify student
-                    $sRow = $conn->prepare("SELECT email FROM users WHERE username = ? AND role = 'student' LIMIT 1");
-                    if ($sRow) {
-                        $sRow->bind_param("s", $student_name);
-                        $sRow->execute();
-                        $sEmail = trim($sRow->get_result()->fetch_assoc()["email"] ?? "");
-                        if ($sEmail) {
-                            $html = buildStudentClassNotificationEmail($student_name, $teacher_name, $class_date, $class_time, $type, $zoom_link);
-                            (new Mailer($smtpHost, $smtpPort, $smtpUser, $smtpPass, $fromName))->send($sEmail, $student_name, "Your class is confirmed — $class_date at $timeLabel", $html);
+                    // Email student
+                    if ($sEmail) {
+                        $html = buildStudentClassNotificationEmail($student_name, $teacher_name, $class_date, $class_time, $type, $zoom_link);
+                        (new Mailer($smtpHost, $smtpPort, $smtpUser, $smtpPass, $fromName))->send($sEmail, $student_name, "Your class is confirmed — $class_date at $timeLabel", $html);
+                    }
+                }
+
+                // Session milestone check — notify student every 8 sessions
+                $cntStmt = $conn->prepare("SELECT COUNT(*) AS total FROM classes WHERE student_name = ?");
+                if ($cntStmt) {
+                    $cntStmt->bind_param("s", $student_name);
+                    $cntStmt->execute();
+                    $sessionCount = (int)$cntStmt->get_result()->fetch_assoc()["total"];
+                    $cntStmt->close();
+                    if ($sessionCount > 0 && $sessionCount % 8 === 0) {
+                        $msStmt = $conn->prepare("SELECT id, email FROM users WHERE username = ? AND role = 'student' LIMIT 1");
+                        if ($msStmt) {
+                            $msStmt->bind_param("s", $student_name);
+                            $msStmt->execute();
+                            $msRow = $msStmt->get_result()->fetch_assoc();
+                            $msStmt->close();
+                            if ($msRow) {
+                                addNotification($conn, (int)$msRow["id"], "session",
+                                    "Session milestone reached!",
+                                    "You've completed <strong>$sessionCount sessions</strong>! Please renew your registration to continue."
+                                );
+                                if ($smtpReady) {
+                                    $msEmail = trim($msRow["email"] ?? "");
+                                    if ($msEmail) {
+                                        $html = buildSessionMilestoneEmail($student_name, $sessionCount);
+                                        (new Mailer($smtpHost, $smtpPort, $smtpUser, $smtpPass, $fromName))
+                                            ->send($msEmail, $student_name, "You've completed $sessionCount sessions — time to renew!", $html);
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -178,14 +229,14 @@ function isActive($page, $currentPage) {
       top: 0;
       height: 100vh;
       flex-shrink: 0;
-      transition: width 0.3s ease, padding 0.3s ease, min-width 0.3s ease; overflow: hidden;
+      transition: width 0.3s ease, padding 0.3s ease, min-width 0.3s ease; overflow-y: auto;
       display: flex; flex-direction: column;
     }
-    .sidebar-bottom { padding: 16px 18px; border-top: 1px solid rgba(255,255,255,0.1); }
+    .sidebar-bottom { padding: 16px 18px; }
 
-    body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: hidden; }
+    body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow-y: auto; }
 
-    .sidebar-top-area { padding: 0 18px 18px; flex: 1; overflow-y: auto; }
+    .sidebar-top-area { padding: 0 18px 18px; }
     .brand-box { display: flex; align-items: center; gap: 12px; padding: 0 4px 22px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; }
 
     .logo-img {
@@ -547,10 +598,6 @@ function isActive($page, $currentPage) {
           <span class="nav-icon"><i class="fas fa-award"></i></span>
           <span>Certificates</span>
         </a>
-<a href="admin_email_notifications.php" class="nav-link-custom">
-          <span class="nav-icon"><i class="fas fa-envelope"></i></span>
-          <span>Email Notifications</span>
-        </a>
 
       </div>
       </div>
@@ -648,11 +695,6 @@ function isActive($page, $currentPage) {
             <div class="col-md-4">
               <label class="form-label">Details</label>
               <input type="text" name="details" class="form-control" placeholder="Python basics / Demo class / etc.">
-            </div>
-
-            <div class="col-md-8">
-              <label class="form-label">Zoom Link <span class="text-muted fw-normal">(optional)</span></label>
-              <input type="url" name="zoom_link" class="form-control" placeholder="https://zoom.us/j/...">
             </div>
 
             <div class="col-12">
@@ -815,7 +857,6 @@ function openEditModal(classId) {
   document.getElementById('em-date').value         = c.class_date    || '';
   document.getElementById('em-time').value         = c.class_time    || '';
   document.getElementById('em-details').value      = c.details       || '';
-  document.getElementById('em-zoom').value         = c.zoom_link     || '';
 
   // Build teacher dropdown
   const tSel = document.getElementById('em-teacher');
@@ -859,7 +900,6 @@ function saveEdit() {
     class_time:   document.getElementById('em-time').value,
     type:         document.getElementById('em-type').value,
     details:      document.getElementById('em-details').value,
-    zoom_link:    document.getElementById('em-zoom').value,
   });
 
   const saveBtn = document.getElementById('em-save-btn');
@@ -931,11 +971,6 @@ function saveEdit() {
         <div>
           <label style="font-weight:800;font-size:0.88rem;color:#334155;display:block;margin-bottom:5px;">Type</label>
           <select id="em-type" style="width:100%;border:1px solid #dbeafe;border-radius:12px;padding:10px 12px;font-size:0.93rem;"></select>
-        </div>
-
-        <div>
-          <label style="font-weight:800;font-size:0.88rem;color:#334155;display:block;margin-bottom:5px;">Zoom Link <span style="font-weight:500;color:#94a3b8;">(optional)</span></label>
-          <input id="em-zoom" type="url" placeholder="https://zoom.us/j/..." style="width:100%;border:1px solid #dbeafe;border-radius:12px;padding:10px 12px;font-size:0.93rem;box-sizing:border-box;">
         </div>
 
         <div style="grid-column:1/-1;">
@@ -1028,3 +1063,4 @@ function confirmDelete() {
 <script src="logout-modal.js"></script>
 </body>
 </html>
+

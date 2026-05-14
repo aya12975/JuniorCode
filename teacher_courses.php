@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 require_once "db.php";
 require_once 'notifications.php';
@@ -282,7 +282,7 @@ function renderCourseCards(array $courses): string {
 
     .nav-link-custom.active .nav-icon { background: rgba(255,255,255,0.18); }
 
-    .sidebar-bottom { padding: 16px; border-top: 1px solid rgba(255,255,255,0.1); }
+    .sidebar-bottom { padding: 16px; }
 
     .main { margin-left: 260px; padding: 26px; min-height: 100vh; transition: margin-left 0.3s ease; }
     body.sidebar-collapsed .main { margin-left: 0; }
@@ -813,3 +813,4 @@ function markAllRead() {
 </script>
 </body>
 </html>
+

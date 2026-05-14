@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 require_once "db.php";
 require_once 'notifications.php';
@@ -120,7 +120,7 @@ body { font-family: Arial, Helvetica, sans-serif; background: #f0f4ff; color: va
   padding: 22px 16px 18px; position: sticky; top: 0; height: 100vh; overflow-y: auto;
   transition: width 0.3s ease, padding 0.3s ease, min-width 0.3s ease;
 }
-body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: hidden; }
+body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow-y: auto; }
 
 /* ── Hamburger ── */
 .hamburger-btn { display:flex; flex-direction:column; gap:5px; cursor:pointer; background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; margin-bottom:18px; width:fit-content; box-shadow:0 2px 8px rgba(0,0,0,0.06); transition:background 0.2s; }
@@ -140,7 +140,7 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: 
 .nav-link-custom.active { background: linear-gradient(135deg, var(--primary), var(--secondary)); color: #fff; }
 .nav-icon { width: 32px; height: 32px; border-radius: 9px; background: rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .nav-link-custom.active .nav-icon { background: rgba(255,255,255,0.18); }
-.sidebar-bottom { margin-top: auto; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.08); }
+.sidebar-bottom { margin-top: auto; padding-top: 14px; }
 
 /* ── Main ── */
 .main { flex: 1; padding: 28px; overflow-y: auto; }
@@ -519,3 +519,5 @@ function markAllRead() {
 </script>
 </body>
 </html>
+
+

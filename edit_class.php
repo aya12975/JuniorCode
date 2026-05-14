@@ -1,6 +1,9 @@
-<?php
+﻿<?php
 session_start();
 require_once "db.php";
+require_once "admin_prefs.php";
+require_once "mailer.php";
+require_once "notifications.php";
 
 if (!isset($_SESSION["role"]) || $_SESSION["role"] !== "admin") {
     header("Location: login.php");
@@ -72,6 +75,70 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         } else {
             $stmt2->bind_param("isssssssi", $teacher_id, $teacher_name, $student_name, $class_date, $class_time, $type, $details, $zoom_link, $id);
             if ($stmt2->execute()) {
+                /* ── Detect what changed ── */
+                $changes = [];
+                if ($class["class_date"] !== $class_date)
+                    $changes[] = "date: " . date("d M Y", strtotime($class["class_date"])) . " → " . date("d M Y", strtotime($class_date));
+                if ($class["class_time"] !== $class_time)
+                    $changes[] = "time: " . date("g:i A", strtotime($class["class_time"])) . " → " . date("g:i A", strtotime($class_time));
+                if (strtolower($class["teacher_name"]) !== strtolower($teacher_name))
+                    $changes[] = "teacher: {$class['teacher_name']} → $teacher_name";
+                if ($class["student_name"] !== $student_name)
+                    $changes[] = "student: {$class['student_name']} → $student_name";
+                if ($class["type"] !== $type)
+                    $changes[] = "type: {$class['type']} → $type";
+
+                $changesSummary = $changes ? implode("; ", $changes) : "details updated";
+
+                /* ── SMTP config ── */
+                $smtpHost  = getAdminSetting($conn, "smtp_host", "");
+                $smtpPort  = (int)getAdminSetting($conn, "smtp_port", 587);
+                $smtpUser  = getAdminSetting($conn, "smtp_user", "");
+                $smtpPass  = getAdminSetting($conn, "smtp_pass", "");
+                $fromName  = getAdminSetting($conn, "smtp_from_name", "JuniorCode");
+                $smtpReady = $smtpHost && $smtpUser && $smtpPass;
+
+                $notifMsg = "Your class (" . htmlspecialchars($student_name) . " / " . htmlspecialchars($teacher_name) . ") was updated: $changesSummary.";
+
+                /* ── Notify teacher ── */
+                if ($teacher_id > 0) {
+                    addNotification($conn, $teacher_id, "class", "Class updated", $notifMsg);
+                    if ($smtpReady) {
+                        $tStmt = $conn->prepare("SELECT email FROM users WHERE id = ? LIMIT 1");
+                        if ($tStmt) {
+                            $tStmt->bind_param("i", $teacher_id);
+                            $tStmt->execute();
+                            $tEmail = trim($tStmt->get_result()->fetch_assoc()["email"] ?? "");
+                            $tStmt->close();
+                            if ($tEmail) {
+                                $html = buildClassUpdatedEmail($teacher_name, $teacher_name, $student_name, $class_date, $class_time, $type, $changesSummary);
+                                (new Mailer($smtpHost, $smtpPort, $smtpUser, $smtpPass, $fromName))
+                                    ->send($tEmail, $teacher_name, "Class updated — $student_name on " . date("d M Y", strtotime($class_date)), $html);
+                            }
+                        }
+                    }
+                }
+
+                /* ── Notify student ── */
+                $sStmt = $conn->prepare("SELECT id, email FROM users WHERE username = ? AND role = 'student' LIMIT 1");
+                if ($sStmt) {
+                    $sStmt->bind_param("s", $student_name);
+                    $sStmt->execute();
+                    $sRow = $sStmt->get_result()->fetch_assoc();
+                    $sStmt->close();
+                    if ($sRow) {
+                        addNotification($conn, (int)$sRow["id"], "class", "Class updated", $notifMsg);
+                        if ($smtpReady) {
+                            $sEmail = trim($sRow["email"] ?? "");
+                            if ($sEmail) {
+                                $html = buildClassUpdatedEmail($student_name, $teacher_name, $student_name, $class_date, $class_time, $type, $changesSummary);
+                                (new Mailer($smtpHost, $smtpPort, $smtpUser, $smtpPass, $fromName))
+                                    ->send($sEmail, $student_name, "Class updated — " . date("d M Y", strtotime($class_date)), $html);
+                            }
+                        }
+                    }
+                }
+
                 header("Location: manage_classes.php?updated=1");
                 exit();
             } else {
@@ -117,12 +184,12 @@ function isActive($page, $current) { return $page === $current ? "active" : ""; 
       background: linear-gradient(180deg, #0f172a 0%, #172554 100%);
       color: white; padding:  0;
       position: sticky; top: 0; height: 100vh; flex-shrink: 0;
-      transition: width 0.3s ease, padding 0.3s ease, min-width 0.3s ease; overflow: hidden;
+      transition: width 0.3s ease, padding 0.3s ease, min-width 0.3s ease; overflow-y: auto;
   display: flex; flex-direction: column;
     }
-    body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: hidden; }
-.sidebar-bottom { padding: 16px 18px; border-top: 1px solid rgba(255,255,255,0.1); }
-    .sidebar-top-area { padding: 0 18px 18px; flex: 1; overflow-y: auto; }
+    body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow-y: auto; }
+.sidebar-bottom { padding: 16px 18px; }
+    .sidebar-top-area { padding: 0 18px 18px; }
     .brand-box { display: flex; align-items: center; gap: 12px; padding: 0 4px 22px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; }
     .logo-img { width: 55px; height: 55px; object-fit: contain; border-radius: 12px; flex-shrink: 0; }
     .brand-title { font-weight: 900; font-size: 1.1rem; line-height: 1.15; }
@@ -223,7 +290,6 @@ function isActive($page, $current) { return $page === $current ? "active" : ""; 
       <a href="courses.php"          class="nav-link-custom"><span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>Courses</span></a>
       <a href="reports.php"          class="nav-link-custom"><span class="nav-icon"><i class="fas fa-chart-bar"></i></span><span>Reports</span></a>
       <a href="admin_certificates.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-award"></i></span><span>Certificates</span></a>
-<a href="admin_email_notifications.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-envelope"></i></span><span>Email Notifications</span></a>
     </div>
       </div>
       <div class="sidebar-bottom">
@@ -243,7 +309,7 @@ function isActive($page, $current) { return $page === $current ? "active" : ""; 
     <div class="topbar">
       <div>
         <h1>Edit Class</h1>
-        <p>Update class details or modify the Zoom link.</p>
+        <p>Update class details.</p>
       </div>
       <div class="admin-badge"><i class="fas fa-user-shield me-2"></i>Hello, <?= htmlspecialchars($adminName) ?> &nbsp;·&nbsp; <?= date("d M Y") ?></div>
     </div>
@@ -309,29 +375,7 @@ function isActive($page, $current) { return $page === $current ? "active" : ""; 
             <textarea name="details" class="form-control" rows="3"><?= htmlspecialchars($class["details"]) ?></textarea>
           </div>
 
-          <div class="col-12">
-            <label class="form-label">
-              <i class="fas fa-video" style="color:#2D8CFF;margin-right:6px;"></i>
-              Zoom Link <span class="text-muted fw-normal">(optional)</span>
-            </label>
-            <input type="url" name="zoom_link" id="zoomInput" class="form-control"
-                   placeholder="https://zoom.us/j/..."
-                   value="<?= htmlspecialchars($class["zoom_link"] ?? "") ?>"
-                   oninput="updateZoomPreview(this.value)">
-
-            <!-- Live Zoom preview -->
-            <div class="zoom-preview" id="zoomPreview"
-                 style="<?= empty($class["zoom_link"]) ? 'display:none;' : '' ?>">
-              <a href="<?= htmlspecialchars($class["zoom_link"] ?? "") ?>"
-                 id="zoomOpenBtn" target="_blank" rel="noopener">
-                <i class="fas fa-video"></i> Open Zoom
-              </a>
-              <span class="zoom-url" id="zoomUrlText"><?= htmlspecialchars($class["zoom_link"] ?? "") ?></span>
-              <button type="button" class="btn-copy" id="copyBtn" onclick="copyZoom()">
-                <i class="fas fa-copy"></i> Copy
-              </button>
-            </div>
-          </div>
+          <input type="hidden" name="zoom_link" value="<?= htmlspecialchars($class["zoom_link"] ?? "") ?>">
 
           <div class="col-12 d-flex gap-3 flex-wrap mt-2">
             <button type="submit" class="btn-main">
@@ -382,3 +426,5 @@ function copyZoom() {
 <script src="logout-modal.js"></script>
 </body>
 </html>
+
+

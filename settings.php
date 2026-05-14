@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 require_once "db.php";
 
@@ -12,6 +12,7 @@ $adminName   = $_SESSION["username"] ?? "Admin";
 
 // Load prefs before POST so $adminTheme/$adminLang are set
 require_once "admin_prefs.php";
+require_once "mailer.php";
 
 $message     = "";
 $messageType = "success";
@@ -118,12 +119,64 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $messageType = 'success';
     }
 
+    // ── SMTP — save ────────────────────────────────────────────
+    elseif ($action === 'smtp') {
+        foreach (["smtp_host","smtp_port","smtp_user","smtp_pass","smtp_from_name"] as $f) {
+            $v = trim($_POST[$f] ?? "");
+            if ($v !== "") saveAdminSetting($conn, $f, $v);
+        }
+        $message     = "SMTP settings saved.";
+        $messageType = "success";
+    }
+
+    // ── SMTP — test send ───────────────────────────────────────
+    elseif ($action === 'smtp_test') {
+        foreach (["smtp_host","smtp_port","smtp_user","smtp_pass","smtp_from_name"] as $f) {
+            $v = trim($_POST[$f] ?? "");
+            if ($v !== "") saveAdminSetting($conn, $f, $v);
+        }
+        $host = trim($_POST["smtp_host"]      ?? "") ?: getAdminSetting($conn, "smtp_host",      "");
+        $port = (int)(trim($_POST["smtp_port"] ?? "") ?: getAdminSetting($conn, "smtp_port",     "587"));
+        $user = trim($_POST["smtp_user"]      ?? "") ?: getAdminSetting($conn, "smtp_user",      "");
+        $pass = trim($_POST["smtp_pass"]      ?? "") ?: getAdminSetting($conn, "smtp_pass",      "");
+        $name = trim($_POST["smtp_from_name"] ?? "") ?: getAdminSetting($conn, "smtp_from_name", "JuniorCode");
+        $to   = trim($_POST["test_email"]     ?? "");
+
+        if (!$host || !$user || !$pass) {
+            $message     = "Fill in the SMTP fields first.";
+            $messageType = "danger";
+        } elseif (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
+            $message     = "Please enter a valid recipient email.";
+            $messageType = "danger";
+        } else {
+            $sampleClasses = [
+                ['class_time'=>'09:00:00','student_name'=>'Ahmed','type'=>'online','zoom_link'=>''],
+                ['class_time'=>'11:00:00','student_name'=>'Sara', 'type'=>'on-site','zoom_link'=>''],
+            ];
+            $html   = buildReminderEmail("Test Teacher", date("l, d F Y"), 2, $sampleClasses);
+            $mailer = new Mailer($host, $port, $user, $pass, $name);
+            $ok     = $mailer->send($to, "Test Teacher", "Test — JuniorCode Class Reminder", $html);
+            $message     = $ok ? "Test email sent to $to successfully!" : $mailer->lastError();
+            $messageType = $ok ? "success" : "danger";
+        }
+    }
+
 }
 
 $admin_email       = getAdminSetting($conn, "admin_email",       "admin@juniorcode.com");
 $ai_api_key        = getAdminSetting($conn, "claude_api_key",    "");
 $ai_model          = getAdminSetting($conn, "claude_model",      "gemini-2.5-flash");
 $ai_daily_limit    = (int)getAdminSetting($conn, "chat_daily_limit", "30");
+$curHost  = getAdminSetting($conn, "smtp_host",      "smtp.gmail.com");
+$curPort  = getAdminSetting($conn, "smtp_port",      "587");
+$curUser  = getAdminSetting($conn, "smtp_user",      "");
+$curPass  = getAdminSetting($conn, "smtp_pass",      "");
+$curName  = getAdminSetting($conn, "smtp_from_name", "JuniorCode");
+function maskSmtp(string $v): string {
+    if (!$v) return "";
+    if (strlen($v) <= 6) return str_repeat("•", strlen($v));
+    return substr($v,0,3) . str_repeat("•", max(0,strlen($v)-6)) . substr($v,-3);
+}
 function maskKey(string $k): string {
     if (strlen($k) < 12) return $k ? "AIza••••••••" : "";
     return substr($k, 0, 8) . str_repeat("•", max(0, strlen($k) - 12)) . substr($k, -4);
@@ -174,12 +227,12 @@ function isActive($page, $cur) { return $page === $cur ? "active" : ""; }
       padding:  0;
       position: sticky; top: 0;
       height: 100vh; flex-shrink: 0;
-      transition: width 0.3s ease, padding 0.3s ease, min-width 0.3s ease; overflow: hidden;
+      transition: width 0.3s ease, padding 0.3s ease, min-width 0.3s ease; overflow-y: auto;
       display: flex; flex-direction: column;
     }
-    .sidebar-bottom { padding: 16px 18px; border-top: 1px solid rgba(255,255,255,0.1); }
-    body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: hidden; }
-    .sidebar-top-area { padding: 0 18px 18px; flex: 1; overflow-y: auto; }
+    .sidebar-bottom { padding: 16px 18px; }
+    body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow-y: auto; }
+    .sidebar-top-area { padding: 0 18px 18px; }
     .brand-box { display: flex; align-items: center; gap: 12px; padding: 0 4px 22px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; }
     .logo-img { width:55px; height:55px; object-fit:contain; border-radius:12px; background:none; flex-shrink:0; }
     .brand-title { font-weight:900; font-size:1.1rem; line-height:1.15; }
@@ -315,6 +368,10 @@ function isActive($page, $cur) { return $page === $cur ? "active" : ""; }
       .topbar { flex-direction:column; align-items:flex-start; }
       .theme-opt { min-width:120px; }
     }
+    @media(max-width:768px){
+      .smtp-grid  { grid-template-columns:1fr !important; }
+      .smtp-grid2 { grid-template-columns:1fr !important; }
+    }
   </style>
 </head>
 <body>
@@ -371,10 +428,6 @@ function isActive($page, $cur) { return $page === $cur ? "active" : ""; }
         <span class="nav-icon"><i class="fas fa-award"></i></span>
         <span>Certificates</span>
       </a>
-<a href="admin_email_notifications.php" class="nav-link-custom <?= isActive('admin_email_notifications.php',$currentPage) ?>">
-        <span class="nav-icon"><i class="fas fa-envelope"></i></span>
-        <span>Email Notifications</span>
-      </a>
     </div>
     </div>
     <div class="sidebar-bottom">
@@ -425,6 +478,9 @@ function isActive($page, $cur) { return $page === $cur ? "active" : ""; }
       </button>
       <button class="settings-tab-btn" onclick="showTab('ai_tutor',this)">
         <i class="fas fa-robot me-1"></i> AI Tutor
+      </button>
+      <button class="settings-tab-btn" onclick="showTab('smtp',this)">
+        <i class="fas fa-envelope me-1"></i> Email / SMTP
       </button>
     </div>
 
@@ -678,13 +734,88 @@ function isActive($page, $cur) { return $page === $cur ? "active" : ""; }
       </form>
     </div>
 
+    <!-- ════════════════════════════════════
+         TAB 5 — Email / SMTP
+    ════════════════════════════════════ -->
+    <div id="tab-smtp" style="display:none">
+      <div class="panel-card">
+        <h2 class="panel-title"><i class="fas fa-envelope me-2" style="color:#7c3aed;"></i>Email (SMTP)</h2>
+        <p class="panel-sub">Used to send teachers their class notifications and reminders.</p>
+
+        <form method="POST">
+          <input type="hidden" name="action" value="smtp">
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label fw-bold">SMTP Host</label>
+              <input type="text" name="smtp_host" id="smtp_host" class="form-control"
+                     value="<?= htmlspecialchars($curHost) ?>" placeholder="smtp.gmail.com">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label fw-bold">Port</label>
+              <select name="smtp_port" id="smtp_port" class="form-select">
+                <option value="587" <?= $curPort === '587' ? 'selected' : '' ?>>587 (STARTTLS)</option>
+                <option value="465" <?= $curPort === '465' ? 'selected' : '' ?>>465 (SSL)</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label fw-bold">Sender Name</label>
+              <input type="text" name="smtp_from_name" class="form-control"
+                     value="<?= htmlspecialchars($curName) ?>" placeholder="JuniorCode">
+            </div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label fw-bold">Gmail Address</label>
+              <input type="email" name="smtp_user" class="form-control"
+                     value="<?= htmlspecialchars($curUser) ?>" placeholder="your@gmail.com">
+              <?php if ($curUser): ?>
+                <div class="form-text" style="color:#16a34a;font-weight:700;"><i class="fas fa-check-circle me-1"></i>Currently: <?= htmlspecialchars($curUser) ?></div>
+              <?php endif; ?>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-bold">
+                App Password
+                <?php if ($curPass): ?><span style="color:#16a34a;font-size:0.78rem;font-weight:700;margin-left:6px;"><i class="fas fa-check-circle me-1"></i>Set</span><?php endif; ?>
+              </label>
+              <div class="input-group">
+                <input type="password" name="smtp_pass" id="smtpPass" class="form-control"
+                       placeholder="<?= $curPass ? '(leave blank to keep current)' : '16-char app password' ?>">
+                <button type="button" class="btn btn-outline-secondary" onclick="toggleSmtpPass()">
+                  <i class="fas fa-eye" id="smtpPassEye"></i>
+                </button>
+              </div>
+              <div class="form-text">Use a Gmail <strong>App Password</strong> — not your regular password</div>
+            </div>
+          </div>
+
+          <hr style="border:none;border-top:1px solid #f1f5f9;margin:18px 0;">
+
+          <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+            <div style="flex:1;min-width:220px;">
+              <label class="form-label fw-bold">Test — send a sample email to:</label>
+              <input type="email" name="test_email" id="smtp_test_email" class="form-control" placeholder="someone@example.com">
+            </div>
+            <button type="submit" onclick="this.form.querySelector('[name=action]').value='smtp_test';return validateSmtpTest()"
+                    style="padding:11px 22px;border:none;border-radius:12px;background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;font-weight:800;cursor:pointer;">
+              <i class="fas fa-paper-plane me-1"></i> Send Test
+            </button>
+            <button type="submit" class="btn-main" style="padding:11px 22px;">
+              <i class="fas fa-floppy-disk me-1"></i> Save
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
   </main>
 </div>
 
 <script>
 // ── Tab switching ──────────────────────────────────────────────
 function showTab(id, btn) {
-  ['appearance','account','zoom','ai_tutor'].forEach(function(t) {
+  ['appearance','account','zoom','ai_tutor','smtp'].forEach(function(t) {
     document.getElementById('tab-' + t).style.display = (t === id) ? '' : 'none';
   });
   document.querySelectorAll('.settings-tab-btn').forEach(function(b) {
@@ -736,6 +867,18 @@ function togglePwd(id, btn) {
   btn.querySelector('i').className = showing ? 'fas fa-eye' : 'fas fa-eye-slash';
 }
 
+// ── SMTP helpers ───────────────────────────────────────────────
+function toggleSmtpPass() {
+  var inp = document.getElementById('smtpPass');
+  var ico = document.getElementById('smtpPassEye');
+  if (inp.type === 'password') { inp.type = 'text'; ico.className = 'fas fa-eye-slash'; }
+  else { inp.type = 'password'; ico.className = 'fas fa-eye'; }
+}
+function validateSmtpTest() {
+  var to = document.getElementById('smtp_test_email').value.trim();
+  if (!to) { alert('Please enter a recipient email address for the test.'); return false; }
+  return true;
+}
 // ── Sync localStorage on page load ────────────────────────────
 (function() {
   var savedTheme = '<?= $adminTheme ?>';
@@ -745,3 +888,5 @@ function togglePwd(id, btn) {
 <script src="logout-modal.js"></script>
 </body>
 </html>
+
+

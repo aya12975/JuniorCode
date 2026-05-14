@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 require_once "db.php";
 
@@ -113,7 +113,7 @@ $waDisplay = $wa ? '+' . $wa : '';
     }
 
     .nav-link-custom.active .nav-icon { background: rgba(255,255,255,0.18); }
-    .sidebar-bottom { padding: 16px; border-top: 1px solid rgba(255,255,255,0.1); }
+    .sidebar-bottom { padding: 16px; }
 
     /* ── Main ── */
     .main { margin-left: 255px; padding: 28px; min-height: 100vh; transition: margin-left 0.3s ease; }
@@ -438,3 +438,4 @@ $waDisplay = $wa ? '+' . $wa : '';
 <script src="logout-modal.js"></script>
 </body>
 </html>
+

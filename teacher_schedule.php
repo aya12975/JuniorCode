@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 require_once "db.php";
 require_once 'notifications.php';
@@ -202,7 +202,6 @@ $nextWeek = date("Y-m-d", strtotime("+7 days", $startTimestamp));
 
     .sidebar-bottom {
       padding: 16px;
-      border-top: 1px solid rgba(255,255,255,0.1);
     }
 
     /* ── Main ── */
@@ -799,3 +798,4 @@ function markAllRead() {
 </script>
 </body>
 </html>
+

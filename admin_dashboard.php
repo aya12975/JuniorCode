@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 require_once "db.php";
 
@@ -111,10 +111,10 @@ require_once "admin_prefs.php";
       height: 100vh;
       display: flex; flex-direction: column;
       transition: width 0.3s ease, padding 0.3s ease, min-width 0.3s ease;
-      overflow: hidden;
+      overflow-y: auto;
     }
-    .sidebar-top-area { padding: 0 18px 18px; flex: 1; overflow-y: auto; }
-    .sidebar-bottom { padding: 16px 18px; border-top: 1px solid rgba(255,255,255,0.1); }
+    .sidebar-top-area { padding: 0 18px 18px; }
+    .sidebar-bottom { padding: 16px 18px; }
     body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; }
 
     .brand {
@@ -363,9 +363,6 @@ require_once "admin_prefs.php";
         <a href="admin_certificates.php" class="nav-link-custom <?= isActive('admin_certificates.php', $currentPage) ?>">
           <span class="nav-icon"><i class="fas fa-award"></i></span><span>Certificates</span>
         </a>
-<a href="admin_email_notifications.php" class="nav-link-custom <?= isActive('admin_email_notifications.php', $currentPage) ?>">
-          <span class="nav-icon"><i class="fas fa-envelope"></i></span><span>Email Notifications</span>
-        </a>
       </div>
     </div>
 
@@ -573,3 +570,5 @@ require_once "admin_prefs.php";
 <script src="logout-modal.js"></script>
 </body>
 </html>
+
+

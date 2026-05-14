@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 require_once "db.php";
 require_once 'notifications.php';
@@ -133,7 +133,7 @@ body.sidebar-collapsed .sidebar { transform:translateX(-260px); }
 .nav-link-custom.active { background:linear-gradient(135deg,var(--primary),var(--secondary)); color:#fff; box-shadow:0 8px 20px rgba(30,50,100,0.35); }
 .nav-icon { width:32px; height:32px; border-radius:10px; background:rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0; }
 .nav-link-custom.active .nav-icon { background:rgba(255,255,255,0.18); }
-.sidebar-bottom { padding:16px; border-top:1px solid rgba(255,255,255,0.1); }
+.sidebar-bottom { padding:16px; }
 
 .main { margin-left:260px; padding:26px; min-height:100vh; transition:margin-left 0.3s; }
 body.sidebar-collapsed .main { margin-left:0; }
@@ -809,3 +809,4 @@ function markAllRead() {
 </script>
 </body>
 </html>
+

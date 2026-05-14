@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 require_once "db.php";
 
@@ -16,15 +16,16 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["edit_user_id"])) {
     $username = trim($_POST["username"] ?? "");
     $role     = trim($_POST["role"] ?? "");
     $password = trim($_POST["password"] ?? "");
+    $email    = trim($_POST["email"] ?? "");
 
     if ($username !== "" && $role !== "") {
         if ($password !== "") {
             $hashed = password_hash($password, PASSWORD_DEFAULT);
-            $stmt = $conn->prepare("UPDATE users SET username=?, password=?, plain_password=?, role=? WHERE id=?");
-            $stmt->bind_param("ssssi", $username, $hashed, $password, $role, $editId);
+            $stmt = $conn->prepare("UPDATE users SET username=?, password=?, plain_password=?, role=?, email=? WHERE id=?");
+            $stmt->bind_param("sssssi", $username, $hashed, $password, $role, $email, $editId);
         } else {
-            $stmt = $conn->prepare("UPDATE users SET username=?, role=? WHERE id=?");
-            $stmt->bind_param("ssi", $username, $role, $editId);
+            $stmt = $conn->prepare("UPDATE users SET username=?, role=?, email=? WHERE id=?");
+            $stmt->bind_param("sssi", $username, $role, $email, $editId);
         }
         $stmt->execute();
     }
@@ -41,7 +42,7 @@ if ($chk && $chk->num_rows === 0) {
     $conn->query("ALTER TABLE users ADD COLUMN plain_password VARCHAR(255) NOT NULL DEFAULT ''");
 }
 
-$sql = "SELECT id, username, plain_password, role FROM users WHERE 1=1";
+$sql = "SELECT id, username, email, plain_password, role FROM users WHERE 1=1";
 $params = [];
 $types = "";
 
@@ -114,14 +115,14 @@ function isActive($page, $currentPage) {
       position: sticky;
       top: 0;
       height: 100vh;
-      transition: width 0.3s ease, padding 0.3s ease, min-width 0.3s ease; overflow: hidden;
+      transition: width 0.3s ease, padding 0.3s ease, min-width 0.3s ease; overflow-y: auto;
       display: flex; flex-direction: column;
     }
-    .sidebar-bottom { padding: 16px 18px; border-top: 1px solid rgba(255,255,255,0.1); }
+    .sidebar-bottom { padding: 16px 18px; }
 
-    body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow: hidden; }
+    body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow-y: auto; }
 
-    .sidebar-top-area { padding: 0 18px 18px; flex: 1; overflow-y: auto; }
+    .sidebar-top-area { padding: 0 18px 18px; }
     .brand-box { display: flex; align-items: center; gap: 12px; padding: 0 4px 22px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; }
 
     .logo-img {
@@ -443,10 +444,6 @@ function isActive($page, $currentPage) {
           <span class="nav-icon"><i class="fas fa-award"></i></span>
           <span>Certificates</span>
         </a>
-<a href="admin_email_notifications.php" class="nav-link-custom">
-          <span class="nav-icon"><i class="fas fa-envelope"></i></span>
-          <span>Email Notifications</span>
-        </a>
 
       </div>
       </div>
@@ -517,6 +514,7 @@ function isActive($page, $currentPage) {
                 <tr>
                   <th>ID</th>
                   <th>Username</th>
+                  <th>Email</th>
                   <th>Password</th>
                   <th>Role</th>
                   <th style="width: 160px;">Actions</th>
@@ -527,6 +525,15 @@ function isActive($page, $currentPage) {
                   <tr>
                     <td><?php echo htmlspecialchars($user["id"]); ?></td>
                     <td><?php echo htmlspecialchars($user["username"]); ?></td>
+                    <td>
+                      <?php if ($user["email"] !== '' && $user["email"] !== null): ?>
+                        <a href="mailto:<?= htmlspecialchars($user['email']) ?>" style="color:var(--primary);font-weight:700;text-decoration:none;">
+                          <?= htmlspecialchars($user['email']) ?>
+                        </a>
+                      <?php else: ?>
+                        <span style="color:var(--muted);font-size:.85rem;">—</span>
+                      <?php endif; ?>
+                    </td>
                     <td>
                       <?php if ($user["role"] === "admin"): ?>
                         <span style="color:var(--muted);font-size:.85rem;">—</span>
@@ -550,7 +557,7 @@ function isActive($page, $currentPage) {
                     </td>
                     <td>
                       <button class="action-btn edit-btn" style="background:none;border:none;padding:0;cursor:pointer;"
-                        onclick="openEditModal(<?= $user['id'] ?>, '<?= htmlspecialchars(addslashes($user['username'])) ?>', '<?= htmlspecialchars($user['role']) ?>')">Edit</button>
+                        onclick="openEditModal(<?= $user['id'] ?>, '<?= htmlspecialchars(addslashes($user['username'])) ?>', '<?= htmlspecialchars($user['role']) ?>', '<?= htmlspecialchars(addslashes($user['email'] ?? '')) ?>')">Edit</button>
                       <a href="delete_user.php?id=<?php echo $user["id"]; ?>" class="action-btn delete-btn">Delete</a>
                     </td>
                   </tr>
@@ -587,6 +594,11 @@ function isActive($page, $currentPage) {
       <div style="margin-bottom:18px;">
         <label style="font-weight:800;color:#334155;display:block;margin-bottom:8px;">Username</label>
         <input type="text" name="username" id="modal_username" class="form-control" required>
+      </div>
+
+      <div style="margin-bottom:18px;">
+        <label style="font-weight:800;color:#334155;display:block;margin-bottom:8px;">Email</label>
+        <input type="email" name="email" id="modal_email" class="form-control" placeholder="user@example.com">
       </div>
 
       <div style="margin-bottom:18px;">
@@ -632,10 +644,11 @@ function isActive($page, $currentPage) {
 </style>
 
 <script>
-function openEditModal(id, username, role) {
+function openEditModal(id, username, role, email) {
   document.getElementById('modal_id').value       = id;
   document.getElementById('modal_username').value = username;
   document.getElementById('modal_role').value     = role;
+  document.getElementById('modal_email').value    = email || '';
   document.getElementById('modal_password').value = '';
   document.getElementById('modal_eye').className  = 'fas fa-eye';
   document.getElementById('modal_password').type  = 'password';
@@ -681,3 +694,4 @@ function togglePwd(idx) {
 <script src="logout-modal.js"></script>
 </body>
 </html>
+

@@ -451,6 +451,250 @@ function buildNewStudentEmail(string $teacherName, string $studentName, string $
 HTML;
 }
 
+// ── Session milestone notification ────────────────────────────────────────────
+function buildSessionMilestoneEmail(string $studentName, int $sessionCount): string {
+    return <<<HTML
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:32px 0;">
+  <tr><td align="center">
+    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+
+      <tr><td style="background:linear-gradient(135deg,#7c3aed,#4f46e5);border-radius:18px 18px 0 0;padding:28px 32px;text-align:center;">
+        <div style="font-size:26px;font-weight:900;color:#fff;letter-spacing:-0.5px;">JuniorCode</div>
+        <div style="color:rgba(255,255,255,0.75);font-size:13px;margin-top:4px;letter-spacing:2px;">SESSION MILESTONE</div>
+      </td></tr>
+
+      <tr><td style="background:#fff;padding:28px 32px;text-align:center;">
+        <div style="font-size:52px;margin-bottom:14px;">🎉</div>
+        <p style="margin:0 0 8px;font-size:22px;font-weight:900;color:#0f172a;">Congratulations, {$studentName}!</p>
+        <p style="margin:0 0 24px;color:#64748b;font-size:15px;">You have completed <strong style="color:#7c3aed;">{$sessionCount} sessions</strong> with JuniorCode.</p>
+
+        <div style="background:linear-gradient(135deg,#f5f3ff,#ede9fe);border:1px solid #ddd6fe;border-radius:16px;padding:22px 28px;margin-bottom:24px;">
+          <div style="font-size:42px;font-weight:900;color:#7c3aed;line-height:1;">{$sessionCount}</div>
+          <div style="font-size:13px;color:#6d28d9;font-weight:700;margin-top:4px;letter-spacing:1px;">SESSIONS COMPLETED</div>
+        </div>
+
+        <p style="margin:0 0 20px;color:#334155;font-size:14px;line-height:1.6;">
+          You've reached your <strong>{$sessionCount}-session milestone</strong>!<br>
+          To keep learning and growing, please <strong>renew your registration</strong> with the admin.
+        </p>
+
+        <div style="background:#fefce8;border:1px solid #fde047;border-radius:12px;padding:14px 18px;font-size:14px;color:#854d0e;font-weight:700;">
+          Contact us to renew and continue your coding journey! 🚀
+        </div>
+      </td></tr>
+
+      <tr><td style="background:#f8fbff;border-radius:0 0 18px 18px;padding:18px 32px;text-align:center;border-top:1px solid #e2e8f0;">
+        <p style="margin:0;font-size:12px;color:#94a3b8;">This is an automated notification from JuniorCode.</p>
+      </td></tr>
+
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>
+HTML;
+}
+
+// ── Class updated / rescheduled notification ──────────────────────────────────
+function buildClassUpdatedEmail(
+    string $recipientName,
+    string $teacherName,
+    string $studentName,
+    string $newDate,
+    string $newTime,
+    string $classType,
+    string $changesSummary
+): string {
+    $formattedDate = date("l, d F Y", strtotime($newDate));
+    $formattedTime = date("g:i A",    strtotime($newTime));
+    return <<<HTML
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:32px 0;">
+  <tr><td align="center">
+    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+
+      <tr><td style="background:linear-gradient(135deg,#3e5077,#143674);border-radius:18px 18px 0 0;padding:28px 32px;text-align:center;">
+        <div style="font-size:26px;font-weight:900;color:#fff;letter-spacing:-0.5px;">JuniorCode</div>
+        <div style="color:rgba(255,255,255,0.75);font-size:13px;margin-top:4px;letter-spacing:2px;">CLASS UPDATED</div>
+      </td></tr>
+
+      <tr><td style="background:#fff;padding:28px 32px;">
+        <div style="font-size:40px;text-align:center;margin-bottom:18px;">📅</div>
+        <p style="margin:0 0 6px;font-size:18px;font-weight:900;color:#0f172a;text-align:center;">Hi {$recipientName},</p>
+        <p style="margin:0 0 24px;color:#64748b;font-size:14px;text-align:center;">A class has been updated by the admin. Here are the new details.</p>
+
+        <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;border-collapse:collapse;">
+          <tr style="background:#f8fbff;">
+            <td style="padding:11px 16px;font-size:13px;font-weight:700;color:#64748b;width:120px;border-bottom:1px solid #f1f5f9;">Teacher</td>
+            <td style="padding:11px 16px;font-weight:800;color:#0f172a;border-bottom:1px solid #f1f5f9;">{$teacherName}</td>
+          </tr>
+          <tr>
+            <td style="padding:11px 16px;font-size:13px;font-weight:700;color:#64748b;border-bottom:1px solid #f1f5f9;">Student</td>
+            <td style="padding:11px 16px;font-weight:800;color:#0f172a;border-bottom:1px solid #f1f5f9;">{$studentName}</td>
+          </tr>
+          <tr style="background:#f8fbff;">
+            <td style="padding:11px 16px;font-size:13px;font-weight:700;color:#64748b;border-bottom:1px solid #f1f5f9;">New Date</td>
+            <td style="padding:11px 16px;font-weight:800;color:#0f172a;border-bottom:1px solid #f1f5f9;">{$formattedDate}</td>
+          </tr>
+          <tr>
+            <td style="padding:11px 16px;font-size:13px;font-weight:700;color:#64748b;border-bottom:1px solid #f1f5f9;">New Time</td>
+            <td style="padding:11px 16px;font-weight:800;color:#0f172a;border-bottom:1px solid #f1f5f9;">{$formattedTime}</td>
+          </tr>
+          <tr style="background:#f8fbff;">
+            <td style="padding:11px 16px;font-size:13px;font-weight:700;color:#64748b;">Type</td>
+            <td style="padding:11px 16px;">
+              <span style="background:#dbeafe;color:#1d4ed8;border-radius:999px;padding:3px 12px;font-size:12px;font-weight:800;">{$classType}</span>
+            </td>
+          </tr>
+        </table>
+
+        <div style="margin-top:16px;background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:14px 18px;font-size:14px;color:#92400e;font-weight:700;">
+          <strong>What changed:</strong> {$changesSummary}
+        </div>
+
+        <div style="margin-top:12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:14px 18px;font-size:14px;color:#1e40af;font-weight:700;text-align:center;">
+          Please update your schedule accordingly.
+        </div>
+      </td></tr>
+
+      <tr><td style="background:#f8fbff;border-radius:0 0 18px 18px;padding:18px 32px;text-align:center;border-top:1px solid #e2e8f0;">
+        <p style="margin:0;font-size:12px;color:#94a3b8;">This is an automated notification from JuniorCode.</p>
+      </td></tr>
+
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>
+HTML;
+}
+
+// ── Class cancelled notification ─────────────────────────────────────────────
+function buildClassCancelledEmail(
+    string $recipientName,
+    string $teacherName,
+    string $studentName,
+    string $classDate,
+    string $classTime,
+    string $classType
+): string {
+    $formattedDate = date("l, d F Y", strtotime($classDate));
+    $formattedTime = date("g:i A", strtotime($classTime));
+    return <<<HTML
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:32px 0;">
+  <tr><td align="center">
+    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+
+      <tr><td style="background:linear-gradient(135deg,#7f1d1d,#991b1b);border-radius:18px 18px 0 0;padding:28px 32px;text-align:center;">
+        <div style="font-size:26px;font-weight:900;color:#fff;letter-spacing:-0.5px;">JuniorCode</div>
+        <div style="color:rgba(255,255,255,0.75);font-size:13px;margin-top:4px;letter-spacing:2px;">CLASS CANCELLED</div>
+      </td></tr>
+
+      <tr><td style="background:#fff;padding:28px 32px;">
+        <div style="font-size:40px;text-align:center;margin-bottom:18px;">❌</div>
+        <p style="margin:0 0 6px;font-size:18px;font-weight:900;color:#0f172a;text-align:center;">Hi {$recipientName},</p>
+        <p style="margin:0 0 24px;color:#64748b;font-size:14px;text-align:center;">A class has been cancelled by the admin. Here are the details.</p>
+
+        <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;border-collapse:collapse;">
+          <tr style="background:#f8fbff;">
+            <td style="padding:11px 16px;font-size:13px;font-weight:700;color:#64748b;width:120px;border-bottom:1px solid #f1f5f9;">Teacher</td>
+            <td style="padding:11px 16px;font-weight:800;color:#0f172a;border-bottom:1px solid #f1f5f9;">{$teacherName}</td>
+          </tr>
+          <tr>
+            <td style="padding:11px 16px;font-size:13px;font-weight:700;color:#64748b;border-bottom:1px solid #f1f5f9;">Student</td>
+            <td style="padding:11px 16px;font-weight:800;color:#0f172a;border-bottom:1px solid #f1f5f9;">{$studentName}</td>
+          </tr>
+          <tr style="background:#f8fbff;">
+            <td style="padding:11px 16px;font-size:13px;font-weight:700;color:#64748b;border-bottom:1px solid #f1f5f9;">Date</td>
+            <td style="padding:11px 16px;font-weight:800;color:#0f172a;border-bottom:1px solid #f1f5f9;">{$formattedDate}</td>
+          </tr>
+          <tr>
+            <td style="padding:11px 16px;font-size:13px;font-weight:700;color:#64748b;border-bottom:1px solid #f1f5f9;">Time</td>
+            <td style="padding:11px 16px;font-weight:800;color:#0f172a;border-bottom:1px solid #f1f5f9;">{$formattedTime}</td>
+          </tr>
+          <tr style="background:#f8fbff;">
+            <td style="padding:11px 16px;font-size:13px;font-weight:700;color:#64748b;">Type</td>
+            <td style="padding:11px 16px;">
+              <span style="background:#dbeafe;color:#1d4ed8;border-radius:999px;padding:3px 12px;font-size:12px;font-weight:800;">{$classType}</span>
+            </td>
+          </tr>
+        </table>
+
+        <div style="margin-top:20px;background:#fff1f2;border:1px solid #fecdd3;border-radius:12px;padding:14px 18px;font-size:14px;color:#9f1239;font-weight:700;text-align:center;">
+          This class has been permanently cancelled. Please contact the admin for more information.
+        </div>
+      </td></tr>
+
+      <tr><td style="background:#f8fbff;border-radius:0 0 18px 18px;padding:18px 32px;text-align:center;border-top:1px solid #e2e8f0;">
+        <p style="margin:0;font-size:12px;color:#94a3b8;">This is an automated notification from JuniorCode.</p>
+      </td></tr>
+
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>
+HTML;
+}
+
+// ── Student removed notification ─────────────────────────────────────────────
+function buildStudentRemovedEmail(string $teacherName, string $studentName): string {
+    return <<<HTML
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:32px 0;">
+  <tr><td align="center">
+    <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+
+      <tr><td style="background:linear-gradient(135deg,#3e5077,#143674);border-radius:18px 18px 0 0;padding:28px 32px;text-align:center;">
+        <div style="font-size:26px;font-weight:900;color:#fff;letter-spacing:-0.5px;">JuniorCode</div>
+        <div style="color:rgba(255,255,255,0.75);font-size:13px;margin-top:4px;letter-spacing:2px;">STUDENT REMOVED</div>
+      </td></tr>
+
+      <tr><td style="background:#fff;padding:28px 32px;">
+        <div style="font-size:40px;text-align:center;margin-bottom:18px;">📋</div>
+        <p style="margin:0 0 6px;font-size:18px;font-weight:900;color:#0f172a;text-align:center;">Hi {$teacherName},</p>
+        <p style="margin:0 0 24px;color:#64748b;font-size:14px;text-align:center;">The admin has removed a student from your list.</p>
+
+        <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;border-collapse:collapse;">
+          <tr><td style="padding:12px 16px;font-size:13px;font-weight:700;color:#64748b;width:120px;">Student</td>
+              <td style="padding:12px 16px;font-weight:800;color:#0f172a;">{$studentName}</td></tr>
+          <tr><td style="padding:12px 16px;font-size:13px;font-weight:700;color:#64748b;">Status</td>
+              <td style="padding:12px 16px;">
+                <span style="background:#fee2e2;color:#991b1b;border-radius:999px;padding:3px 12px;font-size:12px;font-weight:800;">Removed</span>
+              </td></tr>
+        </table>
+
+        <div style="margin-top:20px;background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:14px 18px;font-size:14px;color:#92400e;font-weight:700;text-align:center;">
+          This student's class records remain intact in the system.
+        </div>
+      </td></tr>
+
+      <tr><td style="background:#f8fbff;border-radius:0 0 18px 18px;padding:18px 32px;text-align:center;border-top:1px solid #e2e8f0;">
+        <p style="margin:0;font-size:12px;color:#94a3b8;">This is an automated notification from JuniorCode.</p>
+      </td></tr>
+
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>
+HTML;
+}
+
 // ── Daily schedule reminder ───────────────────────────────────────────────────
 function buildReminderEmail(string $teacherName, string $date, int $count, array $classes): string {
     $rows = '';

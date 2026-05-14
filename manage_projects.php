@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 require_once "db.php";
 
@@ -172,10 +172,10 @@ body { margin:0; font-family:Arial,Helvetica,sans-serif; color:var(--dark);
               linear-gradient(180deg,#f8fbff 0%,#eef6ff 100%); }
 .app-shell { min-height:100vh; display:flex; }
 .sidebar { width:285px; background:linear-gradient(180deg,#0f172a 0%,#172554 100%); color:#fff; padding:0;
-  position:sticky; top:0; height:100vh; transition:width 0.3s,padding 0.3s,min-width 0.3s; overflow:hidden; display:flex; flex-direction:column; }
+  position:sticky; top:0; height:100vh; transition:width 0.3s,padding 0.3s,min-width 0.3s; overflow-y: auto; display:flex; flex-direction:column; }
 body.sidebar-collapsed .sidebar { width:0; padding:0; min-width:0; }
-.sidebar-bottom { padding:16px 18px; border-top:1px solid rgba(255,255,255,0.1); }
-.sidebar-top-area { padding:0 18px 18px; flex:1; overflow-y:auto; }
+.sidebar-bottom { padding:16px 18px; }
+.sidebar-top-area { padding:0 18px 18px; }
 .brand-box { display:flex; align-items:center; gap:12px; padding:0 4px 22px; border-bottom:1px solid rgba(255,255,255,0.1); margin-bottom:10px; }
 .logo-img { width:55px; height:55px; object-fit:contain; border-radius:12px; flex-shrink:0; }
 .brand-title { font-weight:900; font-size:1.1rem; line-height:1.15; }
@@ -262,7 +262,6 @@ body.sidebar-collapsed .sidebar { width:0; padding:0; min-width:0; }
         <a href="courses.php"                class="nav-link-custom active"><span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>Courses</span></a>
         <a href="reports.php"                class="nav-link-custom"><span class="nav-icon"><i class="fas fa-chart-bar"></i></span><span>Reports</span></a>
         <a href="admin_certificates.php"     class="nav-link-custom"><span class="nav-icon"><i class="fas fa-award"></i></span><span>Certificates</span></a>
-<a href="admin_email_notifications.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-envelope"></i></span><span>Email Notifications</span></a>
       </div>
     </div>
     <div class="sidebar-bottom">
@@ -537,3 +536,5 @@ document.getElementById('editImage').addEventListener('input', () => updatePrevi
 <script src="logout-modal.js"></script>
 </body>
 </html>
+
+
