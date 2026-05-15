@@ -1,10 +1,6 @@
 ﻿<?php
 session_start();
 require_once "db.php";
-require_once 'notifications.php';
-$__teacherId     = (int)($_SESSION['user_id'] ?? 0);
-$__notifCount    = $__teacherId ? getUnreadCount($conn, $__teacherId) : 0;
-$__notifications = $__teacherId ? getNotifications($conn, $__teacherId) : [];
 if (!isset($_SESSION["role"]) || $_SESSION["role"] !== "teacher") {
     header("Location: login.php");
     exit();
@@ -149,21 +145,121 @@ if ($subCheck && $subCheck->num_rows > 0 && !empty($assignments)) {
 :root { --primary:#3e5077; --secondary:#143674; --dark:#0f172a; --muted:#64748b; --shadow:0 18px 45px rgba(37,99,235,0.08); }
 * { box-sizing:border-box; }
 body { margin:0; font-family:Arial,Helvetica,sans-serif; background:radial-gradient(circle at top left,rgba(37,99,235,0.08),transparent 22%),radial-gradient(circle at bottom right,rgba(56,189,248,0.08),transparent 22%),linear-gradient(180deg,#f8fbff 0%,#eef6ff 100%); color:var(--dark); }
-.app-shell { min-height:100vh; display:flex; }
-.sidebar { width:285px; background:linear-gradient(180deg,#0f172a 0%,#172554 100%); color:white; padding:0; position:sticky; top:0; height:100vh; transition:width .3s,padding .3s,min-width .3s; overflow-y: auto; display:flex; flex-direction:column; }
-.sidebar-bottom { margin-top:auto; padding-top:12px; }
-body.sidebar-collapsed .sidebar { width:0; padding:0; min-width:0; overflow-y: auto; }
-.sidebar-top-area { padding: 0 18px 18px; }
-.brand-box { display: flex; align-items: center; gap: 12px; padding: 0 4px 22px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; }
-.logo-img { width:55px; height:55px; object-fit:contain; border-radius:12px; flex-shrink:0; }
-.brand-title { font-weight:900; font-size:1.1rem; line-height:1.15; }
-.brand-sub { font-size:0.78rem; color:rgba(255,255,255,0.75); letter-spacing:1px; margin-top:3px; }
-.nav-title { font-size:0.8rem; text-transform:uppercase; letter-spacing:1.3px; color:rgba(255,255,255,0.55); margin:18px 10px 10px; font-weight:700; }
-.nav-custom { display:flex; flex-direction:column; gap:4px; }
-.nav-link-custom { display:flex; align-items:center; gap:12px; color:rgba(255,255,255,0.88); text-decoration:none; padding:12px 14px; border-radius:14px; transition:all .25s; font-weight:700; }
-.nav-link-custom:hover { background:rgba(255,255,255,0.08); color:white; }
-.nav-link-custom.active { background:linear-gradient(135deg,var(--primary),var(--secondary)); color:white; }
-.nav-icon { width:32px; height:32px; border-radius:10px; background:rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.app-shell { min-height: 100vh; display: flex; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 285px; flex-shrink: 0;
+      background: linear-gradient(180deg, #0f172a 0%, #172554 100%);
+      color: #fff;
+      padding: 0;
+      position: sticky; top: 0;
+      height: 100vh;
+      display: flex; flex-direction: column;
+      transition: width 0.3s ease, padding 0.3s ease, min-width 0.3s ease;
+      overflow-y: auto;
+    }
+    body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; }
+
+    .sidebar-top-area { padding: 0 18px 18px; }
+
+    .brand {
+      display: flex; align-items: center; gap: 12px;
+      padding: 0 4px 22px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      margin-bottom: 10px;
+    }
+
+    .brand-logo-img {
+      width: 55px; height: 55px;
+      object-fit: contain; flex-shrink: 0;
+      background: none; border-radius: 0;
+    }
+
+    .brand-title { font-weight: 900; font-size: 1.1rem; color: #fff; line-height: 1.2; }
+
+    .brand-subtitle { font-size: 0.75rem; color: rgba(255,255,255,0.55); letter-spacing: 1px; margin-top: 3px; }
+
+    .nav-title {
+      font-size: 0.78rem; text-transform: uppercase;
+      letter-spacing: 1.3px; color: rgba(255,255,255,0.45);
+      margin: 20px 10px 10px; font-weight: 700;
+    }
+
+    .nav-custom { display: flex; flex-direction: column; gap: 4px; }
+
+    .teacher-box {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 16px;
+      padding: 14px;
+      margin-bottom: 18px;
+    }
+
+    .teacher-avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: white;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+    .teacher-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+    .teacher-name  { font-weight: 800; margin: 0; color: #ffffff; }
+    .teacher-role  { margin: 0; color: rgba(255,255,255,0.55); font-size: 0.85rem; }
+
+    .nav-link-custom {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: rgba(255,255,255,0.78);
+      padding: 12px 14px;
+      border-radius: 14px;
+      margin: 4px 0;
+      font-weight: 700;
+      transition: all 0.22s ease;
+    }
+
+    .nav-link-custom:hover {
+      background: rgba(255,255,255,0.09);
+      color: #ffffff;
+    }
+
+    .nav-link-custom.active {
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: #ffffff;
+      box-shadow: 0 8px 20px rgba(30,50,100,0.35);
+    }
+
+    .nav-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+
+    .nav-link-custom.active .nav-icon {
+      background: rgba(255,255,255,0.18);
+    }
+
+    .sidebar-bottom { padding: 16px 18px; }
+
 .main-content { flex:1; padding:26px; }
 .hamburger-btn { display:flex; flex-direction:column; gap:5px; cursor:pointer; background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; margin-bottom:18px; width:fit-content; box-shadow:0 2px 8px rgba(0,0,0,0.06); }
 .hamburger-line { width:22px; height:2.5px; background:#334155; border-radius:2px; }
@@ -241,58 +337,8 @@ body.sidebar-collapsed .sidebar { width:0; padding:0; min-width:0; overflow-y: a
 }
 .btn-confirm-del:hover { opacity:0.88; }
 
-@media(max-width:991px){.app-shell{flex-direction:column;}.sidebar{width:100%;height:auto;position:relative;}}
+@media(max-width:991px){.app-shell{flex-direction:column;}.sidebar{width:100%;height:auto;position:relative;}.main-content{padding:16px;}}
 
-    /* ── Notification Bell ── */
-    .notif-bell-wrap { position:relative; }
-    .notif-bell-btn {
-      width:100%; display:flex; align-items:center; gap:10px;
-      background:rgba(255,255,255,0.08); border:none; color:rgba(255,255,255,0.85);
-      border-radius:14px; padding:11px 14px; font-size:0.97rem; cursor:pointer;
-      font-weight:700; transition:background 0.2s; position:relative;
-    }
-    .notif-bell-btn:hover { background:rgba(255,255,255,0.14); color:#fff; }
-    .notif-badge {
-      position:absolute; top:7px; right:10px;
-      background:#ef4444; color:#fff; font-size:0.7rem; font-weight:900;
-      border-radius:999px; padding:1px 6px; min-width:18px; text-align:center;
-    }
-    .notif-dropdown {
-      display:none; position:absolute; left:calc(100% + 10px); top:0;
-      width:320px; background:#fff; border-radius:18px;
-      box-shadow:0 20px 50px rgba(0,0,0,0.18); border:1px solid #e2e8f0;
-      z-index:9999; overflow:hidden;
-    }
-    .notif-dropdown.open { display:block; }
-    .notif-header {
-      display:flex; justify-content:space-between; align-items:center;
-      padding:14px 18px; background:linear-gradient(135deg,#3e5077,#143674);
-      color:#fff; font-weight:800; font-size:0.9rem;
-    }
-    .notif-mark-read {
-      background:rgba(255,255,255,0.2); border:none; color:#fff;
-      border-radius:8px; padding:4px 10px; font-size:0.75rem; font-weight:700; cursor:pointer;
-    }
-    .notif-mark-read:hover { background:rgba(255,255,255,0.3); }
-    .notif-list { max-height:360px; overflow-y:auto; }
-    .notif-item {
-      display:flex; gap:12px; padding:13px 16px;
-      border-bottom:1px solid #f1f5f9; transition:background 0.15s;
-    }
-    .notif-item:last-child { border-bottom:none; }
-    .notif-item.unread { background:#f0f7ff; }
-    .notif-item:hover { background:#f8fbff; }
-    .notif-icon {
-      width:36px; height:36px; border-radius:10px; flex-shrink:0;
-      display:flex; align-items:center; justify-content:center; font-size:0.9rem;
-    }
-    .notif-icon.student { background:#dbeafe; color:#1d4ed8; }
-    .notif-icon.info    { background:#f3e8ff; color:#7c3aed; }
-    .notif-body { flex:1; min-width:0; }
-    .notif-title { font-weight:800; font-size:0.84rem; color:#0f172a; }
-    .notif-msg   { font-size:0.8rem; color:#475569; margin-top:2px; line-height:1.4; }
-    .notif-time  { font-size:0.73rem; color:#94a3b8; margin-top:4px; }
-    .notif-empty { padding:24px; text-align:center; color:#94a3b8; font-size:0.88rem; font-weight:700; }
     </style>
 </head>
 <body>
@@ -300,65 +346,75 @@ body.sidebar-collapsed .sidebar { width:0; padding:0; min-width:0; overflow-y: a
 
   <aside class="sidebar">
     <div class="sidebar-top-area">
-    <div class="brand-box">
-      <img src="images/robot2.png.png" class="logo-img" alt="Logo">
-      <div>
-        <div class="brand-title">JuniorCode</div>
-        <div class="brand-sub">Teacher Panel</div>
+      <div class="brand">
+        <img src="images/robot2.png.png" class="brand-logo-img" alt="JuniorCode Logo">
+        <div>
+          <div class="brand-title">JuniorCode</div>
+          <div class="brand-subtitle">TEACHER PORTAL</div>
+        </div>
       </div>
-    </div>
-    <div class="nav-title">Menu</div>
-    <div class="nav-custom">
-      <a href="teacher_dashboard.php"       class="nav-link-custom"><span class="nav-icon"><i class="fas fa-house"></i></span><span>Dashboard</span></a>
-      <a href="teacher_classes.php"         class="nav-link-custom"><span class="nav-icon"><i class="fas fa-chalkboard-user"></i></span><span>My Classes</span></a>
-      <a href="teacher_schedule.php"        class="nav-link-custom"><span class="nav-icon"><i class="fas fa-calendar-days"></i></span><span>My Schedule</span></a>
-      <a href="teacher_monthly_earnings.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-dollar-sign"></i></span><span>My Earnings</span></a>
-      <a href="teacher_students.php"        class="nav-link-custom"><span class="nav-icon"><i class="fas fa-user-graduate"></i></span><span>My Students</span></a>
-      <a href="teacher_assignments.php"     class="nav-link-custom active"><span class="nav-icon"><i class="fas fa-clipboard-list"></i></span><span>Assignments</span></a>
-      <a href="teacher_courses.php"         class="nav-link-custom"><span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>Courses</span></a>
-      <a href="teacher_quizzes.php"         class="nav-link-custom"><span class="nav-icon"><i class="fas fa-circle-question"></i></span><span>Quizzes</span></a>
-    </div>
-    </div>
-        <!-- Notification Bell -->
-  <div style="padding:0 16px 10px;">
-    <div class="notif-bell-wrap" id="notifWrap">
-      <button class="notif-bell-btn" id="notifBellBtn" onclick="toggleNotifDropdown()" title="Notifications">
-        <i class="fas fa-bell"></i>
-        <?php if ($__notifCount > 0): ?>
-          <span class="notif-badge" id="notifBadge"><?= $__notifCount ?></span>
-        <?php endif; ?>
-      </button>
-      <div class="notif-dropdown" id="notifDropdown">
-        <div class="notif-header">
-          <span><i class="fas fa-bell me-1"></i> Notifications</span>
-          <?php if ($__notifCount > 0): ?>
-            <button class="notif-mark-read" onclick="markAllRead()">Mark all read</button>
+
+      <div class="teacher-box">
+        <div class="teacher-avatar">
+          <?php if (!empty($_SESSION["profile_picture"])): ?>
+            <img src="uploads/profiles/<?= htmlspecialchars($_SESSION["profile_picture"]) ?>" alt="Profile">
+          <?php else: ?>
+            <?= strtoupper(substr($teacherName, 0, 1)) ?>
           <?php endif; ?>
         </div>
-        <div class="notif-list" id="notifList">
-          <?php if (empty($__notifications)): ?>
-            <div class="notif-empty">No notifications yet.</div>
-          <?php else: foreach ($__notifications as $__n): ?>
-            <div class="notif-item <?= $__n['is_read'] ? '' : 'unread' ?>">
-              <div class="notif-icon <?= $__n['type'] ?>">
-                <?php if ($__n['type'] === 'student'): ?><i class="fas fa-user-plus"></i>
-                <?php else: ?><i class="fas fa-bell"></i><?php endif; ?>
-              </div>
-              <div class="notif-body">
-                <div class="notif-title"><?= htmlspecialchars($__n['title']) ?></div>
-                <div class="notif-msg"><?= $__n['message'] ?></div>
-                <div class="notif-time"><?= date('d M Y, h:i A', strtotime($__n['created_at'])) ?></div>
-              </div>
-            </div>
-          <?php endforeach; endif; ?>
+        <div>
+          <p class="teacher-name"><?php echo htmlspecialchars($teacherName); ?></p>
+          <p class="teacher-role">Teacher</p>
         </div>
       </div>
+
+      <div class="nav-title">MAIN</div>
+      <div class="nav-custom">
+        <a href="teacher_dashboard.php" class="nav-link-custom">
+          <span class="nav-icon"><i class="fas fa-house"></i></span>
+          <span>Dashboard</span>
+        </a>
+        <a href="teacher_classes.php" class="nav-link-custom">
+          <span class="nav-icon"><i class="fas fa-chalkboard-user"></i></span>
+          <span>My Classes</span>
+        </a>
+        <a href="teacher_schedule.php" class="nav-link-custom">
+          <span class="nav-icon"><i class="fas fa-calendar-days"></i></span>
+          <span>My Schedule</span>
+        </a>
+        <a href="teacher_monthly_earnings.php" class="nav-link-custom">
+          <span class="nav-icon"><i class="fas fa-dollar-sign"></i></span>
+          <span>My Earnings</span>
+        </a>
+        <a href="teacher_students.php" class="nav-link-custom">
+          <span class="nav-icon"><i class="fas fa-user-graduate"></i></span>
+          <span>My Students</span>
+        </a>
+        <a href="teacher_assignments.php" class="nav-link-custom active">
+          <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+          <span>Assignments</span>
+        </a>
+        <a href="teacher_courses.php" class="nav-link-custom">
+          <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span>
+          <span>Courses</span>
+        </a>
+        <a href="teacher_quizzes.php" class="nav-link-custom">
+          <span class="nav-icon"><i class="fas fa-circle-question"></i></span>
+          <span>Quizzes</span>
+        </a>
+      </div>
     </div>
-  </div>
-  <div class="sidebar-bottom">
-      <a href="teacher_profile.php"         class="nav-link-custom"><span class="nav-icon"><i class="fas fa-gear"></i></span><span>Settings</span></a>
+
+    <div class="sidebar-bottom">
+      <a href="teacher_profile.php" class="nav-link-custom">
+        <span class="nav-icon"><i class="fas fa-gear"></i></span>
+        <span>Settings</span>
+      </a>
       <div style="height:1px;background:rgba(255,255,255,0.1);margin:8px 0;"></div>
-      <a href="logout.php"                  class="nav-link-custom"><span class="nav-icon"><i class="fas fa-right-from-bracket"></i></span><span>Logout</span></a>
+      <a href="logout.php" class="nav-link-custom">
+        <span class="nav-icon"><i class="fas fa-right-from-bracket"></i></span>
+        <span>Logout</span>
+      </a>
     </div>
   </aside>
 
@@ -536,28 +592,6 @@ document.getElementById('delModal').addEventListener('click', function(e) {
 });
 </script>
 <script src="logout-modal.js"></script>
-
-<script>
-function toggleNotifDropdown() {
-  var dd = document.getElementById('notifDropdown');
-  dd.classList.toggle('open');
-}
-document.addEventListener('click', function(e) {
-  var wrap = document.getElementById('notifWrap');
-  if (wrap && !wrap.contains(e.target)) {
-    document.getElementById('notifDropdown').classList.remove('open');
-  }
-});
-function markAllRead() {
-  fetch('mark_notifications_read.php', { method:'POST' })
-    .then(function() {
-      document.querySelectorAll('.notif-item.unread').forEach(function(el) { el.classList.remove('unread'); });
-      var badge = document.getElementById('notifBadge');
-      if (badge) badge.remove();
-      document.querySelector('.notif-mark-read') && document.querySelector('.notif-mark-read').remove();
-    });
-}
-</script>
 </body>
 </html>
 

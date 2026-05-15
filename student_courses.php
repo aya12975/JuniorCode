@@ -106,57 +106,86 @@ $totalCourses  = count($kidsCourses) + count($juniorCourses);
                   linear-gradient(180deg,#f8fbff 0%,#eef6ff 100%);
     }
 
-    /* ── Sidebar ── */
-    .sidebar {
-      position:fixed; top:0; left:0; width:255px; height:100vh;
-      background:linear-gradient(180deg,#0f172a 0%,#172554 100%);
-      display:flex; flex-direction:column; z-index:1000; overflow-y: auto;
-      transition:transform 0.3s ease;
-    }
-    body.sidebar-collapsed .sidebar { transform:translateX(-255px); }
-    .sidebar-top { padding:20px 16px; }
-    .sidebar-bottom { padding:16px; }
+    .app-shell { min-height: 100vh; display: flex; }
 
-    .brand { display:flex; align-items:center; gap:12px; padding:10px 10px 18px;
-      border-bottom:1px solid rgba(255,255,255,0.1); margin-bottom:16px; }
-    .brand-logo-img { width:55px; height:55px; object-fit:contain; flex-shrink:0; }
-    .brand-title    { font-size:1.05rem; font-weight:900; margin:0; color:#fff; }
-    .brand-subtitle { font-size:0.75rem; color:rgba(255,255,255,0.55); margin:3px 0 0; letter-spacing:1px; }
+    .sidebar {
+      width: 285px; flex-shrink: 0;
+      background: linear-gradient(180deg, #0f172a 0%, #172554 100%);
+      color: #fff; padding: 0;
+      position: sticky; top: 0;
+      height: 100vh;
+      display: flex; flex-direction: column;
+      transition: width 0.3s ease, padding 0.3s ease, min-width 0.3s ease;
+      overflow-y: auto;
+    }
+    body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; }
+
+    .sidebar-top-area { padding: 0 18px 18px; }
+
+    .brand {
+      display: flex; align-items: center; gap: 12px;
+      padding: 0 4px 22px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      margin-bottom: 10px;
+    }
+
+    .brand-logo-img {
+      width: 55px; height: 55px;
+      object-fit: contain; flex-shrink: 0;
+      background: none; border-radius: 0;
+    }
+
+    .brand-title { font-weight: 900; font-size: 1.1rem; color: #fff; line-height: 1.2; }
+    .brand-subtitle { font-size: 0.75rem; color: rgba(255,255,255,0.55); letter-spacing: 1px; margin-top: 3px; }
+
+    .nav-title {
+      font-size: 0.78rem; text-transform: uppercase;
+      letter-spacing: 1.3px; color: rgba(255,255,255,0.45);
+      margin: 20px 10px 10px; font-weight: 700;
+    }
+
+    .nav-custom { display: flex; flex-direction: column; gap: 4px; }
 
     .student-box {
-      display:flex; align-items:center; gap:12px;
-      background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12);
-      border-radius:16px; padding:14px; margin-bottom:18px;
+      display: flex; align-items: center; gap: 12px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 16px; padding: 14px; margin-bottom: 18px;
     }
+
     .student-avatar {
-      width:44px; height:44px; border-radius:50%;
-      background:linear-gradient(135deg,var(--primary),var(--secondary));
-      color:#fff; font-weight:bold; font-size:18px;
-      display:flex; align-items:center; justify-content:center; flex-shrink:0; overflow:hidden;
+      width: 44px; height: 44px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: #fff; font-weight: bold; font-size: 18px;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      overflow: hidden;
     }
-    .student-name { font-weight:800; margin:0; color:#fff; }
-    .student-role { margin:0; color:rgba(255,255,255,0.55); font-size:0.85rem; }
+    .student-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .student-name { font-weight: 800; margin: 0; color: #fff; }
+    .student-role { margin: 0; color: rgba(255,255,255,0.55); font-size: 0.85rem; }
 
     .nav-link-custom {
-      display:flex; align-items:center; gap:12px; text-decoration:none;
-      color:rgba(255,255,255,0.78); padding:12px 14px; border-radius:14px;
-      margin:4px 0; font-weight:700; transition:all 0.22s;
+      display: flex; align-items: center; gap: 12px;
+      text-decoration: none; color: rgba(255,255,255,0.78);
+      padding: 12px 14px; border-radius: 14px; margin: 4px 0;
+      font-weight: 700; transition: all 0.22s ease;
     }
-    .nav-link-custom:hover { background:rgba(255,255,255,0.09); color:#fff; }
+    .nav-link-custom:hover { background: rgba(255,255,255,0.09); color: #fff; }
     .nav-link-custom.active {
-      background:linear-gradient(135deg,var(--primary),var(--secondary));
-      color:#fff; box-shadow:0 8px 20px rgba(30,50,100,0.35);
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: #fff; box-shadow: 0 8px 20px rgba(30,50,100,0.35);
     }
     .nav-icon {
-      width:32px; height:32px; border-radius:10px;
-      background:rgba(255,255,255,0.08);
-      display:flex; align-items:center; justify-content:center; flex-shrink:0;
+      width: 32px; height: 32px; border-radius: 10px;
+      background: rgba(255,255,255,0.08);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; flex-shrink: 0;
     }
-    .nav-link-custom.active .nav-icon { background:rgba(255,255,255,0.18); }
+    .nav-link-custom.active .nav-icon { background: rgba(255,255,255,0.18); }
 
-    /* ── Main ── */
-    .main { margin-left:255px; padding:26px; min-height:100vh; transition:margin-left 0.3s; }
-    body.sidebar-collapsed .main { margin-left:0; }
+    .sidebar-bottom { padding: 16px 18px; }
+
+    .main { flex: 1; padding: 28px; min-height: 100vh; overflow-x: hidden; }
 
     .hamburger-btn { display:flex; flex-direction:column; gap:5px; cursor:pointer; background:#fff;
       border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; margin-bottom:18px;
@@ -338,8 +367,8 @@ $totalCourses  = count($kidsCourses) + count($juniorCourses);
     }
 
     @media (max-width:991px) {
-      .sidebar { position:static; width:100%; height:auto; }
-      .main { margin-left:0; }
+      .app-shell { flex-direction: column; }
+      .sidebar { width: 100%; height: auto; position: relative; }
       .stat-bar { grid-template-columns:1fr 1fr; }
     }
     @media (max-width:575px) {
@@ -349,21 +378,22 @@ $totalCourses  = count($kidsCourses) + count($juniorCourses);
 </head>
 <body>
 
-<!-- ── SIDEBAR ── -->
-<div class="sidebar">
-  <div class="sidebar-top">
+<div class="app-shell">
+
+<aside class="sidebar">
+  <div class="sidebar-top-area">
     <div class="brand">
-      <img src="images/robot2.png.png" class="brand-logo-img" alt="Logo">
+      <img src="images/robot2.png.png" class="brand-logo-img" alt="JuniorCode Logo">
       <div>
-        <p class="brand-title">JuniorCode</p>
-        <p class="brand-subtitle">STUDENT PORTAL</p>
+        <div class="brand-title">JuniorCode</div>
+        <div class="brand-subtitle">STUDENT PANEL</div>
       </div>
     </div>
 
     <div class="student-box">
       <div class="student-avatar">
         <?php if (!empty($_SESSION["profile_picture"])): ?>
-          <img src="uploads/profiles/<?= htmlspecialchars($_SESSION["profile_picture"]) ?>" alt="">
+          <img src="uploads/profiles/<?= htmlspecialchars($_SESSION["profile_picture"]) ?>" alt="Profile">
         <?php else: ?>
           <?= strtoupper(substr($studentName, 0, 1)) ?>
         <?php endif; ?>
@@ -374,28 +404,35 @@ $totalCourses  = count($kidsCourses) + count($juniorCourses);
       </div>
     </div>
 
-    <a href="student_dashboard.php" class="nav-link-custom">
-      <span class="nav-icon"><i class="fas fa-house"></i></span><span>Dashboard</span>
-    </a>
-    <a href="student_courses.php" class="nav-link-custom active">
-      <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>My Courses</span>
-    </a>
-    <a href="student_classes.php" class="nav-link-custom">
-      <span class="nav-icon"><i class="fas fa-chalkboard-user"></i></span><span>My Classes</span>
-    </a>
-    <a href="student_assignments.php" class="nav-link-custom">
-      <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span><span>Assignments</span>
-    </a>
-    <a href="student_quizzes.php" class="nav-link-custom">
-      <span class="nav-icon"><i class="fas fa-circle-question"></i></span><span>Quizzes</span>
-    </a>
-    <a href="student_certificates.php" class="nav-link-custom">
-      <span class="nav-icon"><i class="fas fa-award"></i></span><span>Certificates</span>
-    </a>
-    <a href="student_chat.php" class="nav-link-custom">
-      <span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI Tutor</span>
-    </a>
+    <div class="nav-title">MAIN</div>
+    <div class="nav-custom">
+      <a href="student_dashboard.php" class="nav-link-custom">
+        <span class="nav-icon"><i class="fas fa-house"></i></span><span>Dashboard</span>
+      </a>
+      <a href="student_courses.php" class="nav-link-custom active">
+        <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>My Courses</span>
+      </a>
+      <a href="student_classes.php" class="nav-link-custom">
+        <span class="nav-icon"><i class="fas fa-book"></i></span><span>My Classes</span>
+      </a>
+      <a href="student_assignments.php" class="nav-link-custom">
+        <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span><span>My Assignments</span>
+      </a>
+      <a href="student_quizzes.php" class="nav-link-custom">
+        <span class="nav-icon"><i class="fas fa-circle-question"></i></span><span>Quizzes</span>
+      </a>
+      <a href="student_certificates.php" class="nav-link-custom">
+        <span class="nav-icon"><i class="fas fa-award"></i></span><span>Certificates</span>
+      </a>
+      <a href="student_chat.php" class="nav-link-custom">
+        <span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI Tutor</span>
+      </a>
+      <a href="student_contact.php" class="nav-link-custom">
+        <span class="nav-icon"><i class="fas fa-envelope"></i></span><span>Contact</span>
+      </a>
+    </div>
   </div>
+
   <div class="sidebar-bottom">
     <a href="student_profile.php" class="nav-link-custom">
       <span class="nav-icon"><i class="fas fa-gear"></i></span><span>Settings</span>
@@ -405,7 +442,7 @@ $totalCourses  = count($kidsCourses) + count($juniorCourses);
       <span class="nav-icon"><i class="fas fa-right-from-bracket"></i></span><span>Logout</span>
     </a>
   </div>
-</div>
+</aside>
 
 <!-- ── MAIN ── -->
 <div class="main">
@@ -466,6 +503,7 @@ $totalCourses  = count($kidsCourses) + count($juniorCourses);
   </div>
 
 </div>
+</div><!-- /.app-shell -->
 
 <?php
 function renderCourseList(array $courses, array $enrolledIds, $conn): string {

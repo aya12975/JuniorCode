@@ -13,6 +13,7 @@ $category_preset = trim($_GET["category"] ?? "");
 $error           = "";
 $success         = false;
 
+
 /* ── Ensure all columns exist ── */
 $needed = [
     "section"     => "VARCHAR(50)   NOT NULL DEFAULT 'kids'",
@@ -33,16 +34,31 @@ foreach ($needed as $col => $def) {
     }
 }
 
+/* ── Ensure course_projects table & course_id column exist ── */
+$conn->query("CREATE TABLE IF NOT EXISTS course_projects (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    course_id INT DEFAULT NULL,
+    section VARCHAR(50) NOT NULL DEFAULT 'kids',
+    category VARCHAR(100) NOT NULL DEFAULT '',
+    title VARCHAR(255) NOT NULL,
+    url TEXT NOT NULL DEFAULT '',
+    image TEXT NOT NULL DEFAULT '',
+    pdf_url TEXT NOT NULL DEFAULT '',
+    sort_order INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$conn->query("ALTER TABLE course_projects ADD COLUMN IF NOT EXISTS course_id INT DEFAULT NULL");
+
 /* ── Handle POST ── */
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $course_name = trim($_POST["course_name"] ?? "");
-    $category    = trim($_POST["category"]    ?? "");
-    $age_group   = trim($_POST["age_group"]   ?? "");
-    $level       = trim($_POST["level"]       ?? "");
-    $price       = (float)($_POST["price"]    ?? 0);
+    $category    = "";
+    $age_group   = "";
+    $level       = "";
+    $price       = 0;
     $course_type = trim($_POST["course_type"] ?? "demo");
     $status      = trim($_POST["status"]      ?? "active");
-    $duration    = trim($_POST["duration"]    ?? "");
+    $duration    = "";
     $image       = trim($_POST["image"]       ?? "");
     $section     = trim($_POST["section"]     ?? "kids");
     $sub_section = trim($_POST["sub_section"] ?? "");
@@ -62,6 +78,38 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 $course_type, $status, $duration, $image, $section, $sub_section
             );
             if ($stmt->execute()) {
+                $newCourseId = $stmt->insert_id;
+                $stmt->close();
+
+                // Save projects
+                $projTitles = $_POST["proj_title"] ?? [];
+                foreach ($projTitles as $i => $ptitle) {
+                    $ptitle = trim($ptitle);
+                    if ($ptitle === "") continue;
+                    $purl   = trim($_POST["proj_url"][$i]   ?? "");
+                    $pimage = trim($_POST["proj_image"][$i] ?? "");
+                    $ppdf   = trim($_POST["proj_pdf"][$i]   ?? "");
+
+                    // Handle PDF file upload
+                    if (!empty($_FILES["proj_pdf_file"]["name"][$i])) {
+                        if (!is_dir("uploads/pdfs")) mkdir("uploads/pdfs", 0755, true);
+                        $ext = strtolower(pathinfo($_FILES["proj_pdf_file"]["name"][$i], PATHINFO_EXTENSION));
+                        if ($ext === "pdf" && $_FILES["proj_pdf_file"]["error"][$i] === 0) {
+                            $fname = uniqid("proj_", true) . ".pdf";
+                            if (move_uploaded_file($_FILES["proj_pdf_file"]["tmp_name"][$i], "uploads/pdfs/" . $fname)) {
+                                $ppdf = $fname;
+                            }
+                        }
+                    }
+
+                    $pIns = $conn->prepare("INSERT INTO course_projects (course_id, section, category, title, url, image, pdf_url) VALUES (?,?,?,?,?,?,?)");
+                    if ($pIns) {
+                        $pIns->bind_param("issssss", $newCourseId, $section, $category, $ptitle, $purl, $pimage, $ppdf);
+                        $pIns->execute();
+                        $pIns->close();
+                    }
+                }
+
                 header("Location: courses.php?tab=" . urlencode($section) . "&success=1");
                 exit();
             } else {
@@ -91,7 +139,7 @@ body{ margin:0; font-family:Arial,Helvetica,sans-serif;
 .sidebar{
   width:285px; background:linear-gradient(180deg,#0f172a 0%,#172554 100%);
   color:white; padding:0; position:sticky; top:0; height:100vh;
-  flex-shrink:0; display:flex; flex-direction:column;
+  flex-shrink:0;
   transition:width .3s ease,padding .3s ease; overflow-y: auto;
 }
 body.sidebar-collapsed .sidebar{ width:0; padding:0; min-width:0; }
@@ -125,6 +173,23 @@ body.sidebar-collapsed .sidebar{ width:0; padding:0; min-width:0; }
 .btn-back{ background:#f1f5f9; color:#334155; border:none; border-radius:12px; padding:12px 24px; font-weight:800; text-decoration:none; display:inline-block; font-size:.95rem; }
 .btn-back:hover{ background:#e2e8f0; color:#0f172a; }
 @media(max-width:991px){ .app-shell{ flex-direction:column; } .sidebar{ width:100%; height:auto; position:relative; } }
+.sec-btn{
+  padding:12px 24px; border-radius:14px; border:2px solid #e2e8f0;
+  background:white; color:#64748b; font-weight:800; font-size:.95rem;
+  cursor:pointer; transition:all .2s;
+}
+.sec-btn:hover{ border-color:var(--primary); color:var(--primary); }
+.sec-btn.sec-active{
+  background:linear-gradient(135deg,var(--primary),var(--secondary));
+  color:white; border-color:transparent;
+  box-shadow:0 6px 18px rgba(62,80,119,.25);
+}
+.cat-sug-item{
+  padding:10px 14px; cursor:pointer; font-weight:700; font-size:.9rem;
+  border-bottom:1px solid #f1f5f9; transition:background .15s;
+}
+.cat-sug-item:last-child{ border-bottom:none; }
+.cat-sug-item:hover{ background:#eff6ff; color:var(--primary); }
 </style>
 </head>
 <body>
@@ -152,12 +217,9 @@ body.sidebar-collapsed .sidebar{ width:0; padding:0; min-width:0; }
         <a href="courses.php"         class="nav-link-custom active"><span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>Courses</span></a>
         <a href="reports.php"         class="nav-link-custom"><span class="nav-icon"><i class="fas fa-chart-bar"></i></span><span>Reports</span></a>
         <a href="admin_certificates.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-award"></i></span><span>Certificates</span></a>
+        <a href="settings.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-gear"></i></span><span>Settings</span></a>
+        <a href="logout.php"   class="nav-link-custom"><span class="nav-icon"><i class="fas fa-right-from-bracket"></i></span><span>Logout</span></a>
       </div>
-    </div>
-    <div class="sidebar-bottom">
-      <a href="settings.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-gear"></i></span><span>Settings</span></a>
-      <div style="height:1px;background:rgba(255,255,255,.1);margin:8px 0;"></div>
-      <a href="logout.php"   class="nav-link-custom"><span class="nav-icon"><i class="fas fa-right-from-bracket"></i></span><span>Logout</span></a>
     </div>
   </aside>
 
@@ -181,10 +243,29 @@ body.sidebar-collapsed .sidebar{ width:0; padding:0; min-width:0; }
     <?php endif; ?>
 
     <div class="card-box">
-      <div class="section-badge"><i class="fas fa-tag me-1"></i>Section: <?= htmlspecialchars(ucfirst($section)) ?></div>
 
-      <form method="POST">
-        <input type="hidden" name="section" value="<?= htmlspecialchars($section) ?>">
+      <form method="POST" enctype="multipart/form-data">
+
+        <!-- Section Picker -->
+        <div class="mb-4">
+          <label class="form-label">Section <span style="color:#ef4444">*</span></label>
+          <input type="hidden" name="section" id="sectionInput" value="<?= htmlspecialchars($_POST['section'] ?? $section) ?>">
+          <input type="hidden" name="sub_section" value="">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button type="button" onclick="pickSection('kids')"   id="sec-kids"
+              class="sec-btn <?= ($_POST['section'] ?? $section) === 'kids'   ? 'sec-active' : '' ?>">
+              <i class="fas fa-child me-2"></i>Kids
+            </button>
+            <button type="button" onclick="pickSection('junior')" id="sec-junior"
+              class="sec-btn <?= ($_POST['section'] ?? $section) === 'junior' ? 'sec-active' : '' ?>">
+              <i class="fas fa-user-graduate me-2"></i>Junior
+            </button>
+            <button type="button" onclick="pickSection('demo')"   id="sec-demo"
+              class="sec-btn <?= ($_POST['section'] ?? $section) === 'demo'   ? 'sec-active' : '' ?>">
+              <i class="fas fa-flask me-2"></i>Demo
+            </button>
+          </div>
+        </div>
 
         <!-- Course Name -->
         <div class="mb-3">
@@ -194,59 +275,16 @@ body.sidebar-collapsed .sidebar{ width:0; padding:0; min-width:0; }
                  placeholder="e.g. Python for Kids" required autofocus>
         </div>
 
-        <!-- Category + Age Group -->
+        <!-- Type + Status -->
         <div class="row g-3 mb-3">
           <div class="col-md-6">
-            <label class="form-label">Category <?php if($section !== 'demo'): ?><span style="color:#ef4444">*</span><?php endif; ?></label>
-            <input type="text" name="category" class="form-control"
-                   value="<?= htmlspecialchars($_POST['category'] ?? $category_preset) ?>"
-                   placeholder="e.g. Game Development"
-                   <?= $section !== 'demo' ? 'required' : '' ?>>
-            <?php if($section !== 'demo' && $category_preset): ?>
-              <div style="font-size:.8rem;color:#64748b;margin-top:4px;">
-                <i class="fas fa-info-circle"></i> This course will appear under <strong><?= htmlspecialchars($category_preset) ?></strong>
-              </div>
-            <?php endif; ?>
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">Age Group</label>
-            <input type="text" name="age_group" class="form-control"
-                   value="<?= htmlspecialchars($_POST['age_group'] ?? '') ?>"
-                   placeholder="e.g. 6–9">
-          </div>
-        </div>
-
-        <!-- Level + Duration -->
-        <div class="row g-3 mb-3">
-          <div class="col-md-6">
-            <label class="form-label">Level</label>
-            <input type="text" name="level" class="form-control"
-                   value="<?= htmlspecialchars($_POST['level'] ?? '') ?>"
-                   placeholder="e.g. Beginner">
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">Duration</label>
-            <input type="text" name="duration" class="form-control"
-                   value="<?= htmlspecialchars($_POST['duration'] ?? '') ?>"
-                   placeholder="e.g. 4 weeks">
-          </div>
-        </div>
-
-        <!-- Price + Type + Status -->
-        <div class="row g-3 mb-3">
-          <div class="col-md-4">
-            <label class="form-label">Price ($)</label>
-            <input type="number" name="price" class="form-control" step="0.01" min="0"
-                   value="<?= htmlspecialchars($_POST['price'] ?? '0') ?>">
-          </div>
-          <div class="col-md-4">
             <label class="form-label">Type</label>
             <select name="course_type" class="form-select">
               <option value="demo" <?= (($_POST['course_type'] ?? 'demo') === 'demo') ? 'selected' : '' ?>>Demo</option>
               <option value="paid" <?= (($_POST['course_type'] ?? '') === 'paid') ? 'selected' : '' ?>>Paid</option>
             </select>
           </div>
-          <div class="col-md-4">
+          <div class="col-md-6">
             <label class="form-label">Status</label>
             <select name="status" class="form-select">
               <option value="active"   <?= (($_POST['status'] ?? 'active') === 'active')   ? 'selected' : '' ?>>Active</option>
@@ -263,36 +301,77 @@ body.sidebar-collapsed .sidebar{ width:0; padding:0; min-width:0; }
                  placeholder="https://...">
         </div>
 
-        <!-- Sub-section (only for demo) -->
-        <?php if ($section === 'demo'): ?>
-        <div class="mb-4 p-3" style="background:#f0fdf4;border:1px solid #86efac;border-radius:14px;">
-          <label class="form-label" style="color:#15803d;">Demo sub-section</label>
-          <div style="display:flex;gap:10px;">
-            <label style="flex:1;cursor:pointer;">
-              <input type="radio" name="sub_section" value="kids"
-                     <?= (($_POST['sub_section'] ?? '') === 'kids') ? 'checked' : '' ?>>
-              <span style="font-weight:700;margin-left:6px;">Kids</span>
-            </label>
-            <label style="flex:1;cursor:pointer;">
-              <input type="radio" name="sub_section" value="junior"
-                     <?= (($_POST['sub_section'] ?? '') === 'junior') ? 'checked' : '' ?>>
-              <span style="font-weight:700;margin-left:6px;">Junior</span>
-            </label>
+        <?php // sub_section hidden input is already output above ?>
+
+        <!-- Projects Section -->
+        <div style="margin-bottom:24px;border-top:1px solid #e2e8f0;padding-top:22px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <div>
+              <div style="font-weight:900;font-size:1rem;color:#0f172a;"><i class="fas fa-folder-open me-2" style="color:#3e5077;"></i>Projects <span style="font-weight:400;color:#94a3b8;font-size:0.85rem;">(optional)</span></div>
+              <div style="font-size:0.8rem;color:#94a3b8;margin-top:2px;">Add student projects for this course</div>
+            </div>
+            <button type="button" onclick="addProjectRow()" style="background:linear-gradient(135deg,#3e5077,#143674);border:none;color:white;font-weight:800;border-radius:10px;padding:9px 16px;cursor:pointer;font-size:0.85rem;">
+              <i class="fas fa-plus me-1"></i> Add Project
+            </button>
           </div>
+          <div id="proj-rows"></div>
         </div>
-        <?php else: ?>
-          <input type="hidden" name="sub_section" value="">
-        <?php endif; ?>
 
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
           <button type="submit" class="btn-save"><i class="fas fa-check me-1"></i> Add Course</button>
           <a href="courses.php?tab=<?= urlencode($section) ?>" class="btn-back"><i class="fas fa-arrow-left me-1"></i> Back</a>
         </div>
       </form>
+
+      <script>
+      let projCount = 0;
+      function addProjectRow() {
+        const i = projCount++;
+        const row = document.createElement('div');
+        row.id = 'proj-row-' + i;
+        row.style.cssText = 'background:#f8fbff;border:1px solid #dbeafe;border-radius:14px;padding:16px;margin-bottom:12px;position:relative;';
+        row.innerHTML = `
+          <button type="button" onclick="removeRow('proj-row-${i}')"
+            style="position:absolute;top:10px;right:12px;background:#fee2e2;border:none;color:#dc2626;border-radius:8px;width:28px;height:28px;cursor:pointer;font-size:0.85rem;font-weight:900;">✕</button>
+          <div style="font-weight:800;font-size:0.85rem;color:#3e5077;margin-bottom:12px;"><i class="fas fa-gamepad me-1"></i> Project ${i + 1}</div>
+          <div class="row g-2">
+            <div class="col-md-6">
+              <label style="font-size:0.82rem;font-weight:700;color:#334155;display:block;margin-bottom:4px;">Title <span style="color:#ef4444;">*</span></label>
+              <input type="text" name="proj_title[]" class="form-control" placeholder="e.g. Dino Run" required>
+            </div>
+            <div class="col-md-6">
+              <label style="font-size:0.82rem;font-weight:700;color:#334155;display:block;margin-bottom:4px;">Image URL</label>
+              <input type="text" name="proj_image[]" class="form-control" placeholder="images/photo.png or https://...">
+            </div>
+            <div class="col-md-6">
+              <label style="font-size:0.82rem;font-weight:700;color:#334155;display:block;margin-bottom:4px;">View Project Link</label>
+              <input type="text" name="proj_url[]" class="form-control" placeholder="https://scratch.mit.edu/...">
+            </div>
+            <div class="col-md-6">
+              <label style="font-size:0.82rem;font-weight:700;color:#334155;display:block;margin-bottom:4px;">PDF / Lesson File</label>
+              <input type="file" name="proj_pdf_file[]" accept=".pdf" class="form-control" style="margin-bottom:4px;">
+              <input type="text" name="proj_pdf[]" class="form-control" placeholder="or paste PDF link">
+            </div>
+          </div>`;
+        document.getElementById('proj-rows').appendChild(row);
+      }
+      function removeRow(id) {
+        const el = document.getElementById(id);
+        if (el) el.remove();
+      }
+      </script>
     </div>
   </main>
 </div>
 <script src="logout-modal.js"></script>
+<script>
+function pickSection(sec) {
+  document.getElementById('sectionInput').value = sec;
+  ['kids','junior','demo'].forEach(s => {
+    document.getElementById('sec-' + s).classList.toggle('sec-active', s === sec);
+  });
+}
+</script>
 </body>
 </html>
 

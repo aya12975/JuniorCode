@@ -24,8 +24,9 @@ $conn->query("CREATE TABLE IF NOT EXISTS course_projects (
     sort_order INT          NOT NULL DEFAULT 0,
     created_at TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-$conn->query("ALTER TABLE course_projects ADD COLUMN IF NOT EXISTS image   TEXT NOT NULL DEFAULT ''");
-$conn->query("ALTER TABLE course_projects ADD COLUMN IF NOT EXISTS pdf_url TEXT NOT NULL DEFAULT ''");
+$conn->query("ALTER TABLE course_projects ADD COLUMN IF NOT EXISTS image     TEXT NOT NULL DEFAULT ''");
+$conn->query("ALTER TABLE course_projects ADD COLUMN IF NOT EXISTS pdf_url  TEXT NOT NULL DEFAULT ''");
+$conn->query("ALTER TABLE course_projects ADD COLUMN IF NOT EXISTS course_id INT DEFAULT NULL");
 
 // Ensure is_unlocked column exists
 $chk = $conn->query("SHOW COLUMNS FROM courses LIKE 'is_unlocked'");
@@ -207,6 +208,11 @@ function getCategoriesForSection($conn, $section) {
 $kidsCategories   = getCategoriesForSection($conn, 'kids');
 $juniorCategories = getCategoriesForSection($conn, 'junior');
 
+// Kids courses with empty/null category — these wouldn't appear in any category section
+$kidsUncategorized = [];
+$_uStmt = $conn->prepare("SELECT * FROM courses WHERE section='kids' AND (category IS NULL OR category='') ORDER BY id DESC");
+if ($_uStmt) { $_uStmt->execute(); $kidsUncategorized = $_uStmt->get_result()->fetch_all(MYSQLI_ASSOC); $_uStmt->close(); }
+
 function isActive($page, $currentPage) {
     return $page === $currentPage ? "active" : "";
 }
@@ -311,9 +317,11 @@ function renderCourseTable($result, string $activeTab = 'kids') {
           <a href="edit_course.php?id=<?= $c["id"] ?>" class="ca-btn ca-edit">
             <i class="fas fa-pen"></i> Edit
           </a>
-          <button type="button" class="ca-btn ca-delete" style="border:none;cursor:pointer;" onclick="openCourseDelModal(<?= $c['id'] ?>, <?= htmlspecialchars(json_encode($c['course_name'])) ?>)">
+          <a href="delete_course.php?id=<?= $c['id'] ?>"
+             class="ca-btn ca-delete"
+             onclick="return confirm('Delete this course? This cannot be undone.')">
             <i class="fas fa-trash"></i> Delete
-          </button>
+          </a>
         </div>
       </div>
       <?php endwhile; ?>
@@ -368,22 +376,22 @@ function renderCourseTable($result, string $activeTab = 'kids') {
       top: 0;
       height: 100vh;
       overflow-y: auto;
+      display: flex; flex-direction: column;
       transition: width 0.3s ease, padding 0.3s ease, min-width 0.3s ease;
     }
 
     body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow-y: auto; }
 
     .sidebar-top-area { padding: 0 18px 18px; }
-    .brand-box { display: flex; align-items: center; gap: 12px; padding: 0 4px 22px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; }
+    .brand { display: flex; align-items: center; gap: 12px; padding: 0 4px 22px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; }
 
-    .logo-img {
-      width: 55px;
-      height: 55px;
-      object-fit: contain;
-      border-radius: 12px;
-      background: none;
-      flex-shrink: 0;
+    .brand-logo-img {
+      width: 55px; height: 55px;
+      object-fit: contain; flex-shrink: 0;
+      background: none; border-radius: 0;
     }
+
+    .sidebar-bottom { padding: 16px 18px; }
 
     .brand-title {
       font-weight: 900;
@@ -918,8 +926,8 @@ function renderCourseTable($result, string $activeTab = 'kids') {
   <div class="app-shell">
     <aside class="sidebar">
       <div class="sidebar-top-area">
-      <div class="brand-box">
-        <img src="images/robot2.png.png" class="logo-img" alt="Logo">
+      <div class="brand">
+        <img src="images/robot2.png.png" class="brand-logo-img" alt="Logo">
         <div>
           <div class="brand-title">JuniorCode</div>
           <div class="brand-sub">Admin Panel</div>
@@ -975,18 +983,19 @@ function renderCourseTable($result, string $activeTab = 'kids') {
         </a>
 
       </div>
-
-      <div style="border-top:1px solid rgba(255,255,255,0.1);margin:8px 0;"></div>
-      <a href="settings.php" class="nav-link-custom">
-        <span class="nav-icon"><i class="fas fa-gear"></i></span>
-        <span>Settings</span>
-      </a>
-      <div style="height:1px;background:rgba(255,255,255,0.1);margin:4px 0;"></div>
-      <a href="logout.php" class="nav-link-custom">
-        <span class="nav-icon"><i class="fas fa-right-from-bracket"></i></span>
-        <span>Logout</span>
-      </a>
       </div>
+
+  <div class="sidebar-bottom">
+    <a href="settings.php" class="nav-link-custom">
+      <span class="nav-icon"><i class="fas fa-gear"></i></span>
+      <span>Settings</span>
+    </a>
+    <div style="height:1px;background:rgba(255,255,255,0.1);margin:8px 0;"></div>
+    <a href="logout.php" class="nav-link-custom">
+      <span class="nav-icon"><i class="fas fa-right-from-bracket"></i></span>
+      <span>Logout</span>
+    </a>
+  </div>
     </aside>
 
     <main class="main-content">
@@ -1081,6 +1090,45 @@ function renderCourseTable($result, string $activeTab = 'kids') {
           </section>
         </div>
         <?php endforeach; ?>
+        <?php endif; ?>
+
+        <?php if (!empty($kidsUncategorized)): ?>
+        <section class="panel-card" style="margin-top:18px;">
+          <div class="panel-header">
+            <h2 class="panel-title" style="color:#dc2626;"><i class="fas fa-folder me-2"></i>Uncategorized Kids Courses</h2>
+            <a href="add_course.php?section=kids" class="btn-main">+ Add Course</a>
+          </div>
+          <div class="course-card-list">
+            <?php foreach ($kidsUncategorized as $c):
+              $unlocked = !empty($c["is_unlocked"]);
+            ?>
+            <div class="course-card-item">
+              <div class="course-card-thumb">
+                <?php if (!empty($c["image"])): ?>
+                  <img src="<?= htmlspecialchars($c["image"]) ?>" alt="">
+                <?php else: ?>
+                  <div class="course-thumb-fallback"><i class="fas fa-graduation-cap"></i></div>
+                <?php endif; ?>
+              </div>
+              <div class="course-card-body">
+                <div class="course-card-name"><?= htmlspecialchars($c["course_name"]) ?></div>
+                <div class="course-card-meta">
+                  <span class="type-badge <?= $c["course_type"] === "demo" ? "type-demo" : "type-paid" ?>"><?= ucfirst(htmlspecialchars($c["course_type"])) ?></span>
+                  <span class="status-badge <?= $c["status"] === "active" ? "status-active" : "status-inactive" ?>"><?= ucfirst(htmlspecialchars($c["status"])) ?></span>
+                </div>
+              </div>
+              <div class="course-card-actions">
+                <a href="edit_course.php?id=<?= $c["id"] ?>" class="ca-btn ca-edit"><i class="fas fa-pen"></i> Edit</a>
+                <a href="delete_course.php?id=<?= $c['id'] ?>"
+                   class="ca-btn ca-delete"
+                   onclick="return confirm('Delete this course? This cannot be undone.')">
+                  <i class="fas fa-trash"></i> Delete
+                </a>
+              </div>
+            </div>
+            <?php endforeach; ?>
+          </div>
+        </section>
         <?php endif; ?>
 
       </div>
@@ -1250,7 +1298,8 @@ function openDelModal(title, msg, onConfirm) {
 function closeDelModal() {
   document.getElementById('del-modal').style.display = 'none';
 }
-document.getElementById('del-modal').addEventListener('click', function(e) {
+const _delModal = document.getElementById('del-modal');
+if (_delModal) _delModal.addEventListener('click', function(e) {
   if (e.target === this) closeDelModal();
 });
 function openCatDelModal(section, cat) {
@@ -1282,7 +1331,8 @@ function openRenameModal(section, cat) {
 function closeRenameModal() {
   document.getElementById('rename-modal').style.display = 'none';
 }
-document.getElementById('rename-modal').addEventListener('click', function(e) {
+const _renameModal = document.getElementById('rename-modal');
+if (_renameModal) _renameModal.addEventListener('click', function(e) {
   if (e.target === this) closeRenameModal();
 });
 
@@ -1345,7 +1395,7 @@ function switchTab(tab) {
         <div style="font-size:1.1rem;font-weight:900;color:#0f172a;">Add Project</div>
         <div id="projModalCourseName" style="font-size:0.88rem;color:#3e5077;font-weight:700;margin-top:2px;"></div>
       </div>
-      <button onclick="closeProjModal()" style="background:#f1f5f9;border:none;border-radius:10px;width:36px;height:36px;font-size:1rem;cursor:pointer;color:#64748b;">✕</button>
+      <button onclick="closeProjModal()" style="background:#f1f5f9;border:none;border-radius:10px;width:36px;height:36px;font-size:1rem;cursor:pointer;color:#64748b;"><i class="fas fa-times"></i></button>
     </div>
 
     <!-- Existing projects list -->

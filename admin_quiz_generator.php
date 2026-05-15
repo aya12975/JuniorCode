@@ -374,7 +374,7 @@ body.sidebar-collapsed .sidebar { width:0; }
   <div class="modal-box">
     <div class="modal-title"><i class="fas fa-paper-plane me-2" style="color:#3b82f6;"></i>Send Quiz to Students</div>
     <div class="modal-sub" id="send-modal-subtitle"></div>
-    <input type="text" id="student-search" placeholder="🔍 Search student by name…" oninput="filterStudents(this.value)" style="width:100%;padding:10px 14px;border:1.5px solid #3b82f6;border-radius:10px;font-size:0.93rem;font-weight:600;margin-bottom:12px;outline:none;display:block;box-sizing:border-box;background:#f8fbff;">
+    <input type="text" id="student-search" placeholder="Search student by name…" oninput="filterStudents(this.value)" style="width:100%;padding:10px 14px;border:1.5px solid #3b82f6;border-radius:10px;font-size:0.93rem;font-weight:600;margin-bottom:12px;outline:none;display:block;box-sizing:border-box;background:#f8fbff;">
     <div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid #e2e8f0;">
       <label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;font-weight:700;color:var(--muted);cursor:pointer;">
         <input type="checkbox" id="select-all-students" onchange="toggleSelectAll(this)" style="width:16px;height:16px;accent-color:var(--primary);cursor:pointer;">

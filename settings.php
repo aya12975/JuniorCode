@@ -349,7 +349,8 @@ function isActive($page, $cur) { return $page === $cur ? "active" : ""; }
       background:rgba(62,80,119,.06);
       box-shadow:0 4px 14px rgba(62,80,119,.15);
     }
-    .lang-opt .lang-flag { font-size:1.6rem; margin-bottom:6px; display:block; }
+    .lang-opt .lang-flag { font-size:1.2rem; margin-bottom:6px; display:flex; align-items:center; justify-content:center; gap:6px; }
+    .lang-opt .lang-flag i { font-size:1.1rem; color:var(--primary); }
 
     /* ── Alert ── */
     .settings-alert {
@@ -516,17 +517,17 @@ function isActive($page, $cur) { return $page === $cur ? "active" : ""; }
           <div class="lang-options">
             <label class="lang-opt <?= $adminLang === 'en' ? 'selected' : '' ?>">
               <input type="radio" name="lang" value="en" style="display:none" <?= $adminLang === 'en' ? 'checked' : '' ?> onchange="selectLangOpt(this)">
-              <span class="lang-flag">🇬🇧</span>
+              <span class="lang-flag"><i class="fas fa-globe"></i> EN</span>
               <?= t('lang_en') ?>
             </label>
             <label class="lang-opt <?= $adminLang === 'ar' ? 'selected' : '' ?>">
               <input type="radio" name="lang" value="ar" style="display:none" <?= $adminLang === 'ar' ? 'checked' : '' ?> onchange="selectLangOpt(this)">
-              <span class="lang-flag">🇸🇦</span>
+              <span class="lang-flag"><i class="fas fa-globe"></i> AR</span>
               <?= t('lang_ar') ?>
             </label>
             <label class="lang-opt <?= $adminLang === 'fr' ? 'selected' : '' ?>">
               <input type="radio" name="lang" value="fr" style="display:none" <?= $adminLang === 'fr' ? 'checked' : '' ?> onchange="selectLangOpt(this)">
-              <span class="lang-flag">🇫🇷</span>
+              <span class="lang-flag"><i class="fas fa-globe"></i> FR</span>
               <?= t('lang_fr') ?>
             </label>
           </div>

@@ -10,67 +10,47 @@ if (!isset($_SESSION["role"]) || $_SESSION["role"] !== "admin") {
 $adminName = $_SESSION["username"] ?? "Admin";
 $currentPage = basename($_SERVER["PHP_SELF"]);
 
-$totalUsers = 0;
-$totalStudents = 0;
-$totalTeachers = 0;
-$totalClasses = 0;
-$totalEarnings = 0;
-$totalAvailableSlots = 0;
+/* ── Month selection ── */
+$selectedMonth = $_GET['month'] ?? date('Y-m');
+if (!preg_match('/^\d{4}-\d{2}$/', $selectedMonth)) $selectedMonth = date('Y-m');
+$monthStart  = $selectedMonth . '-01';
+$monthEnd    = date('Y-m-t', strtotime($monthStart));
+$prevMonth   = date('Y-m', strtotime($monthStart . ' -1 month'));
+$nextMonth   = date('Y-m', strtotime($monthStart . ' +1 month'));
+$monthLabel  = date('F Y', strtotime($monthStart));
 
-$recentUsers = [];
-$recentClasses = [];
-$recentEarnings = [];
+/* ── All-time counts ── */
+$totalUsers = 0; $totalStudents = 0; $totalTeachers = 0;
+$r = $conn->query("SELECT COUNT(*) AS c FROM users"); if ($r) $totalUsers = (int)$r->fetch_assoc()['c'];
+$r = $conn->query("SELECT COUNT(*) AS c FROM users WHERE role='student'"); if ($r) $totalStudents = (int)$r->fetch_assoc()['c'];
+$r = $conn->query("SELECT COUNT(*) AS c FROM users WHERE role='teacher'"); if ($r) $totalTeachers = (int)$r->fetch_assoc()['c'];
 
-$result = $conn->query("SELECT COUNT(*) AS total FROM users");
-if ($result && $row = $result->fetch_assoc()) {
-    $totalUsers = (int)$row["total"];
-}
+/* ── Month-filtered stats ── */
+$monthClasses = 0; $monthEarnings = 0.0; $monthSlots = 0;
 
-$result = $conn->query("SELECT COUNT(*) AS total FROM users WHERE role='student'");
-if ($result && $row = $result->fetch_assoc()) {
-    $totalStudents = (int)$row["total"];
-}
+$stmt = $conn->prepare("SELECT COUNT(*) AS c FROM classes WHERE class_date BETWEEN ? AND ?");
+if ($stmt) { $stmt->bind_param("ss", $monthStart, $monthEnd); $stmt->execute(); $monthClasses = (int)$stmt->get_result()->fetch_assoc()['c']; $stmt->close(); }
 
-$result = $conn->query("SELECT COUNT(*) AS total FROM users WHERE role='teacher'");
-if ($result && $row = $result->fetch_assoc()) {
-    $totalTeachers = (int)$row["total"];
-}
+$stmt = $conn->prepare("SELECT COALESCE(SUM(amount),0) AS s FROM teacher_earnings WHERE lesson_date BETWEEN ? AND ?");
+if ($stmt) { $stmt->bind_param("ss", $monthStart, $monthEnd); $stmt->execute(); $monthEarnings = (float)$stmt->get_result()->fetch_assoc()['s']; $stmt->close(); }
 
-$result = $conn->query("SELECT COUNT(*) AS total FROM classes");
-if ($result && $row = $result->fetch_assoc()) {
-    $totalClasses = (int)$row["total"];
-}
+$stmt = $conn->prepare("SELECT COUNT(*) AS c FROM teacher_availability WHERE available_date BETWEEN ? AND ?");
+if ($stmt) { $stmt->bind_param("ss", $monthStart, $monthEnd); $stmt->execute(); $monthSlots = (int)$stmt->get_result()->fetch_assoc()['c']; $stmt->close(); }
 
-$result = $conn->query("SELECT COALESCE(SUM(amount),0) AS total FROM teacher_earnings");
-if ($result && $row = $result->fetch_assoc()) {
-    $totalEarnings = (float)$row["total"];
-}
+/* ── Month-filtered tables ── */
+$recentUsers = []; $recentClasses = []; $recentEarnings = []; $recentAvailability = [];
 
-$result = $conn->query("SELECT COUNT(*) AS total FROM teacher_availability WHERE status='available'");
-if ($result && $row = $result->fetch_assoc()) {
-    $totalAvailableSlots = (int)$row["total"];
-}
+$r = $conn->query("SELECT id, username, role FROM users ORDER BY id DESC LIMIT 5");
+if ($r) while ($row = $r->fetch_assoc()) $recentUsers[] = $row;
 
-$result = $conn->query("SELECT id, username, role FROM users ORDER BY id DESC LIMIT 5");
-if ($result) {
-    while ($row = $result->fetch_assoc()) {
-        $recentUsers[] = $row;
-    }
-}
+$stmt = $conn->prepare("SELECT id, student_name, class_date, class_time, type FROM classes WHERE class_date BETWEEN ? AND ? ORDER BY class_date DESC, class_time DESC LIMIT 10");
+if ($stmt) { $stmt->bind_param("ss", $monthStart, $monthEnd); $stmt->execute(); $res = $stmt->get_result(); while ($row = $res->fetch_assoc()) $recentClasses[] = $row; $stmt->close(); }
 
-$result = $conn->query("SELECT id, student_name, class_time, type FROM classes ORDER BY id DESC LIMIT 5");
-if ($result) {
-    while ($row = $result->fetch_assoc()) {
-        $recentClasses[] = $row;
-    }
-}
+$stmt = $conn->prepare("SELECT id, teacher_name, lesson_title, amount, lesson_date FROM teacher_earnings WHERE lesson_date BETWEEN ? AND ? ORDER BY lesson_date DESC LIMIT 10");
+if ($stmt) { $stmt->bind_param("ss", $monthStart, $monthEnd); $stmt->execute(); $res = $stmt->get_result(); while ($row = $res->fetch_assoc()) $recentEarnings[] = $row; $stmt->close(); }
 
-$result = $conn->query("SELECT id, lesson_title, amount FROM teacher_earnings ORDER BY id DESC LIMIT 5");
-if ($result) {
-    while ($row = $result->fetch_assoc()) {
-        $recentEarnings[] = $row;
-    }
-}
+$stmt = $conn->prepare("SELECT id, teacher_name, available_date, available_time FROM teacher_availability WHERE available_date BETWEEN ? AND ? ORDER BY available_date DESC LIMIT 10");
+if ($stmt) { $stmt->bind_param("ss", $monthStart, $monthEnd); $stmt->execute(); $res = $stmt->get_result(); while ($row = $res->fetch_assoc()) $recentAvailability[] = $row; $stmt->close(); }
 
 function isActive($page, $currentPage) {
     return $page === $currentPage ? "active" : "";
@@ -128,15 +108,12 @@ function isActive($page, $currentPage) {
     body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow-y: auto; }
 
     .sidebar-top-area { padding: 0 18px 18px; }
-    .brand-box { display: flex; align-items: center; gap: 12px; padding: 0 4px 22px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; }
+    .brand { display: flex; align-items: center; gap: 12px; padding: 0 4px 22px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; }
 
-    .logo-img {
-      width: 55px;
-      height: 55px;
-      object-fit: contain;
-      border-radius: 12px;
-      background: none;
-      flex-shrink: 0;
+    .brand-logo-img {
+      width: 55px; height: 55px;
+      object-fit: contain; flex-shrink: 0;
+      background: none; border-radius: 0;
     }
 
     .brand-title {
@@ -289,6 +266,23 @@ function isActive($page, $currentPage) {
       font-weight: 800;
     }
 
+    .month-switcher {
+      display: flex; align-items: center; gap: 10px;
+      background: rgba(255,255,255,0.15); border-radius: 14px; padding: 8px 14px;
+    }
+    .month-switcher a {
+      color: #fff; text-decoration: none; font-weight: 900; font-size: 1.1rem;
+      width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+      border-radius: 8px; transition: background 0.2s;
+    }
+    .month-switcher a:hover { background: rgba(255,255,255,0.2); }
+    .month-switcher span { font-weight: 800; font-size: 1rem; color: #fff; min-width: 130px; text-align: center; }
+
+    .section-label {
+      font-size: 0.78rem; text-transform: uppercase; letter-spacing: 1.2px;
+      font-weight: 800; color: var(--muted); margin: 24px 0 12px;
+    }
+
     @media (max-width: 1100px) {
       .stats-grid, .content-grid {
         grid-template-columns: 1fr;
@@ -313,8 +307,8 @@ function isActive($page, $currentPage) {
   <div class="app-shell">
     <aside class="sidebar">
       <div class="sidebar-top-area">
-      <div class="brand-box">
-        <img src="images/robot2.png.png" class="logo-img" alt="Logo">
+      <div class="brand">
+        <img src="images/robot2.png.png" class="brand-logo-img" alt="Logo">
         <div>
           <div class="brand-title">JuniorCode</div>
           <div class="brand-sub">Admin Panel</div>
@@ -393,96 +387,68 @@ function isActive($page, $currentPage) {
       <div class="topbar">
         <div>
           <h1>Reports</h1>
-          <p>System reports and recent activity overview.</p>
+          <p>Monthly activity overview.</p>
         </div>
-        <div class="admin-badge"><i class="fas fa-user-shield me-2"></i>Hello, <?php echo htmlspecialchars($adminName); ?> &nbsp;·&nbsp; <?php echo date("d M Y"); ?></div>
+        <div class="d-flex align-items-center gap-3 flex-wrap">
+          <div class="month-switcher">
+            <a href="?month=<?= htmlspecialchars($prevMonth) ?>"><i class="fas fa-chevron-left"></i></a>
+            <span><?= htmlspecialchars($monthLabel) ?></span>
+            <a href="?month=<?= htmlspecialchars($nextMonth) ?>"><i class="fas fa-chevron-right"></i></a>
+          </div>
+          <div class="admin-badge"><i class="fas fa-user-shield me-2"></i><?= htmlspecialchars($adminName) ?></div>
+        </div>
       </div>
 
+      <div class="section-label">All-time totals</div>
       <section class="stats-grid">
         <div class="stat-card">
           <div class="stat-label">Total Users</div>
-          <div class="stat-value"><?php echo $totalUsers; ?></div>
+          <div class="stat-value"><?= $totalUsers ?></div>
         </div>
-
-        <div class="stat-card">
-          <div class="stat-label">Total Classes</div>
-          <div class="stat-value"><?php echo $totalClasses; ?></div>
-        </div>
-
-        <div class="stat-card">
-          <div class="stat-label">Total Earnings</div>
-          <div class="stat-value">$<?php echo number_format($totalEarnings, 2); ?></div>
-        </div>
-
         <div class="stat-card">
           <div class="stat-label">Students</div>
-          <div class="stat-value"><?php echo $totalStudents; ?></div>
+          <div class="stat-value"><?= $totalStudents ?></div>
         </div>
-
         <div class="stat-card">
           <div class="stat-label">Teachers</div>
-          <div class="stat-value"><?php echo $totalTeachers; ?></div>
+          <div class="stat-value"><?= $totalTeachers ?></div>
         </div>
+      </section>
 
+      <div class="section-label">In <?= htmlspecialchars($monthLabel) ?></div>
+      <section class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Classes</div>
+          <div class="stat-value"><?= $monthClasses ?></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Earnings</div>
+          <div class="stat-value">$<?= number_format($monthEarnings, 2) ?></div>
+        </div>
         <div class="stat-card">
           <div class="stat-label">Available Slots</div>
-          <div class="stat-value"><?php echo $totalAvailableSlots; ?></div>
+          <div class="stat-value"><?= $monthSlots ?></div>
         </div>
       </section>
 
       <section class="content-grid">
         <div class="panel-card">
-          <div class="panel-title">Recent Users</div>
+          <div class="panel-title">Classes — <?= htmlspecialchars($monthLabel) ?></div>
           <div class="table-responsive">
             <table class="table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Username</th>
-                  <th>Role</th>
-                </tr>
-              </thead>
-              <tbody>
-                <?php if (!empty($recentUsers)): ?>
-                  <?php foreach ($recentUsers as $user): ?>
-                    <tr>
-                      <td><?php echo htmlspecialchars($user["id"]); ?></td>
-                      <td><?php echo htmlspecialchars($user["username"]); ?></td>
-                      <td><?php echo htmlspecialchars($user["role"]); ?></td>
-                    </tr>
-                  <?php endforeach; ?>
-                <?php else: ?>
-                  <tr><td colspan="3">No users found.</td></tr>
-                <?php endif; ?>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div class="panel-card">
-          <div class="panel-title">Recent Classes</div>
-          <div class="table-responsive">
-            <table class="table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Student</th>
-                  <th>Time</th>
-                  <th>Type</th>
-                </tr>
-              </thead>
+              <thead><tr><th>Student</th><th>Date</th><th>Time</th><th>Type</th></tr></thead>
               <tbody>
                 <?php if (!empty($recentClasses)): ?>
                   <?php foreach ($recentClasses as $class): ?>
                     <tr>
-                      <td><?php echo htmlspecialchars($class["id"]); ?></td>
-                      <td><?php echo htmlspecialchars($class["student_name"]); ?></td>
-                      <td><?php echo htmlspecialchars($class["class_time"]); ?></td>
-                      <td><?php echo htmlspecialchars($class["type"]); ?></td>
+                      <td><?= htmlspecialchars($class["student_name"]) ?></td>
+                      <td><?= htmlspecialchars($class["class_date"]) ?></td>
+                      <td><?= htmlspecialchars($class["class_time"]) ?></td>
+                      <td><?= htmlspecialchars($class["type"]) ?></td>
                     </tr>
                   <?php endforeach; ?>
                 <?php else: ?>
-                  <tr><td colspan="4">No classes found.</td></tr>
+                  <tr><td colspan="4" class="text-center text-muted py-3">No classes in <?= htmlspecialchars($monthLabel) ?>.</td></tr>
                 <?php endif; ?>
               </tbody>
             </table>
@@ -490,27 +456,22 @@ function isActive($page, $currentPage) {
         </div>
 
         <div class="panel-card">
-          <div class="panel-title">Recent Teacher Earnings</div>
+          <div class="panel-title">Earnings — <?= htmlspecialchars($monthLabel) ?></div>
           <div class="table-responsive">
             <table class="table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Lesson</th>
-                  <th>Amount</th>
-                </tr>
-              </thead>
+              <thead><tr><th>Teacher</th><th>Lesson</th><th>Amount</th><th>Date</th></tr></thead>
               <tbody>
                 <?php if (!empty($recentEarnings)): ?>
                   <?php foreach ($recentEarnings as $earning): ?>
                     <tr>
-                      <td><?php echo htmlspecialchars($earning["id"]); ?></td>
-                      <td><?php echo htmlspecialchars($earning["lesson_title"]); ?></td>
-                      <td>$<?php echo number_format((float)$earning["amount"], 2); ?></td>
+                      <td><?= htmlspecialchars($earning["teacher_name"]) ?></td>
+                      <td><?= htmlspecialchars($earning["lesson_title"]) ?></td>
+                      <td>$<?= number_format((float)$earning["amount"], 2) ?></td>
+                      <td><?= htmlspecialchars($earning["lesson_date"]) ?></td>
                     </tr>
                   <?php endforeach; ?>
                 <?php else: ?>
-                  <tr><td colspan="3">No earnings found.</td></tr>
+                  <tr><td colspan="4" class="text-center text-muted py-3">No earnings in <?= htmlspecialchars($monthLabel) ?>.</td></tr>
                 <?php endif; ?>
               </tbody>
             </table>
@@ -518,29 +479,43 @@ function isActive($page, $currentPage) {
         </div>
 
         <div class="panel-card">
-          <div class="panel-title">Recent Available Slots</div>
+          <div class="panel-title">Available Slots — <?= htmlspecialchars($monthLabel) ?></div>
           <div class="table-responsive">
             <table class="table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Teacher</th>
-                  <th>Date</th>
-                  <th>Time</th>
-                </tr>
-              </thead>
+              <thead><tr><th>Teacher</th><th>Date</th><th>Time</th></tr></thead>
               <tbody>
                 <?php if (!empty($recentAvailability)): ?>
                   <?php foreach ($recentAvailability as $slot): ?>
                     <tr>
-                      <td><?php echo htmlspecialchars($slot["id"]); ?></td>
-                      <td><?php echo htmlspecialchars($slot["teacher_name"]); ?></td>
-                      <td><?php echo htmlspecialchars($slot["available_date"]); ?></td>
-                      <td><?php echo htmlspecialchars($slot["available_time"]); ?></td>
+                      <td><?= htmlspecialchars($slot["teacher_name"]) ?></td>
+                      <td><?= htmlspecialchars($slot["available_date"]) ?></td>
+                      <td><?= htmlspecialchars($slot["available_time"]) ?></td>
                     </tr>
                   <?php endforeach; ?>
                 <?php else: ?>
-                  <tr><td colspan="4">No available slots found.</td></tr>
+                  <tr><td colspan="3" class="text-center text-muted py-3">No slots in <?= htmlspecialchars($monthLabel) ?>.</td></tr>
+                <?php endif; ?>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="panel-card">
+          <div class="panel-title">Recent Users (All-time)</div>
+          <div class="table-responsive">
+            <table class="table">
+              <thead><tr><th>ID</th><th>Username</th><th>Role</th></tr></thead>
+              <tbody>
+                <?php if (!empty($recentUsers)): ?>
+                  <?php foreach ($recentUsers as $user): ?>
+                    <tr>
+                      <td><?= htmlspecialchars($user["id"]) ?></td>
+                      <td><?= htmlspecialchars($user["username"]) ?></td>
+                      <td><?= htmlspecialchars($user["role"]) ?></td>
+                    </tr>
+                  <?php endforeach; ?>
+                <?php else: ?>
+                  <tr><td colspan="3" class="text-center text-muted py-3">No users found.</td></tr>
                 <?php endif; ?>
               </tbody>
             </table>

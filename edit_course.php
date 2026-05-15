@@ -27,6 +27,64 @@ if (!$course) {
     exit();
 }
 
+/* ── Ensure course_projects table & course_id column exist ── */
+$conn->query("CREATE TABLE IF NOT EXISTS course_projects (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    course_id INT DEFAULT NULL,
+    section VARCHAR(50) NOT NULL DEFAULT 'kids',
+    category VARCHAR(100) NOT NULL DEFAULT '',
+    title VARCHAR(255) NOT NULL,
+    url TEXT NOT NULL DEFAULT '',
+    image TEXT NOT NULL DEFAULT '',
+    pdf_url TEXT NOT NULL DEFAULT '',
+    sort_order INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$conn->query("ALTER TABLE course_projects ADD COLUMN IF NOT EXISTS course_id INT DEFAULT NULL");
+
+/* ── Handle project add ── */
+if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["action"] ?? "") === "add_project") {
+    $ptitle = trim($_POST["proj_title"] ?? "");
+    $purl   = trim($_POST["proj_url"]   ?? "");
+    $pimage = trim($_POST["proj_image"] ?? "");
+    $ppdf   = trim($_POST["proj_pdf"]   ?? "");
+    $sec    = $course["section"]   ?? "";
+    $cat    = $course["category"]  ?? "";
+
+    if ($ptitle !== "") {
+        if (!empty($_FILES["proj_pdf_file"]["name"])) {
+            if (!is_dir("uploads/pdfs")) mkdir("uploads/pdfs", 0755, true);
+            $ext = strtolower(pathinfo($_FILES["proj_pdf_file"]["name"], PATHINFO_EXTENSION));
+            if ($ext === "pdf" && $_FILES["proj_pdf_file"]["error"] === 0) {
+                $fname = uniqid("proj_", true) . ".pdf";
+                if (move_uploaded_file($_FILES["proj_pdf_file"]["tmp_name"], "uploads/pdfs/" . $fname)) $ppdf = $fname;
+            }
+        }
+        $ins = $conn->prepare("INSERT INTO course_projects (course_id, section, category, title, url, image, pdf_url) VALUES (?,?,?,?,?,?,?)");
+        if ($ins) { $ins->bind_param("issssss", $id, $sec, $cat, $ptitle, $purl, $pimage, $ppdf); $ins->execute(); $ins->close(); }
+    }
+    header("Location: edit_course.php?id=$id&proj_added=1");
+    exit();
+}
+
+/* ── Handle project delete ── */
+if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["action"] ?? "") === "delete_project") {
+    $projId = (int)($_POST["proj_id"] ?? 0);
+    if ($projId > 0) {
+        $del = $conn->prepare("DELETE FROM course_projects WHERE id = ? AND course_id = ?");
+        if ($del) { $del->bind_param("ii", $projId, $id); $del->execute(); $del->close(); }
+    }
+    header("Location: edit_course.php?id=$id");
+    exit();
+}
+
+/* ── Load existing projects for this course ── */
+$projStmt = $conn->prepare("SELECT * FROM course_projects WHERE course_id = ? ORDER BY sort_order ASC, id ASC");
+$projStmt->bind_param("i", $id);
+$projStmt->execute();
+$existingProjects = $projStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$projStmt->close();
+
 $formError = false;
 $errors    = [];
 
@@ -108,10 +166,8 @@ body {
   width:285px; background:linear-gradient(180deg,#0f172a 0%,#172554 100%);
   color:white; padding:0; position:sticky; top:0; height:100vh;
   transition: width 0.3s ease, padding 0.3s ease, min-width 0.3s ease; overflow-y: auto;
-  display: flex; flex-direction: column;
 }
 body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow-y: auto; }
-.sidebar-bottom { padding: 16px 18px; }
 .sidebar-top-area { padding: 0 18px 18px; }
 .brand-box { display: flex; align-items: center; gap: 12px; padding: 0 4px 22px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; }
 .logo-img { width:55px; height:55px; object-fit:contain; border-radius:12px; background:none; flex-shrink:0; }
@@ -194,13 +250,9 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow-y
       <a href="courses.php"          class="nav-link-custom active"><span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>Courses</span></a>
       <a href="reports.php"          class="nav-link-custom"><span class="nav-icon"><i class="fas fa-chart-bar"></i></span><span>Reports</span></a>
       <a href="admin_certificates.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-award"></i></span><span>Certificates</span></a>
+      <a href="settings.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-gear"></i></span><span>Settings</span></a>
+      <a href="logout.php"   class="nav-link-custom"><span class="nav-icon"><i class="fas fa-right-from-bracket"></i></span><span>Logout</span></a>
     </div>
-      </div>
-      <div class="sidebar-bottom">
-        <a href="settings.php"         class="nav-link-custom"><span class="nav-icon"><i class="fas fa-gear"></i></span><span>Settings</span></a>
-        <div style="height:1px;background:rgba(255,255,255,0.1);margin:8px 0;"></div>
-        <a href="logout.php"           class="nav-link-custom"><span class="nav-icon"><i class="fas fa-right-from-bracket"></i></span><span>Logout</span></a>
-      </div>
     </div>
   </aside>
 
@@ -304,6 +356,101 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow-y
           <a href="courses.php?tab=<?= urlencode($course["section"]) ?>" class="btn-back">Cancel</a>
         </div>
       </form>
+    </div>
+
+    <!-- ── Projects Section ── -->
+    <div class="card-box" style="max-width:780px;margin-top:24px;">
+
+      <?php if (isset($_GET["proj_added"])): ?>
+        <div class="alert alert-success" style="border-radius:12px;font-weight:700;margin-bottom:20px;">
+          <i class="fas fa-circle-check me-2"></i>Project added successfully.
+        </div>
+      <?php endif; ?>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+        <div>
+          <div style="font-size:1.1rem;font-weight:900;color:#0f172a;"><i class="fas fa-folder-open me-2" style="color:#3e5077;"></i>Course Projects</div>
+          <div style="font-size:0.82rem;color:#94a3b8;margin-top:2px;">Projects linked to this course</div>
+        </div>
+        <button onclick="document.getElementById('add-proj-form').style.display = document.getElementById('add-proj-form').style.display === 'none' ? 'block' : 'none'"
+          style="background:linear-gradient(135deg,#3e5077,#143674);border:none;color:white;font-weight:800;border-radius:10px;padding:9px 16px;cursor:pointer;font-size:0.85rem;">
+          <i class="fas fa-plus me-1"></i> Add Project
+        </button>
+      </div>
+
+      <!-- Existing projects -->
+      <?php if (empty($existingProjects)): ?>
+        <div style="text-align:center;padding:22px;background:#f8fbff;border:1px dashed #dbeafe;border-radius:14px;color:#94a3b8;font-weight:700;margin-bottom:18px;">
+          No projects yet — add the first one below.
+        </div>
+      <?php else: ?>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
+          <?php foreach ($existingProjects as $p):
+            $pdfHref = !empty($p["pdf_url"]) ? (str_starts_with($p["pdf_url"], "http") ? $p["pdf_url"] : "uploads/pdfs/" . $p["pdf_url"]) : "";
+          ?>
+          <div style="display:flex;align-items:center;gap:12px;background:#f8fbff;border:1px solid #dbeafe;border-radius:14px;padding:13px 16px;">
+            <?php if (!empty($p["image"])): ?>
+              <img src="<?= htmlspecialchars($p["image"]) ?>" style="width:48px;height:48px;object-fit:cover;border-radius:10px;border:1px solid #e5edf9;flex-shrink:0;">
+            <?php else: ?>
+              <div style="width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,#3e5077,#143674);color:white;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fas fa-gamepad"></i></div>
+            <?php endif; ?>
+            <div style="flex:1;min-width:0;">
+              <div style="font-weight:800;color:#0f172a;font-size:0.95rem;"><?= htmlspecialchars($p["title"]) ?></div>
+              <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;">
+                <?php if (!empty($p["url"])): ?>
+                  <a href="<?= htmlspecialchars($p["url"]) ?>" target="_blank" style="font-size:0.78rem;font-weight:700;color:#2563eb;background:#dbeafe;border-radius:7px;padding:3px 10px;text-decoration:none;"><i class="fas fa-arrow-up-right-from-square me-1"></i>View</a>
+                <?php endif; ?>
+                <?php if ($pdfHref): ?>
+                  <a href="<?= htmlspecialchars($pdfHref) ?>" target="_blank" style="font-size:0.78rem;font-weight:700;color:#f97316;background:#ffedd5;border-radius:7px;padding:3px 10px;text-decoration:none;"><i class="fas fa-file-pdf me-1"></i>PDF</a>
+                <?php endif; ?>
+              </div>
+            </div>
+            <form method="POST" onsubmit="return confirm('Delete this project?')">
+              <input type="hidden" name="action"  value="delete_project">
+              <input type="hidden" name="proj_id" value="<?= $p["id"] ?>">
+              <button type="submit" style="background:#fee2e2;border:none;color:#dc2626;border-radius:10px;padding:8px 14px;font-weight:800;cursor:pointer;font-size:0.82rem;">
+                <i class="fas fa-trash"></i>
+              </button>
+            </form>
+          </div>
+          <?php endforeach; ?>
+        </div>
+      <?php endif; ?>
+
+      <!-- Add project form (hidden by default) -->
+      <div id="add-proj-form" style="display:none;background:#f0f7ff;border:1px solid #bfdbfe;border-radius:16px;padding:20px;">
+        <div style="font-weight:900;font-size:0.92rem;color:#0f172a;margin-bottom:14px;"><i class="fas fa-plus-circle me-1" style="color:#3e5077;"></i> New Project</div>
+        <form method="POST" enctype="multipart/form-data">
+          <input type="hidden" name="action" value="add_project">
+          <div class="row g-2">
+            <div class="col-md-6">
+              <label style="font-size:0.82rem;font-weight:700;color:#334155;display:block;margin-bottom:4px;">Title <span style="color:#ef4444;">*</span></label>
+              <input type="text" name="proj_title" class="form-control" style="height:auto;padding:10px 12px;" placeholder="e.g. Dino Run" required>
+            </div>
+            <div class="col-md-6">
+              <label style="font-size:0.82rem;font-weight:700;color:#334155;display:block;margin-bottom:4px;">Image URL</label>
+              <input type="text" name="proj_image" class="form-control" style="height:auto;padding:10px 12px;" placeholder="images/photo.png or https://...">
+            </div>
+            <div class="col-md-6">
+              <label style="font-size:0.82rem;font-weight:700;color:#334155;display:block;margin-bottom:4px;">View Project Link</label>
+              <input type="text" name="proj_url" class="form-control" style="height:auto;padding:10px 12px;" placeholder="https://scratch.mit.edu/...">
+            </div>
+            <div class="col-md-6">
+              <label style="font-size:0.82rem;font-weight:700;color:#334155;display:block;margin-bottom:4px;">PDF / Lesson File</label>
+              <input type="file" name="proj_pdf_file" accept=".pdf" class="form-control" style="height:auto;padding:8px 12px;margin-bottom:4px;">
+              <input type="text" name="proj_pdf" class="form-control" style="height:auto;padding:10px 12px;" placeholder="or paste PDF link">
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:14px;">
+            <button type="submit" style="background:linear-gradient(135deg,#3e5077,#143674);border:none;color:white;font-weight:800;border-radius:10px;padding:10px 20px;cursor:pointer;font-size:0.88rem;">
+              <i class="fas fa-plus me-1"></i> Save Project
+            </button>
+            <button type="button" onclick="document.getElementById('add-proj-form').style.display='none'"
+              style="background:#f1f5f9;border:none;color:#64748b;font-weight:800;border-radius:10px;padding:10px 16px;cursor:pointer;">Cancel</button>
+          </div>
+        </form>
+      </div>
+
     </div>
   </main>
 </div>
