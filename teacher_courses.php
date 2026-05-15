@@ -87,10 +87,28 @@ function fetchDemoProjects($conn) {
     return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 }
 
-$kidsCategories   = getCategoriesForSection($conn, 'kids');
-$juniorCategories = getCategoriesForSection($conn, 'junior');
 $demoCourses      = fetchDemoCourses($conn);
 $demoProjects     = fetchDemoProjects($conn);
+
+$allJuniorCourses = [];
+$res2 = $conn->query("SELECT * FROM courses WHERE section='junior' AND status='active' ORDER BY category ASC, course_name ASC");
+if ($res2) $allJuniorCourses = $res2->fetch_all(MYSQLI_ASSOC);
+
+$juniorCourseProjects = [];
+foreach ($allJuniorCourses as $jc) {
+    $ps = $conn->prepare("SELECT * FROM course_projects WHERE course_id=? ORDER BY sort_order ASC, id ASC");
+    if ($ps) { $ps->bind_param("i", $jc['id']); $ps->execute(); $juniorCourseProjects[$jc['id']] = $ps->get_result()->fetch_all(MYSQLI_ASSOC); $ps->close(); }
+}
+
+$allKidsCourses = [];
+$res = $conn->query("SELECT * FROM courses WHERE section='kids' AND status='active' ORDER BY category ASC, course_name ASC");
+if ($res) $allKidsCourses = $res->fetch_all(MYSQLI_ASSOC);
+
+$kidsCourseProjects = [];
+foreach ($allKidsCourses as $kc) {
+    $ps = $conn->prepare("SELECT * FROM course_projects WHERE course_id=? ORDER BY sort_order ASC, id ASC");
+    if ($ps) { $ps->bind_param("i", $kc['id']); $ps->execute(); $kidsCourseProjects[$kc['id']] = $ps->get_result()->fetch_all(MYSQLI_ASSOC); $ps->close(); }
+}
 
 function catSlug(string $cat): string {
     return preg_replace('/[^a-z0-9]+/', '-', strtolower(trim($cat)));
@@ -100,9 +118,6 @@ function renderProjectLinks(array $projects): string {
     if (empty($projects)) return '';
     ob_start(); ?>
     <div style="margin-bottom:16px;">
-      <div style="font-size:0.93rem;font-weight:800;color:#0f172a;margin-bottom:10px;">
-        <i class="fas fa-link" style="color:#2563eb;margin-right:6px;"></i>Project Links
-      </div>
       <?php foreach ($projects as $p): ?>
         <div class="tc-proj-item">
           <?php if (!empty($p["image"])): ?>
@@ -388,6 +403,28 @@ function renderCourseCards(array $courses): string {
     .kids-cat-section.active   { display: block; }
     .junior-cat-section { display: none; }
     .junior-cat-section.active { display: block; }
+    .course-select { flex:1; min-width:220px; font-size:0.95rem; font-weight:700; padding:13px 16px; border-radius:14px; border:2px solid #dbeafe; cursor:pointer; background:#fff; }
+    .course-select:focus { border-color:var(--primary); outline:none; box-shadow:0 0 0 3px rgba(62,80,119,0.12); }
+    .field-label { font-size:0.82rem; font-weight:800; color:#64748b; display:block; margin-bottom:8px; }
+
+    /* Kids course rows */
+    .kc-group-label { font-size:0.78rem; font-weight:900; text-transform:uppercase; letter-spacing:1px; color:var(--primary); padding:12px 4px 6px; }
+    .kc-row { display:flex; align-items:center; gap:14px; width:100%; background:#f8fbff; border:1.5px solid #dbeafe; border-radius:14px; padding:14px 16px; margin-bottom:8px; cursor:pointer; text-align:left; transition:all 0.18s; }
+    .kc-row:hover { background:#eff6ff; border-color:#93c5fd; transform:translateX(4px); }
+    .kc-row-icon { width:40px; height:40px; border-radius:11px; background:linear-gradient(135deg,var(--primary),var(--secondary)); color:#fff; display:flex; align-items:center; justify-content:center; font-size:1rem; flex-shrink:0; }
+    .kc-row-body { flex:1; min-width:0; }
+    .kc-row-name { font-weight:900; font-size:0.97rem; color:#0f172a; margin-bottom:5px; }
+    .kc-row-meta { display:flex; gap:6px; flex-wrap:wrap; }
+    .kc-arrow { color:#94a3b8; font-size:0.85rem; flex-shrink:0; }
+    .kc-row:hover .kc-arrow { color:var(--primary); }
+    .kc-chip { font-size:0.73rem; font-weight:700; padding:3px 9px; border-radius:999px; }
+    .kc-chip-blue   { background:#dbeafe; color:#1d4ed8; }
+    .kc-chip-green  { background:#dcfce7; color:#166534; }
+    .kc-chip-red    { background:#fee2e2; color:#991b1b; }
+    .kc-chip-gray   { background:#f1f5f9; color:#64748b; }
+    .kc-chip-purple { background:#ede9fe; color:#5b21b6; }
+    .kc-back-btn { display:inline-flex; align-items:center; gap:8px; background:#fff; border:1.5px solid #dbeafe; border-radius:12px; padding:10px 18px; font-weight:800; font-size:0.9rem; color:#334155; cursor:pointer; margin-bottom:16px; transition:background 0.18s; }
+    .kc-back-btn:hover { background:#f1f5f9; }
 
     .kids-drop-item {
       display: block; width: 100%; padding: 13px 18px;
@@ -595,93 +632,176 @@ function renderCourseCards(array $courses): string {
 
   <!-- Kids -->
   <div id="tab-kids" class="tab-section active">
-    <?php if (!empty($kidsCategories)): ?>
-      <?php if (count($kidsCategories) > 1): ?>
-      <div style="position:relative;display:inline-block;margin-bottom:16px;">
-        <button class="btn-module" onclick="toggleMenu('kids',event)" type="button">
-          Select Kids Module <i class="fas fa-chevron-down ms-2" id="kids-chevron"></i>
-        </button>
-        <div id="kids-dropdown" style="display:none;position:absolute;top:calc(100% + 8px);left:0;background:white;border:1px solid #dbeafe;border-radius:16px;box-shadow:0 12px 32px rgba(15,23,42,0.12);min-width:220px;z-index:100;overflow:hidden;">
-          <?php foreach ($kidsCategories as $i => $cat): ?>
-            <button class="kids-drop-item <?= $i === 0 ? 'active' : '' ?>" onclick="switchCat('kids','<?= catSlug($cat) ?>',this)" type="button"><?= htmlspecialchars($cat) ?></button>
+
+    <!-- View 1: Course list -->
+    <div id="kids-list-view">
+      <div class="panel-card">
+        <div class="panel-title"><i class="fas fa-child me-2"></i>Kids Courses <span style="font-size:0.82rem;font-weight:600;color:var(--muted);">(<?= count($allKidsCourses) ?>)</span></div>
+        <?php if (empty($allKidsCourses)): ?>
+          <div class="empty-box">No Kids courses found.</div>
+        <?php else: ?>
+          <?php
+            $kidsGrouped = [];
+            foreach ($allKidsCourses as $kc) {
+                $key = $kc['category'] ?: '';
+                $kidsGrouped[$key][] = $kc;
+            }
+            foreach ($kidsGrouped as $grpLabel => $grpItems):
+          ?>
+            <?php if ($grpLabel !== ''): ?>
+              <div class="kc-group-label"><i class="fas fa-folder me-2"></i><?= htmlspecialchars($grpLabel) ?></div>
+            <?php endif; ?>
+            <?php foreach ($grpItems as $kc):
+              $projCount = count($kidsCourseProjects[$kc['id']] ?? []);
+            ?>
+              <button class="kc-row" onclick="openKidsCourse(<?= $kc['id'] ?>)" type="button">
+                <div class="kc-row-icon"><i class="fas fa-graduation-cap"></i></div>
+                <div class="kc-row-body">
+                  <div class="kc-row-name"><?= htmlspecialchars($kc['course_name']) ?></div>
+                  <div class="kc-row-meta">
+                    <?php if ($projCount > 0): ?>
+                      <span class="kc-chip kc-chip-blue"><i class="fas fa-folder-open me-1"></i><?= $projCount ?> project<?= $projCount !== 1 ? 's' : '' ?></span>
+                    <?php else: ?>
+                      <span class="kc-chip kc-chip-gray"><i class="fas fa-folder me-1"></i>No projects</span>
+                    <?php endif; ?>
+                    <span class="kc-chip <?= $kc['status']==='active' ? 'kc-chip-green' : 'kc-chip-red' ?>"><?= ucfirst($kc['status']) ?></span>
+                  </div>
+                </div>
+                <i class="fas fa-chevron-right kc-arrow"></i>
+              </button>
+            <?php endforeach; ?>
           <?php endforeach; ?>
-        </div>
+        <?php endif; ?>
       </div>
-      <?php endif; ?>
-      <?php foreach ($kidsCategories as $i => $cat):
-        $projs = fetchProjects($conn, 'kids', $cat);
-        $crs   = fetchCoursesByCategory($conn, 'kids', $cat);
+    </div>
+
+    <!-- View 2: Course projects (hidden by default) -->
+    <div id="kids-proj-view" style="display:none;">
+      <button class="kc-back-btn" onclick="closeKidsCourse()" type="button">
+        <i class="fas fa-arrow-left"></i> Back to Courses
+      </button>
+      <?php foreach ($allKidsCourses as $kc):
+        $kProjects = $kidsCourseProjects[$kc['id']] ?? [];
       ?>
-        <div id="kids-<?= catSlug($cat) ?>" class="kids-cat-section <?= $i === 0 ? 'active' : '' ?>">
+        <div id="kids-proj-<?= $kc['id'] ?>" class="kids-proj-panel" style="display:none;">
           <div class="panel-card">
-            <div class="panel-header">
-              <div class="panel-title">Kids — <?= htmlspecialchars($cat) ?></div>
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
+              <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--primary),var(--secondary));color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;"><i class="fas fa-graduation-cap"></i></div>
+              <div>
+                <div style="font-size:1.1rem;font-weight:900;color:#0f172a;"><?= htmlspecialchars($kc['course_name']) ?></div>
+                <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;">
+                  <?php if (!empty($kc['category'])): ?>
+                    <span class="kc-chip kc-chip-purple"><i class="fas fa-folder me-1"></i><?= htmlspecialchars($kc['category']) ?></span>
+                  <?php endif; ?>
+                  <span class="kc-chip <?= $kc['status']==='active'?'kc-chip-green':'kc-chip-red' ?>"><?= ucfirst($kc['status']) ?></span>
+                  <span class="kc-chip kc-chip-blue"><i class="fas fa-folder-open me-1"></i><?= count($kProjects) ?> project<?= count($kProjects)!==1?'s':'' ?></span>
+                </div>
+              </div>
             </div>
-            <?= renderProjectLinks($projs) ?>
-            <?= renderCourseCards($crs) ?>
+            <?php if (empty($kProjects)): ?>
+              <div class="empty-box">
+                <i class="fas fa-folder-open" style="font-size:2rem;color:#dbeafe;display:block;margin-bottom:10px;"></i>
+                No projects added for this course yet.
+              </div>
+            <?php else: ?>
+
+              <?= renderProjectLinks($kProjects) ?>
+            <?php endif; ?>
           </div>
         </div>
       <?php endforeach; ?>
-    <?php else: ?>
-      <div class="empty-box">No Kids courses found.</div>
-    <?php endif; ?>
+    </div>
+
   </div>
 
   <!-- Junior -->
   <div id="tab-junior" class="tab-section">
-    <?php if (!empty($juniorCategories)): ?>
-      <?php if (count($juniorCategories) > 1): ?>
-      <div style="position:relative;display:inline-block;margin-bottom:16px;">
-        <button class="btn-module" onclick="toggleMenu('junior',event)" type="button">
-          Select Junior Module <i class="fas fa-chevron-down ms-2" id="junior-chevron"></i>
-        </button>
-        <div id="junior-dropdown" style="display:none;position:absolute;top:calc(100% + 8px);left:0;background:white;border:1px solid #dbeafe;border-radius:16px;box-shadow:0 12px 32px rgba(15,23,42,0.12);min-width:220px;z-index:100;overflow:hidden;">
-          <?php foreach ($juniorCategories as $i => $cat): ?>
-            <button class="kids-drop-item <?= $i === 0 ? 'active' : '' ?>" onclick="switchCat('junior','<?= catSlug($cat) ?>',this)" type="button"><?= htmlspecialchars($cat) ?></button>
+
+    <!-- View 1: Course list -->
+    <div id="junior-list-view">
+      <div class="panel-card">
+        <div class="panel-title"><i class="fas fa-code me-2"></i>Junior Courses <span style="font-size:0.82rem;font-weight:600;color:var(--muted);">(<?= count($allJuniorCourses) ?>)</span></div>
+        <?php if (empty($allJuniorCourses)): ?>
+          <div class="empty-box">No Junior courses found.</div>
+        <?php else: ?>
+          <?php
+            $juniorGrouped = [];
+            foreach ($allJuniorCourses as $jc) {
+                $key = $jc['category'] ?: '';
+                $juniorGrouped[$key][] = $jc;
+            }
+            foreach ($juniorGrouped as $grpLabel => $grpItems):
+          ?>
+            <?php if ($grpLabel !== ''): ?>
+              <div class="kc-group-label"><i class="fas fa-folder me-2"></i><?= htmlspecialchars($grpLabel) ?></div>
+            <?php endif; ?>
+            <?php foreach ($grpItems as $jc):
+              $projCount = count($juniorCourseProjects[$jc['id']] ?? []);
+            ?>
+              <button class="kc-row" onclick="openJuniorCourse(<?= $jc['id'] ?>)" type="button">
+                <div class="kc-row-icon"><i class="fas fa-code"></i></div>
+                <div class="kc-row-body">
+                  <div class="kc-row-name"><?= htmlspecialchars($jc['course_name']) ?></div>
+                  <div class="kc-row-meta">
+                    <?php if ($projCount > 0): ?>
+                      <span class="kc-chip kc-chip-blue"><i class="fas fa-folder-open me-1"></i><?= $projCount ?> project<?= $projCount !== 1 ? 's' : '' ?></span>
+                    <?php else: ?>
+                      <span class="kc-chip kc-chip-gray"><i class="fas fa-folder me-1"></i>No projects</span>
+                    <?php endif; ?>
+                    <span class="kc-chip <?= $jc['status']==='active' ? 'kc-chip-green' : 'kc-chip-red' ?>"><?= ucfirst($jc['status']) ?></span>
+                  </div>
+                </div>
+                <i class="fas fa-chevron-right kc-arrow"></i>
+              </button>
+            <?php endforeach; ?>
           <?php endforeach; ?>
-        </div>
+        <?php endif; ?>
       </div>
-      <?php endif; ?>
-      <?php foreach ($juniorCategories as $i => $cat):
-        $projs = fetchProjects($conn, 'junior', $cat);
-        $crs   = fetchCoursesByCategory($conn, 'junior', $cat);
+    </div>
+
+    <!-- View 2: Course projects -->
+    <div id="junior-proj-view" style="display:none;">
+      <button class="kc-back-btn" onclick="closeJuniorCourse()" type="button">
+        <i class="fas fa-arrow-left"></i> Back to Courses
+      </button>
+      <?php foreach ($allJuniorCourses as $jc):
+        $jProjects = $juniorCourseProjects[$jc['id']] ?? [];
       ?>
-        <div id="junior-<?= catSlug($cat) ?>" class="junior-cat-section <?= $i === 0 ? 'active' : '' ?>">
+        <div id="junior-proj-<?= $jc['id'] ?>" class="junior-proj-panel" style="display:none;">
           <div class="panel-card">
-            <div class="panel-header">
-              <div class="panel-title">Junior — <?= htmlspecialchars($cat) ?></div>
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
+              <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--primary),var(--secondary));color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;"><i class="fas fa-code"></i></div>
+              <div>
+                <div style="font-size:1.1rem;font-weight:900;color:#0f172a;"><?= htmlspecialchars($jc['course_name']) ?></div>
+                <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;">
+                  <?php if (!empty($jc['category'])): ?>
+                    <span class="kc-chip kc-chip-purple"><i class="fas fa-folder me-1"></i><?= htmlspecialchars($jc['category']) ?></span>
+                  <?php endif; ?>
+                  <span class="kc-chip <?= $jc['status']==='active'?'kc-chip-green':'kc-chip-red' ?>"><?= ucfirst($jc['status']) ?></span>
+                  <span class="kc-chip kc-chip-blue"><i class="fas fa-folder-open me-1"></i><?= count($jProjects) ?> project<?= count($jProjects)!==1?'s':'' ?></span>
+                </div>
+              </div>
             </div>
-            <?= renderProjectLinks($projs) ?>
-            <?= renderCourseCards($crs) ?>
+            <?php if (empty($jProjects)): ?>
+              <div class="empty-box">
+                <i class="fas fa-folder-open" style="font-size:2rem;color:#dbeafe;display:block;margin-bottom:10px;"></i>
+                No projects added for this course yet.
+              </div>
+            <?php else: ?>
+
+              <?= renderProjectLinks($jProjects) ?>
+            <?php endif; ?>
           </div>
         </div>
       <?php endforeach; ?>
-    <?php else: ?>
-      <div class="empty-box">No Junior courses found.</div>
-    <?php endif; ?>
+    </div>
+
   </div>
 
   <!-- Demo -->
   <div id="tab-demo" class="tab-section">
     <div class="panel-card">
-      <div class="panel-title">Demo Courses</div>
-      <div class="grade-group">
-        <span class="grade-group-label">Little <span style="font-weight:400;color:#64748b;">Grade 1 – Grade 3</span></span>
-        <div class="grade-cards">
-          <div class="grade-card"><a href="https://studio.code.org/courses/courseb-2025/units/1/lessons/3/levels/2" target="_blank" class="grade-link"><i class="fas fa-external-link-alt"></i> Code.org — Course B</a></div>
-          <div class="grade-card"><a href="https://studio.code.org/flappy/1" target="_blank" class="grade-link"><i class="fas fa-external-link-alt"></i> Code.org — Flappy</a></div>
-          <div class="grade-card"><a href="https://scratch.mit.edu/projects/889441020/" target="_blank" class="grade-link"><i class="fas fa-external-link-alt"></i> Scratch Project</a></div>
-        </div>
-      </div>
-      <div class="grade-group">
-        <span class="grade-group-label">Junior</span>
-        <div class="grade-cards">
-          <div class="grade-card"><a href="https://scratch.mit.edu/projects/889441020/" target="_blank" class="grade-link"><i class="fas fa-external-link-alt"></i> Scratch Project</a></div>
-          <div class="grade-card"><a href="https://x.thunkable.com/projectPage/65d61cf59f6fe10a3cc8ea2f" target="_blank" class="grade-link"><i class="fas fa-external-link-alt"></i> Thunkable Project</a></div>
-          <div class="grade-card"><a href="https://www.onlinegdb.com/EIipF2SoF" target="_blank" class="grade-link"><i class="fas fa-external-link-alt"></i> OnlineGDB</a></div>
-        </div>
-      </div>
-      <?= renderProjectLinks($demoProjects) ?>
+      <div class="panel-title"><i class="fas fa-play-circle me-2"></i>Demo Courses</div>
       <?= renderCourseCards($demoCourses) ?>
     </div>
   </div>
@@ -691,6 +811,32 @@ function renderCourseCards(array $courses): string {
 
 <script>
 const tabBtns = document.querySelectorAll('.tab-btn');
+
+function openKidsCourse(id) {
+  document.querySelectorAll('.kids-proj-panel').forEach(p => p.style.display = 'none');
+  const panel = document.getElementById('kids-proj-' + id);
+  if (panel) panel.style.display = 'block';
+  document.getElementById('kids-list-view').style.display = 'none';
+  document.getElementById('kids-proj-view').style.display  = 'block';
+}
+
+function closeKidsCourse() {
+  document.getElementById('kids-proj-view').style.display  = 'none';
+  document.getElementById('kids-list-view').style.display = 'block';
+}
+
+function openJuniorCourse(id) {
+  document.querySelectorAll('.junior-proj-panel').forEach(p => p.style.display = 'none');
+  const panel = document.getElementById('junior-proj-' + id);
+  if (panel) panel.style.display = 'block';
+  document.getElementById('junior-list-view').style.display = 'none';
+  document.getElementById('junior-proj-view').style.display = 'block';
+}
+
+function closeJuniorCourse() {
+  document.getElementById('junior-proj-view').style.display = 'none';
+  document.getElementById('junior-list-view').style.display = 'block';
+}
 
 function switchTab(name, btn) {
   document.querySelectorAll('.tab-section').forEach(s => s.classList.remove('active'));

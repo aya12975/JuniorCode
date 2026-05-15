@@ -431,7 +431,7 @@ function isActive($page, $currentPage) {
           <span>Available Slots</span>
         </a>
 
-        <a href="courses.php" class="nav-link-custom">
+        <a href="courses_home.php" class="nav-link-custom">
           <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span>
           <span>Courses</span>
         </a>

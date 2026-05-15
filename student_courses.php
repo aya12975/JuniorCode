@@ -83,6 +83,15 @@ $kidsCourses   = fetchAllBySection($conn, 'kids');
 $juniorCourses = fetchAllBySection($conn, 'junior');
 $enrolledCount = count($enrolledIds);
 $totalCourses  = count($kidsCourses) + count($juniorCourses);
+
+$kidsCourseProjects = [];
+foreach ($kidsCourses as $kc) {
+    $kidsCourseProjects[$kc['id']] = fetchCourseProjects($conn, (int)$kc['id'], 'kids', $kc['category'] ?? '');
+}
+$juniorCourseProjects = [];
+foreach ($juniorCourses as $jc) {
+    $juniorCourseProjects[$jc['id']] = fetchCourseProjects($conn, (int)$jc['id'], 'junior', $jc['category'] ?? '');
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -209,7 +218,7 @@ $totalCourses  = count($kidsCourses) + count($juniorCourses);
 
     /* ── Stat bar ── */
     .stat-bar {
-      display:grid; grid-template-columns:1fr 1fr;
+      display:grid; grid-template-columns:repeat(3,1fr);
       gap:14px; margin-bottom:22px;
     }
     .stat-box {
@@ -328,13 +337,16 @@ $totalCourses  = count($kidsCourses) + count($juniorCourses);
     .badge-unlocked { background:#dcfce7; color:#166534; }
     .badge-locked   { background:#fee2e2; color:#991b1b; }
 
-    /* Project links (unlocked only) */
+    /* Projects section */
     .proj-section { margin-top:14px; padding-top:14px; border-top:1px solid #dbeafe; }
     .proj-section-title { font-size:0.82rem; font-weight:800; color:#0f172a; margin-bottom:10px; }
     .proj-list { display:flex; flex-direction:column; gap:8px; }
     .proj-item {
       display:flex; align-items:center; gap:10px;
       background:#fff; border:1px solid #bfdbfe; border-radius:12px; padding:10px 13px;
+    }
+    .proj-item.proj-locked {
+      background:#f8f8f8; border-color:#e2e8f0; opacity:0.72; filter:grayscale(0.3);
     }
     .proj-item img { max-height:60px; max-width:90px; border-radius:8px; }
     .proj-icon-fb {
@@ -343,7 +355,9 @@ $totalCourses  = count($kidsCourses) + count($juniorCourses);
       color:#fff; display:flex; align-items:center; justify-content:center;
       font-size:0.9rem; flex-shrink:0;
     }
+    .proj-locked .proj-icon-fb { background:#e2e8f0; color:#94a3b8; }
     .proj-title { font-weight:800; font-size:0.85rem; color:#0f172a; flex:1; min-width:0; }
+    .proj-locked .proj-title { color:#94a3b8; }
     .proj-actions { display:flex; gap:6px; flex-shrink:0; }
     .proj-btn {
       display:flex; align-items:center; gap:5px; font-size:0.78rem; font-weight:800;
@@ -352,6 +366,10 @@ $totalCourses  = count($kidsCourses) + count($juniorCourses);
     .proj-btn:hover { color:#fff; filter:brightness(1.1); }
     .proj-pdf  { background:linear-gradient(135deg,#f97316,#ea580c); }
     .proj-link { background:linear-gradient(135deg,#3b82f6,#1d4ed8); }
+    .proj-btn-locked {
+      display:flex; align-items:center; gap:5px; font-size:0.78rem; font-weight:800;
+      padding:7px 12px; border-radius:8px; background:#e2e8f0; color:#94a3b8; white-space:nowrap; cursor:default;
+    }
 
     /* Lock overlay icon */
     .lock-icon {
@@ -366,6 +384,27 @@ $totalCourses  = count($kidsCourses) + count($juniorCourses);
       border:1px dashed #d9e9ff; font-weight:700;
     }
 
+    /* ── Course row (teacher-style) ── */
+    .kc-group-label { font-size:0.78rem; font-weight:900; text-transform:uppercase; letter-spacing:1px; color:var(--primary); padding:12px 4px 6px; }
+    .kc-row { display:flex; align-items:center; gap:14px; width:100%; background:#f8fbff; border:1.5px solid #dbeafe; border-radius:14px; padding:14px 16px; margin-bottom:8px; cursor:pointer; text-align:left; transition:all 0.18s; }
+    .kc-row:hover { background:#eff6ff; border-color:#93c5fd; transform:translateX(4px); }
+    .kc-row.kc-locked { background:#f8f8f8; border-color:#e2e8f0; opacity:0.82; }
+    .kc-row-icon { width:40px; height:40px; border-radius:11px; background:linear-gradient(135deg,var(--primary),var(--secondary)); color:#fff; display:flex; align-items:center; justify-content:center; font-size:1rem; flex-shrink:0; }
+    .kc-row.kc-locked .kc-row-icon { background:#e2e8f0; color:#94a3b8; }
+    .kc-row-body { flex:1; min-width:0; }
+    .kc-row-name { font-weight:900; font-size:0.97rem; color:#0f172a; margin-bottom:5px; }
+    .kc-row.kc-locked .kc-row-name { color:#64748b; }
+    .kc-row-meta { display:flex; gap:6px; flex-wrap:wrap; }
+    .kc-arrow { color:#94a3b8; font-size:0.85rem; flex-shrink:0; }
+    .kc-chip { font-size:0.73rem; font-weight:700; padding:3px 9px; border-radius:999px; }
+    .kc-chip-blue   { background:#dbeafe; color:#1d4ed8; }
+    .kc-chip-green  { background:#dcfce7; color:#166534; }
+    .kc-chip-red    { background:#fee2e2; color:#991b1b; }
+    .kc-chip-gray   { background:#f1f5f9; color:#64748b; }
+    .kc-chip-purple { background:#ede9fe; color:#5b21b6; }
+    .kc-back-btn { display:inline-flex; align-items:center; gap:8px; background:#fff; border:1.5px solid #dbeafe; border-radius:12px; padding:10px 18px; font-weight:800; font-size:0.9rem; color:#334155; cursor:pointer; margin-bottom:16px; transition:background 0.18s; }
+    .kc-back-btn:hover { background:#f1f5f9; }
+
     @media (max-width:991px) {
       .app-shell { flex-direction: column; }
       .sidebar { width: 100%; height: auto; position: relative; }
@@ -373,6 +412,7 @@ $totalCourses  = count($kidsCourses) + count($juniorCourses);
     }
     @media (max-width:575px) {
       .stat-bar { grid-template-columns:1fr; }
+      .proj-actions { flex-wrap:wrap; }
     }
   </style>
 </head>
@@ -412,6 +452,7 @@ $totalCourses  = count($kidsCourses) + count($juniorCourses);
       <a href="student_courses.php" class="nav-link-custom active">
         <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>My Courses</span>
       </a>
+      <a href="student_projects.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-folder-open"></i></span><span>My Projects</span></a>
       <a href="student_classes.php" class="nav-link-custom">
         <span class="nav-icon"><i class="fas fa-book"></i></span><span>My Classes</span>
       </a>
@@ -470,37 +511,237 @@ $totalCourses  = count($kidsCourses) + count($juniorCourses);
       <div class="stat-num"><?= $totalCourses ?></div>
       <div class="stat-label">Total Courses</div>
     </div>
+    <div class="stat-box">
+      <div class="stat-icon"><i class="fas fa-lock"></i></div>
+      <div class="stat-num"><?= $totalCourses - $enrolledCount ?></div>
+      <div class="stat-label">Locked Courses</div>
+    </div>
   </div>
 
   <!-- Tabs -->
   <div class="tab-bar">
-    <button class="tab-btn active" onclick="switchTab('kids',   this)">Kids</button>
-    <button class="tab-btn"        onclick="switchTab('junior', this)">Junior</button>
+    <button class="tab-btn active" onclick="switchTab('kids',   this)"><i class="fas fa-child me-1"></i> Kids</button>
+    <button class="tab-btn"        onclick="switchTab('junior', this)"><i class="fas fa-code me-1"></i> Junior</button>
   </div>
 
-  <!-- Kids -->
+  <!-- ── Kids ── -->
   <div id="tab-kids" class="tab-section active">
-    <?php if (!empty($kidsCourses)): ?>
+
+    <!-- List view -->
+    <div id="kids-list-view">
       <div class="panel-card">
-        <div class="panel-title"><i class="fas fa-star me-2" style="color:#f59e0b"></i>Kids Courses</div>
-        <?= renderCourseList($kidsCourses, $enrolledIds, $conn) ?>
+        <div class="panel-title"><i class="fas fa-child me-2"></i>Kids Courses <span style="font-size:0.82rem;font-weight:600;color:var(--muted);">(<?= count($kidsCourses) ?>)</span></div>
+        <?php if (empty($kidsCourses)): ?>
+          <div class="empty-box">No Kids courses available yet.</div>
+        <?php else: ?>
+          <?php
+            $kidsGrouped = [];
+            foreach ($kidsCourses as $kc) { $kidsGrouped[$kc['category'] ?: ''][] = $kc; }
+            foreach ($kidsGrouped as $grpLabel => $grpItems):
+          ?>
+            <?php if ($grpLabel !== ''): ?>
+              <div class="kc-group-label"><i class="fas fa-folder me-2"></i><?= htmlspecialchars($grpLabel) ?></div>
+            <?php endif; ?>
+            <?php foreach ($grpItems as $kc):
+              $kEnrolled  = in_array($kc['id'], $enrolledIds);
+              $kProjCount = count($kidsCourseProjects[$kc['id']] ?? []);
+            ?>
+              <button class="kc-row <?= $kEnrolled ? '' : 'kc-locked' ?>" onclick="openKidsCourse(<?= $kc['id'] ?>)" type="button">
+                <div class="kc-row-icon"><i class="fas fa-<?= $kEnrolled ? 'graduation-cap' : 'lock' ?>"></i></div>
+                <div class="kc-row-body">
+                  <div class="kc-row-name"><?= htmlspecialchars($kc['course_name']) ?></div>
+                  <div class="kc-row-meta">
+                    <?php if ($kEnrolled): ?>
+                      <span class="kc-chip kc-chip-green"><i class="fas fa-lock-open me-1"></i>Enrolled</span>
+                    <?php else: ?>
+                      <span class="kc-chip kc-chip-red"><i class="fas fa-lock me-1"></i>Locked</span>
+                    <?php endif; ?>
+                    <?php if ($kProjCount > 0): ?>
+                      <span class="kc-chip kc-chip-blue"><i class="fas fa-folder-open me-1"></i><?= $kProjCount ?> project<?= $kProjCount !== 1 ? 's' : '' ?></span>
+                    <?php else: ?>
+                      <span class="kc-chip kc-chip-gray"><i class="fas fa-folder me-1"></i>No projects</span>
+                    <?php endif; ?>
+                  </div>
+                </div>
+                <i class="fas fa-chevron-right kc-arrow"></i>
+              </button>
+            <?php endforeach; ?>
+          <?php endforeach; ?>
+        <?php endif; ?>
       </div>
-    <?php else: ?>
-      <div class="empty-box">No Kids courses available yet.</div>
-    <?php endif; ?>
+    </div>
+
+    <!-- Project view -->
+    <div id="kids-proj-view" style="display:none;">
+      <button class="kc-back-btn" onclick="closeKidsCourse()" type="button"><i class="fas fa-arrow-left"></i> Back to Courses</button>
+      <?php foreach ($kidsCourses as $kc):
+        $kEnrolled = in_array($kc['id'], $enrolledIds);
+        $kProjects = $kidsCourseProjects[$kc['id']] ?? [];
+      ?>
+        <div id="kids-proj-<?= $kc['id'] ?>" class="kids-proj-panel" style="display:none;">
+          <div class="panel-card">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
+              <div style="width:44px;height:44px;border-radius:12px;background:<?= $kEnrolled ? 'linear-gradient(135deg,var(--primary),var(--secondary))' : '#e2e8f0' ?>;color:<?= $kEnrolled ? '#fff' : '#94a3b8' ?>;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;">
+                <i class="fas fa-<?= $kEnrolled ? 'graduation-cap' : 'lock' ?>"></i>
+              </div>
+              <div>
+                <div style="font-size:1.1rem;font-weight:900;color:#0f172a;"><?= htmlspecialchars($kc['course_name']) ?></div>
+                <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;">
+                  <?php if (!empty($kc['category'])): ?>
+                    <span class="kc-chip kc-chip-purple"><i class="fas fa-folder me-1"></i><?= htmlspecialchars($kc['category']) ?></span>
+                  <?php endif; ?>
+                  <?php if ($kEnrolled): ?>
+                    <span class="kc-chip kc-chip-green"><i class="fas fa-lock-open me-1"></i>Enrolled</span>
+                  <?php else: ?>
+                    <span class="kc-chip kc-chip-red"><i class="fas fa-lock me-1"></i>Locked</span>
+                  <?php endif; ?>
+                  <span class="kc-chip kc-chip-blue"><i class="fas fa-folder-open me-1"></i><?= count($kProjects) ?> project<?= count($kProjects)!==1?'s':'' ?></span>
+                </div>
+              </div>
+            </div>
+            <?php if (empty($kProjects)): ?>
+              <div class="empty-box"><i class="fas fa-folder-open" style="font-size:2rem;color:#dbeafe;display:block;margin-bottom:10px;"></i>No projects for this course yet.</div>
+            <?php else: ?>
+              <div class="proj-list">
+                <?php foreach ($kProjects as $p):
+                  $ph = !empty($p['pdf_url']) ? (strpos($p['pdf_url'],'http')===0 ? $p['pdf_url'] : 'uploads/pdfs/'.$p['pdf_url']) : '';
+                ?>
+                  <div class="proj-item <?= !$kEnrolled ? 'proj-locked' : '' ?>">
+                    <?php if (!empty($p['image'])): ?>
+                      <img src="<?= htmlspecialchars($p['image']) ?>" alt="" style="max-height:48px;max-width:72px;border-radius:8px;<?= !$kEnrolled ? 'filter:grayscale(1);opacity:0.5;' : '' ?>">
+                    <?php else: ?>
+                      <div class="proj-icon-fb <?= !$kEnrolled ? 'proj-locked' : '' ?>"><i class="fas fa-gamepad"></i></div>
+                    <?php endif; ?>
+                    <div class="proj-title"><?= htmlspecialchars($p['title']) ?></div>
+                    <div class="proj-actions">
+                      <?php if ($kEnrolled): ?>
+                        <?php if ($ph): ?><a href="<?= htmlspecialchars($ph) ?>" target="_blank" class="proj-btn proj-pdf"><i class="fas fa-file-pdf"></i> PDF</a><?php endif; ?>
+                        <?php if (!empty($p['url'])): ?><a href="<?= htmlspecialchars($p['url']) ?>" target="_blank" class="proj-btn proj-link"><i class="fas fa-arrow-up-right-from-square"></i> Open</a><?php endif; ?>
+                      <?php else: ?>
+                        <span class="proj-btn-locked"><i class="fas fa-file-pdf"></i> PDF</span>
+                        <span class="proj-btn-locked"><i class="fas fa-lock"></i> Locked</span>
+                      <?php endif; ?>
+                    </div>
+                  </div>
+                <?php endforeach; ?>
+              </div>
+            <?php endif; ?>
+          </div>
+        </div>
+      <?php endforeach; ?>
+    </div>
+
   </div>
 
-  <!-- Junior -->
+  <!-- ── Junior ── -->
   <div id="tab-junior" class="tab-section">
-    <?php if (!empty($juniorCourses)): ?>
+
+    <!-- List view -->
+    <div id="junior-list-view">
       <div class="panel-card">
-        <div class="panel-title"><i class="fas fa-rocket me-2" style="color:#7c3aed"></i>Junior Courses</div>
-        <?= renderCourseList($juniorCourses, $enrolledIds, $conn) ?>
+        <div class="panel-title"><i class="fas fa-code me-2"></i>Junior Courses <span style="font-size:0.82rem;font-weight:600;color:var(--muted);">(<?= count($juniorCourses) ?>)</span></div>
+        <?php if (empty($juniorCourses)): ?>
+          <div class="empty-box">No Junior courses available yet.</div>
+        <?php else: ?>
+          <?php
+            $juniorGrouped = [];
+            foreach ($juniorCourses as $jc) { $juniorGrouped[$jc['category'] ?: ''][] = $jc; }
+            foreach ($juniorGrouped as $grpLabel => $grpItems):
+          ?>
+            <?php if ($grpLabel !== ''): ?>
+              <div class="kc-group-label"><i class="fas fa-folder me-2"></i><?= htmlspecialchars($grpLabel) ?></div>
+            <?php endif; ?>
+            <?php foreach ($grpItems as $jc):
+              $jEnrolled  = in_array($jc['id'], $enrolledIds);
+              $jProjCount = count($juniorCourseProjects[$jc['id']] ?? []);
+            ?>
+              <button class="kc-row <?= $jEnrolled ? '' : 'kc-locked' ?>" onclick="openJuniorCourse(<?= $jc['id'] ?>)" type="button">
+                <div class="kc-row-icon"><i class="fas fa-<?= $jEnrolled ? 'code' : 'lock' ?>"></i></div>
+                <div class="kc-row-body">
+                  <div class="kc-row-name"><?= htmlspecialchars($jc['course_name']) ?></div>
+                  <div class="kc-row-meta">
+                    <?php if ($jEnrolled): ?>
+                      <span class="kc-chip kc-chip-green"><i class="fas fa-lock-open me-1"></i>Enrolled</span>
+                    <?php else: ?>
+                      <span class="kc-chip kc-chip-red"><i class="fas fa-lock me-1"></i>Locked</span>
+                    <?php endif; ?>
+                    <?php if ($jProjCount > 0): ?>
+                      <span class="kc-chip kc-chip-blue"><i class="fas fa-folder-open me-1"></i><?= $jProjCount ?> project<?= $jProjCount !== 1 ? 's' : '' ?></span>
+                    <?php else: ?>
+                      <span class="kc-chip kc-chip-gray"><i class="fas fa-folder me-1"></i>No projects</span>
+                    <?php endif; ?>
+                  </div>
+                </div>
+                <i class="fas fa-chevron-right kc-arrow"></i>
+              </button>
+            <?php endforeach; ?>
+          <?php endforeach; ?>
+        <?php endif; ?>
       </div>
-    <?php else: ?>
-      <div class="empty-box">No Junior courses available yet.</div>
-    <?php endif; ?>
+    </div>
+
+    <!-- Project view -->
+    <div id="junior-proj-view" style="display:none;">
+      <button class="kc-back-btn" onclick="closeJuniorCourse()" type="button"><i class="fas fa-arrow-left"></i> Back to Courses</button>
+      <?php foreach ($juniorCourses as $jc):
+        $jEnrolled = in_array($jc['id'], $enrolledIds);
+        $jProjects = $juniorCourseProjects[$jc['id']] ?? [];
+      ?>
+        <div id="junior-proj-<?= $jc['id'] ?>" class="junior-proj-panel" style="display:none;">
+          <div class="panel-card">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
+              <div style="width:44px;height:44px;border-radius:12px;background:<?= $jEnrolled ? 'linear-gradient(135deg,var(--primary),var(--secondary))' : '#e2e8f0' ?>;color:<?= $jEnrolled ? '#fff' : '#94a3b8' ?>;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;">
+                <i class="fas fa-<?= $jEnrolled ? 'code' : 'lock' ?>"></i>
+              </div>
+              <div>
+                <div style="font-size:1.1rem;font-weight:900;color:#0f172a;"><?= htmlspecialchars($jc['course_name']) ?></div>
+                <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;">
+                  <?php if (!empty($jc['category'])): ?>
+                    <span class="kc-chip kc-chip-purple"><i class="fas fa-folder me-1"></i><?= htmlspecialchars($jc['category']) ?></span>
+                  <?php endif; ?>
+                  <?php if ($jEnrolled): ?>
+                    <span class="kc-chip kc-chip-green"><i class="fas fa-lock-open me-1"></i>Enrolled</span>
+                  <?php else: ?>
+                    <span class="kc-chip kc-chip-red"><i class="fas fa-lock me-1"></i>Locked</span>
+                  <?php endif; ?>
+                  <span class="kc-chip kc-chip-blue"><i class="fas fa-folder-open me-1"></i><?= count($jProjects) ?> project<?= count($jProjects)!==1?'s':'' ?></span>
+                </div>
+              </div>
+            </div>
+            <?php if (empty($jProjects)): ?>
+              <div class="empty-box"><i class="fas fa-folder-open" style="font-size:2rem;color:#dbeafe;display:block;margin-bottom:10px;"></i>No projects for this course yet.</div>
+            <?php else: ?>
+              <div class="proj-list">
+                <?php foreach ($jProjects as $p):
+                  $ph = !empty($p['pdf_url']) ? (strpos($p['pdf_url'],'http')===0 ? $p['pdf_url'] : 'uploads/pdfs/'.$p['pdf_url']) : '';
+                ?>
+                  <div class="proj-item <?= !$jEnrolled ? 'proj-locked' : '' ?>">
+                    <?php if (!empty($p['image'])): ?>
+                      <img src="<?= htmlspecialchars($p['image']) ?>" alt="" style="max-height:48px;max-width:72px;border-radius:8px;<?= !$jEnrolled ? 'filter:grayscale(1);opacity:0.5;' : '' ?>">
+                    <?php else: ?>
+                      <div class="proj-icon-fb <?= !$jEnrolled ? 'proj-locked' : '' ?>"><i class="fas fa-gamepad"></i></div>
+                    <?php endif; ?>
+                    <div class="proj-title"><?= htmlspecialchars($p['title']) ?></div>
+                    <div class="proj-actions">
+                      <?php if ($jEnrolled): ?>
+                        <?php if ($ph): ?><a href="<?= htmlspecialchars($ph) ?>" target="_blank" class="proj-btn proj-pdf"><i class="fas fa-file-pdf"></i> PDF</a><?php endif; ?>
+                        <?php if (!empty($p['url'])): ?><a href="<?= htmlspecialchars($p['url']) ?>" target="_blank" class="proj-btn proj-link"><i class="fas fa-arrow-up-right-from-square"></i> Open</a><?php endif; ?>
+                      <?php else: ?>
+                        <span class="proj-btn-locked"><i class="fas fa-file-pdf"></i> PDF</span>
+                        <span class="proj-btn-locked"><i class="fas fa-lock"></i> Locked</span>
+                      <?php endif; ?>
+                    </div>
+                  </div>
+                <?php endforeach; ?>
+              </div>
+            <?php endif; ?>
+          </div>
+        </div>
+      <?php endforeach; ?>
+    </div>
+
   </div>
+
 
 </div>
 </div><!-- /.app-shell -->
@@ -511,16 +752,12 @@ function renderCourseList(array $courses, array $enrolledIds, $conn): string {
     ob_start();
     echo '<div class="course-list">';
     foreach ($courses as $c):
-        $enrolled   = in_array($c["id"], $enrolledIds);
-        $preview    = !$enrolled && !empty($c["is_unlocked"]);
-        $canSee     = $enrolled || $preview;
-        $cls        = $canSee ? "unlocked" : "locked";
-        $projects   = fetchCourseProjects($conn, (int)$c["id"], (string)($c["section"] ?? ''), (string)($c["category"] ?? ''));
+        $enrolled = in_array($c["id"], $enrolledIds);
+        $cls      = $enrolled ? "unlocked" : "locked";
+        $projects = fetchCourseProjects($conn, (int)$c["id"], (string)($c["section"] ?? ''), (string)($c["category"] ?? ''));
 
         if ($enrolled) {
             $icon = "fa-lock-open"; $badgeCls = "badge-unlocked"; $badgeTxt = "Enrolled";
-        } elseif ($preview) {
-            $icon = "fa-eye";       $badgeCls = "";               $badgeTxt = "Preview";
         } else {
             $icon = "fa-lock";      $badgeCls = "badge-locked";   $badgeTxt = "Locked";
         }
@@ -538,54 +775,57 @@ function renderCourseList(array $courses, array $enrolledIds, $conn): string {
             <div class="course-body">
               <div class="course-name"><?= htmlspecialchars($c["course_name"]) ?></div>
               <div class="course-meta">
-                <?php if (!empty($c["category"])): ?><span class="meta-chip" style="background:#ede9fe;color:#5b21b6;"><i class="fas fa-folder"></i> <?= htmlspecialchars($c["category"]) ?></span><?php endif; ?>
-                <?php if (!empty($c["age_group"])): ?><span class="meta-chip"><i class="fas fa-users"></i> <?= htmlspecialchars($c["age_group"]) ?></span><?php endif; ?>
-                <?php if (!empty($c["level"])): ?><span class="meta-chip"><i class="fas fa-signal"></i> <?= htmlspecialchars($c["level"]) ?></span><?php endif; ?>
-                <?php if (!empty($c["duration"])): ?><span class="meta-chip"><i class="fas fa-clock"></i> <?= htmlspecialchars($c["duration"]) ?></span><?php endif; ?>
-                <?php if ($enrolled): ?>
-                  <?php if (!empty($c["price"])): ?><span class="meta-chip"><i class="fas fa-dollar-sign"></i> $<?= number_format((float)$c["price"],2) ?></span><?php endif; ?>
-                  <span class="type-badge <?= $c["course_type"]==="demo"?"type-demo":"type-paid" ?>"><?= ucfirst($c["course_type"]) ?></span>
+                <?php if (!empty($c["category"])): ?>
+                  <span class="meta-chip" style="background:#ede9fe;color:#5b21b6;"><i class="fas fa-folder"></i> <?= htmlspecialchars($c["category"]) ?></span>
                 <?php endif; ?>
-                <span class="status-badge-lock <?= $badgeCls ?>"
-                  style="<?= $preview ? 'background:#dbeafe;color:#1d4ed8;' : '' ?>">
+                <span class="status-badge-lock <?= $badgeCls ?>">
                   <i class="fas <?= $icon ?>"></i> <?= $badgeTxt ?>
                 </span>
-                <?php if (!$canSee && !empty($projects)): ?>
-                  <span class="meta-chip" style="background:#f1f5f9;color:#94a3b8;">
-                    <i class="fas fa-lock me-1"></i><?= count($projects) ?> project<?= count($projects)!==1?'s':'' ?> inside
+                <?php if (!empty($projects)): ?>
+                  <span class="meta-chip" style="background:#f1f5f9;color:#64748b;">
+                    <i class="fas fa-folder me-1"></i><?= count($projects) ?> project<?= count($projects) !== 1 ? 's' : '' ?>
                   </span>
                 <?php endif; ?>
               </div>
             </div>
-            <?php if (!$canSee): ?>
+            <?php if (!$enrolled): ?>
               <div class="lock-icon"><i class="fas fa-lock"></i></div>
             <?php endif; ?>
           </div>
 
-          <?php if ($canSee && !empty($projects)): ?>
-          <!-- Projects section (enrolled or preview) -->
+          <!-- Projects section (always shown) -->
+          <?php if (!empty($projects)): ?>
           <div class="proj-section">
             <div class="proj-section-title">
-              <i class="fas fa-folder-open me-2" style="color:var(--primary)"></i>Projects (<?= count($projects) ?>)
-              <?php if ($preview): ?>
-                <span style="font-size:0.75rem;font-weight:700;background:#dbeafe;color:#1d4ed8;border-radius:999px;padding:2px 10px;margin-left:8px;">Preview</span>
+              <i class="fas fa-folder-open me-2" style="color:<?= $enrolled ? 'var(--primary)' : '#94a3b8' ?>"></i>
+              Projects (<?= count($projects) ?>)
+              <?php if (!$enrolled): ?>
+                <span style="font-size:0.75rem;font-weight:700;background:#fee2e2;color:#991b1b;border-radius:999px;padding:2px 10px;margin-left:8px;"><i class="fas fa-lock me-1"></i>Enroll to access</span>
               <?php endif; ?>
             </div>
             <div class="proj-list">
               <?php foreach ($projects as $p): ?>
-                <div class="proj-item">
+                <div class="proj-item <?= !$enrolled ? 'proj-locked' : '' ?>">
                   <?php if (!empty($p["image"])): ?>
-                    <img src="<?= htmlspecialchars($p["image"]) ?>" alt="" style="max-height:55px;max-width:80px;border-radius:8px;">
+                    <img src="<?= htmlspecialchars($p["image"]) ?>" alt="" style="max-height:55px;max-width:80px;border-radius:8px;<?= !$enrolled ? 'filter:grayscale(1);opacity:0.5;' : '' ?>">
                   <?php else: ?>
                     <div class="proj-icon-fb"><i class="fas fa-gamepad"></i></div>
                   <?php endif; ?>
                   <div class="proj-title"><?= htmlspecialchars($p["title"]) ?></div>
                   <div class="proj-actions">
-                    <?php if (!empty($p["pdf_url"])): $ph = strpos($p["pdf_url"],'http')===0?$p["pdf_url"]:'uploads/pdfs/'.$p["pdf_url"]; ?>
-                      <a href="<?= htmlspecialchars($ph) ?>" target="_blank" class="proj-btn proj-pdf"><i class="fas fa-file-pdf"></i> PDF</a>
-                    <?php endif; ?>
-                    <?php if (!empty($p["url"])): ?>
-                      <a href="<?= htmlspecialchars($p["url"]) ?>" target="_blank" class="proj-btn proj-link"><i class="fas fa-arrow-up-right-from-square"></i> Open</a>
+                    <?php if ($enrolled): ?>
+                      <?php
+                        $ph = !empty($p["pdf_url"]) ? (strpos($p["pdf_url"],'http')===0 ? $p["pdf_url"] : 'uploads/pdfs/'.$p["pdf_url"]) : '';
+                      ?>
+                      <?php if ($ph): ?>
+                        <a href="<?= htmlspecialchars($ph) ?>" target="_blank" class="proj-btn proj-pdf"><i class="fas fa-file-pdf"></i> PDF</a>
+                      <?php endif; ?>
+                      <?php if (!empty($p["url"])): ?>
+                        <a href="<?= htmlspecialchars($p["url"]) ?>" target="_blank" class="proj-btn proj-link"><i class="fas fa-arrow-up-right-from-square"></i> Open</a>
+                      <?php endif; ?>
+                    <?php else: ?>
+                      <span class="proj-btn-locked"><i class="fas fa-file-pdf"></i> PDF</span>
+                      <span class="proj-btn-locked"><i class="fas fa-lock"></i> Locked</span>
                     <?php endif; ?>
                   </div>
                 </div>
@@ -606,6 +846,30 @@ function switchTab(name, btn) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
   btn.classList.add('active');
+}
+
+function openKidsCourse(id) {
+  document.querySelectorAll('.kids-proj-panel').forEach(p => p.style.display = 'none');
+  const panel = document.getElementById('kids-proj-' + id);
+  if (panel) panel.style.display = 'block';
+  document.getElementById('kids-list-view').style.display = 'none';
+  document.getElementById('kids-proj-view').style.display = 'block';
+}
+function closeKidsCourse() {
+  document.getElementById('kids-proj-view').style.display = 'none';
+  document.getElementById('kids-list-view').style.display = 'block';
+}
+
+function openJuniorCourse(id) {
+  document.querySelectorAll('.junior-proj-panel').forEach(p => p.style.display = 'none');
+  const panel = document.getElementById('junior-proj-' + id);
+  if (panel) panel.style.display = 'block';
+  document.getElementById('junior-list-view').style.display = 'none';
+  document.getElementById('junior-proj-view').style.display = 'block';
+}
+function closeJuniorCourse() {
+  document.getElementById('junior-proj-view').style.display = 'none';
+  document.getElementById('junior-list-view').style.display = 'block';
 }
 </script>
 <script src="logout-modal.js"></script>

@@ -169,7 +169,7 @@ body.sidebar-collapsed .sidebar { width:0; padding:0; min-width:0; overflow-y: a
       <a href="manage_classes.php"     class="nav-link-custom <?= isActive('manage_classes.php',    $currentPage) ?>"><span class="nav-icon"><i class="fas fa-book"></i></span><span><?= t('nav_classes') ?></span></a>
       <a href="teacher_earnings.php"   class="nav-link-custom <?= isActive('teacher_earnings.php',  $currentPage) ?>"><span class="nav-icon"><i class="fas fa-dollar-sign"></i></span><span><?= t('nav_earnings') ?></span></a>
       <a href="available_slots.php"    class="nav-link-custom <?= isActive('available_slots.php',   $currentPage) ?>"><span class="nav-icon"><i class="fas fa-calendar-days"></i></span><span><?= t('nav_slots') ?></span></a>
-      <a href="courses.php"            class="nav-link-custom <?= isActive('courses.php',           $currentPage) ?>"><span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span><?= t('nav_courses') ?></span></a>
+      <a href="courses_home.php"            class="nav-link-custom <?= isActive('courses.php',           $currentPage) ?>"><span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span><?= t('nav_courses') ?></span></a>
       <a href="reports.php"            class="nav-link-custom <?= isActive('reports.php',           $currentPage) ?>"><span class="nav-icon"><i class="fas fa-chart-bar"></i></span><span><?= t('nav_reports') ?></span></a>
       <a href="admin_certificates.php" class="nav-link-custom <?= isActive('admin_certificates.php',$currentPage) ?>"><span class="nav-icon"><i class="fas fa-award"></i></span><span>Certificates</span></a>
 </div>
@@ -259,11 +259,10 @@ body.sidebar-collapsed .sidebar { width:0; padding:0; min-width:0; overflow-y: a
                 <button class="btn-preview" onclick="previewCert(<?= htmlspecialchars(json_encode($c)) ?>)">
                   <i class="fas fa-eye me-1"></i> Preview
                 </button>
-                <form method="POST" style="margin:0;">
-                  <input type="hidden" name="action" value="delete">
-                  <input type="hidden" name="cert_id" value="<?= $c['id'] ?>">
-                  <button type="submit" class="btn-del" onclick="return confirm('Delete this certificate?')"><i class="fas fa-trash"></i></button>
-                </form>
+                <button type="button" class="btn-del"
+                  onclick="confirmDeleteCert(<?= $c['id'] ?>, <?= htmlspecialchars(json_encode($c['student_name']), ENT_QUOTES) ?>, <?= htmlspecialchars(json_encode($c['course_name']), ENT_QUOTES) ?>)">
+                  <i class="fas fa-trash"></i>
+                </button>
               </div>
             </div>
           <?php endforeach; ?>
@@ -271,6 +270,25 @@ body.sidebar-collapsed .sidebar { width:0; padding:0; min-width:0; overflow-y: a
       <?php endif; ?>
     </div>
   </main>
+</div>
+
+<!-- Delete Certificate Modal -->
+<div id="del-cert-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.45);z-index:10000;align-items:center;justify-content:center;">
+  <div style="background:white;border-radius:22px;padding:36px;max-width:400px;width:92%;box-shadow:0 24px 60px rgba(0,0,0,0.18);text-align:center;">
+    <div style="width:64px;height:64px;border-radius:50%;background:#fee2e2;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;">
+      <i class="fas fa-trash" style="font-size:1.5rem;color:#dc2626;"></i>
+    </div>
+    <div style="font-size:1.1rem;font-weight:900;margin-bottom:8px;">Delete Certificate?</div>
+    <p id="del-cert-msg" style="color:#64748b;font-size:0.92rem;margin-bottom:24px;"></p>
+    <form method="POST" id="del-cert-form">
+      <input type="hidden" name="action"  value="delete">
+      <input type="hidden" name="cert_id" id="del-cert-id">
+      <div style="display:flex;gap:10px;justify-content:center;">
+        <button type="submit" style="background:linear-gradient(135deg,#dc2626,#b91c1c);border:none;color:white;font-weight:800;border-radius:12px;padding:12px 28px;cursor:pointer;"><i class="fas fa-trash me-1"></i> Yes, Delete</button>
+        <button type="button" onclick="closeDeleteCert()" style="background:#64748b;color:white;border:none;border-radius:12px;padding:12px 24px;font-weight:800;cursor:pointer;">Cancel</button>
+      </div>
+    </form>
+  </div>
 </div>
 
 <!-- Preview Modal -->
@@ -360,6 +378,16 @@ async function downloadCert() {
 }
 
 document.getElementById('certModal').addEventListener('click', function(e){ if(e.target===this) this.style.display='none'; });
+
+function confirmDeleteCert(id, student, course) {
+  document.getElementById('del-cert-id').value = id;
+  document.getElementById('del-cert-msg').textContent = 'Are you sure you want to delete the certificate for "' + student + '" — ' + course + '? This cannot be undone.';
+  document.getElementById('del-cert-modal').style.display = 'flex';
+}
+function closeDeleteCert() {
+  document.getElementById('del-cert-modal').style.display = 'none';
+}
+document.getElementById('del-cert-modal').addEventListener('click', function(e){ if(e.target===this) closeDeleteCert(); });
 </script>
 <script src="logout-modal.js"></script>
 </body>

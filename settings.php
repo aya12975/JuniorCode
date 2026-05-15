@@ -417,7 +417,7 @@ function isActive($page, $cur) { return $page === $cur ? "active" : ""; }
         <span class="nav-icon"><i class="fas fa-calendar-days"></i></span>
         <span><?= t('nav_slots') ?></span>
       </a>
-      <a href="courses.php" class="nav-link-custom <?= isActive('courses.php',$currentPage) ?>">
+      <a href="courses_home.php" class="nav-link-custom <?= isActive('courses.php',$currentPage) ?>">
         <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span>
         <span><?= t('nav_courses') ?></span>
       </a>

@@ -482,7 +482,7 @@ $totalClasses  = array_sum(array_column($teachers, "total_classes"));
           <a href="available_slots.php" class="nav-link-custom">
             <span class="nav-icon"><i class="fas fa-calendar-days"></i></span><span>Available Slots</span>
           </a>
-          <a href="courses.php" class="nav-link-custom">
+          <a href="courses_home.php" class="nav-link-custom">
             <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>Courses</span>
           </a>
           <a href="reports.php" class="nav-link-custom">

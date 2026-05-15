@@ -489,7 +489,7 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; overflow-y
         <span>Available Slots</span>
       </a>
 
-      <a href="courses.php" class="nav-link-custom <?php echo isActive('courses.php', $currentPage); ?>">
+      <a href="courses_home.php" class="nav-link-custom <?php echo isActive('courses.php', $currentPage); ?>">
         <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span>
         <span>Courses</span>
       </a>

@@ -445,11 +445,10 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; }
             <i class="fas fa-copy"></i>
           </button>
           <?php if ($isOwner): ?>
-          <form method="POST" style="display:inline;" onsubmit="return confirm('Delete this quiz?')">
-            <input type="hidden" name="action"  value="delete_quiz">
-            <input type="hidden" name="quiz_id" value="<?= $qz["id"] ?>">
-            <button type="submit" class="btn-danger" title="Delete"><i class="fas fa-trash"></i></button>
-          </form>
+          <button type="button" class="btn-danger" title="Delete"
+            onclick="confirmDeleteQuiz(<?= $qz['id'] ?>, <?= htmlspecialchars(json_encode($qz['title']), ENT_QUOTES) ?>)">
+            <i class="fas fa-trash"></i>
+          </button>
           <?php endif; ?>
         </div>
       </div>
@@ -491,6 +490,25 @@ body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; }
       <button onclick="closeSendModal()" style="background:#e2e8f0;border:none;color:#334155;font-weight:800;border-radius:12px;padding:12px 18px;cursor:pointer;"><i class="fas fa-xmark"></i> Cancel</button>
       <span id="send-result" style="font-size:0.9rem;font-weight:700;display:none;margin-left:4px;"></span>
     </div>
+  </div>
+</div>
+
+<!-- Delete Quiz Modal -->
+<div class="modal-overlay" id="del-quiz-modal" onclick="if(event.target===this)closeDeleteQuiz()">
+  <div class="modal-box" style="max-width:400px;text-align:center;">
+    <div style="width:64px;height:64px;border-radius:50%;background:#fee2e2;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;">
+      <i class="fas fa-trash" style="font-size:1.5rem;color:#dc2626;"></i>
+    </div>
+    <div style="font-size:1.1rem;font-weight:900;margin-bottom:8px;">Delete Quiz?</div>
+    <p id="del-quiz-msg" style="color:#64748b;font-size:0.92rem;margin-bottom:24px;"></p>
+    <form method="POST" id="del-quiz-form">
+      <input type="hidden" name="action"  value="delete_quiz">
+      <input type="hidden" name="quiz_id" id="del-quiz-id">
+      <div style="display:flex;gap:10px;justify-content:center;">
+        <button type="submit" style="background:linear-gradient(135deg,#dc2626,#b91c1c);border:none;color:white;font-weight:800;border-radius:12px;padding:12px 28px;cursor:pointer;"><i class="fas fa-trash me-1"></i> Yes, Delete</button>
+        <button type="button" onclick="closeDeleteQuiz()" style="background:#64748b;color:white;border:none;border-radius:12px;padding:12px 24px;font-weight:800;cursor:pointer;">Cancel</button>
+      </div>
+    </form>
   </div>
 </div>
 
@@ -624,6 +642,16 @@ function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+// --- Delete modal ---
+function confirmDeleteQuiz(id, title) {
+  document.getElementById('del-quiz-id').value = id;
+  document.getElementById('del-quiz-msg').textContent = 'Are you sure you want to delete "' + title + '"? This cannot be undone.';
+  document.getElementById('del-quiz-modal').classList.add('open');
+}
+function closeDeleteQuiz() {
+  document.getElementById('del-quiz-modal').classList.remove('open');
+}
 
 // --- Results modal ---
 async function openResultsModal(quizId, quizTitle) {

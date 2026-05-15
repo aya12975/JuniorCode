@@ -259,7 +259,7 @@ body.sidebar-collapsed .sidebar { width:0; padding:0; min-width:0; }
         <a href="manage_classes.php"         class="nav-link-custom"><span class="nav-icon"><i class="fas fa-book"></i></span><span>Manage Classes</span></a>
         <a href="teacher_earnings.php"       class="nav-link-custom"><span class="nav-icon"><i class="fas fa-dollar-sign"></i></span><span>Teacher Earnings</span></a>
         <a href="available_slots.php"        class="nav-link-custom"><span class="nav-icon"><i class="fas fa-calendar-days"></i></span><span>Available Slots</span></a>
-        <a href="courses.php"                class="nav-link-custom active"><span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>Courses</span></a>
+        <a href="courses_home.php"                class="nav-link-custom active"><span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>Courses</span></a>
         <a href="reports.php"                class="nav-link-custom"><span class="nav-icon"><i class="fas fa-chart-bar"></i></span><span>Reports</span></a>
         <a href="admin_certificates.php"     class="nav-link-custom"><span class="nav-icon"><i class="fas fa-award"></i></span><span>Certificates</span></a>
       </div>
@@ -291,7 +291,7 @@ body.sidebar-collapsed .sidebar { width:0; padding:0; min-width:0; }
         <i class="fas fa-book" style="font-size:2.5rem;color:#cbd5e1;display:block;margin-bottom:16px;"></i>
         <h5 style="font-weight:800;">No courses yet</h5>
         <p style="color:var(--muted);">Add courses first, then you can manage their projects.</p>
-        <a href="courses.php" class="btn-main">Go to Courses</a>
+        <a href="courses_home.php" class="btn-main">Go to Courses</a>
       </div>
     <?php else: ?>
 
@@ -422,7 +422,7 @@ body.sidebar-collapsed .sidebar { width:0; padding:0; min-width:0; }
           <?php endif; ?>
 
           <div style="margin-top:18px;">
-            <a href="courses.php" class="btn-back"><i class="fas fa-arrow-left me-1"></i> Back to Courses</a>
+            <a href="courses_home.php" class="btn-back"><i class="fas fa-arrow-left me-1"></i> Back to Courses</a>
           </div>
         </div>
 

@@ -367,6 +367,7 @@ foreach ($classSessions as $c) {
       <a href="student_courses.php" class="nav-link-custom">
         <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>My Courses</span>
       </a>
+      <a href="student_projects.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-folder-open"></i></span><span>My Projects</span></a>
       <a href="student_classes.php" class="nav-link-custom active">
         <span class="nav-icon"><i class="fas fa-book"></i></span><span>My Classes</span>
       </a>
