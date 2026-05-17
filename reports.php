@@ -353,6 +353,10 @@ function isActive($page, $currentPage) {
           <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span>
           <span>Courses</span>
         </a>
+        <a href="manage_projects.php" class="nav-link-custom">
+          <span class="nav-icon"><i class="fas fa-folder-open"></i></span>
+          <span>Projects</span>
+        </a>
 
         <a href="reports.php" class="nav-link-custom active">
           <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>

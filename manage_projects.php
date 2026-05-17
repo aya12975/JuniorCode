@@ -51,7 +51,8 @@ if ($acRes) { while ($r = $acRes->fetch_assoc()) $allCourses[] = $r; }
 
 $error   = "";
 $success = "";
-if (($_GET["msg"] ?? "") === "deleted") $success = "Project deleted.";
+$msgMap  = ["added" => "Project added.", "updated" => "Project updated.", "deleted" => "Project deleted."];
+if (isset($_GET["msg"]) && isset($msgMap[$_GET["msg"]])) $success = $msgMap[$_GET["msg"]];
 
 /* ── Handle POST ── */
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
@@ -66,9 +67,18 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         $title    = trim($_POST["title"]    ?? "");
         $url      = trim($_POST["url"]      ?? "");
-        $image    = trim($_POST["image"]    ?? "");
+        $image    = "";
         $pdf_url  = "";
         $pdf_link = trim($_POST["pdf_link"] ?? "");
+        if (!empty($_FILES["image_file"]["tmp_name"])) {
+            $ext = strtolower(pathinfo($_FILES["image_file"]["name"], PATHINFO_EXTENSION));
+            if (in_array($ext, ["jpg","jpeg","png","gif","webp"])) {
+                $fname = uniqid("proj_img_", true) . "." . $ext;
+                if (move_uploaded_file($_FILES["image_file"]["tmp_name"], "uploads/projects/" . $fname))
+                    $image = "uploads/projects/" . $fname;
+                else $error = "Failed to save image.";
+            } else { $error = "Invalid image type."; }
+        }
         $sec      = $courseRow["section"]  ?? "";
         $cat      = $courseRow["category"] ?? "";
 
@@ -84,13 +94,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $pdf_url = $pdf_link;
         }
 
-        if ($error === "" && $title !== "") {
+        if ($error === "" && $title === "") $error = "Title is required.";
+
+        if ($error === "") {
             $stmt = $conn->prepare("INSERT INTO course_projects (course_id, section, category, title, url, image, pdf_url) VALUES (?,?,?,?,?,?,?)");
             $stmt->bind_param("issssss", $postCid, $sec, $cat, $title, $url, $image, $pdf_url);
-            $stmt->execute() ? $success = "Project added." : $error = "Failed to add.";
-            $courseId = $postCid;
-        } elseif ($error === "") {
-            $error = "Title is required.";
+            if ($stmt->execute()) {
+                header("Location: manage_projects.php?course_id=" . $postCid . "&msg=added");
+                exit();
+            } else { $error = "Failed to add."; }
         }
     }
 
@@ -113,10 +125,20 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     if ($action === "edit") {
         $id       = (int)($_POST["id"]  ?? 0);
-        $title    = trim($_POST["title"]       ?? "");
-        $url      = trim($_POST["url"]         ?? "");
-        $image    = trim($_POST["image"]       ?? "");
+        $title    = trim($_POST["title"]        ?? "");
+        $url      = trim($_POST["url"]          ?? "");
+        $image    = trim($_POST["image_keep"]   ?? "");
         $pdf_url  = trim($_POST["existing_pdf"] ?? "");
+        if (!empty($_FILES["image_file"]["tmp_name"])) {
+            $ext = strtolower(pathinfo($_FILES["image_file"]["name"], PATHINFO_EXTENSION));
+            if (in_array($ext, ["jpg","jpeg","png","gif","webp"])) {
+                $fname = uniqid("proj_img_", true) . "." . $ext;
+                if (move_uploaded_file($_FILES["image_file"]["tmp_name"], "uploads/projects/" . $fname)) {
+                    if ($image !== "" && strpos($image, "uploads/projects/") === 0) @unlink($image);
+                    $image = "uploads/projects/" . $fname;
+                } else { $error = "Failed to save image."; }
+            } else { $error = "Invalid image type."; }
+        }
         $pdf_link = trim($_POST["pdf_link"]    ?? "");
         $retCid   = (int)($_POST["course_id"]  ?? 0);
 
@@ -136,8 +158,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         if ($error === "" && $id > 0 && $title !== "") {
             $stmt = $conn->prepare("UPDATE course_projects SET title=?, url=?, image=?, pdf_url=? WHERE id=?");
             $stmt->bind_param("ssssi", $title, $url, $image, $pdf_url, $id);
-            $stmt->execute() ? $success = "Project updated." : $error = "Failed to update.";
-            $courseId = $retCid;
+            if ($stmt->execute()) {
+                header("Location: manage_projects.php?course_id=" . $retCid . "&msg=updated");
+                exit();
+            } else { $error = "Failed to update."; }
         }
     }
 }
@@ -217,18 +241,32 @@ body.sidebar-collapsed .sidebar { width:0; padding:0; min-width:0; }
 .sel-icon { width:28px; height:28px; border-radius:8px; background:rgba(255,255,255,0.2); display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:0.8rem; }
 .sel-btn:not(.active) .sel-icon { background:#f1f5f9; color:var(--primary); }
 
-.project-row { display:flex; align-items:center; gap:14px; padding:14px 16px; border-radius:14px; background:#f8fbff; border:1px solid #dbeafe; margin-bottom:10px; }
-.project-row-info { flex:1; min-width:0; }
-.project-title { font-weight:800; color:var(--dark); margin-bottom:2px; }
-.proj-thumb { width:110px; height:80px; border-radius:10px; object-fit:contain; border:1px solid #dbeafe; flex-shrink:0; }
-.proj-thumb-placeholder { width:110px; height:80px; border-radius:10px; background:linear-gradient(135deg,var(--primary),var(--secondary)); color:#fff; display:flex; align-items:center; justify-content:center; font-size:1.2rem; flex-shrink:0; }
-.action-boxes { display:flex; flex-direction:column; gap:8px; flex-shrink:0; background:#f8fbff; border:1px solid #dbeafe; border-radius:14px; padding:10px 12px; min-width:140px; }
-.action-box { display:flex; align-items:center; justify-content:center; gap:7px; border-radius:10px; padding:8px 12px; font-size:0.82rem; font-weight:800; text-decoration:none; white-space:nowrap; color:#fff; transition:filter 0.2s; }
-.action-box:hover { filter:brightness(1.1); color:#fff; }
-.action-box-pdf  { background:linear-gradient(135deg,#f97316,#ea580c); }
-.action-box-link { background:linear-gradient(135deg,#3b82f6,#1d4ed8); }
-.action-box-empty { display:flex; align-items:center; justify-content:center; gap:7px; border-radius:10px; padding:8px 12px; font-size:0.8rem; font-weight:600; color:#94a3b8; border:1.5px dashed #e2e8f0; white-space:nowrap; }
+.project-row {
+  display:grid;
+  grid-template-columns: 230px 1fr auto auto;
+  align-items:center;
+  gap:24px;
+  padding:18px 10px;
+  border-bottom:1px solid #d8dce6;
+  background:#fff;
+}
+.project-row:last-of-type { border-bottom:none; }
+.proj-thumb { width:220px; height:120px; object-fit:cover; border-radius:4px; flex-shrink:0; }
+.proj-thumb-placeholder { width:220px; height:120px; border-radius:4px; background:linear-gradient(135deg,var(--primary),var(--secondary)); color:#fff; display:flex; align-items:center; justify-content:center; font-size:1.8rem; flex-shrink:0; }
+.project-title { margin:0; color:#33415f; font-size:20px; font-weight:700; }
+.action-boxes { display:flex; gap:10px; align-items:center; }
+.action-box { display:inline-flex; align-items:center; gap:6px; border:none; color:white; font-weight:700; padding:11px 16px; border-radius:4px; cursor:pointer; text-decoration:none; font-size:0.88rem; white-space:nowrap; transition:background 0.2s; }
+.action-box:hover { color:#fff; filter:brightness(0.92); }
+.action-box-link { background:#36a66f; }
+.action-box-pdf  { background:#5d3db3; }
+.action-box-empty { display:inline-flex; align-items:center; gap:6px; padding:11px 16px; border-radius:4px; font-size:0.85rem; font-weight:600; color:#94a3b8; border:1.5px dashed #d0d8e8; white-space:nowrap; background:#f8f9fb; }
 .empty-box { text-align:center; padding:26px; border-radius:16px; background:#f8fbff; color:var(--muted); border:1px dashed #d9e9ff; font-weight:700; }
+.img-upload-wrap { border:2px dashed #ccd5e8; border-radius:10px; padding:12px; text-align:center; cursor:pointer; transition:border-color .2s; background:#fafbff; }
+.img-upload-wrap:hover { border-color:var(--primary); }
+.img-upload-wrap input[type=file] { display:none; }
+.img-upload-label { font-size:0.83rem; color:var(--muted); cursor:pointer; display:block; }
+.img-preview-box { margin-top:8px; display:none; }
+.img-preview-box img { height:64px; border-radius:8px; border:1px solid #dbeafe; object-fit:cover; }
 
 .layout-grid { display:grid; grid-template-columns:260px 1fr; gap:22px; align-items:start; }
 .course-list-panel { background:#fff; border:1px solid #edf4ff; border-radius:22px; padding:20px; box-shadow:var(--shadow); position:sticky; top:26px; }
@@ -239,7 +277,13 @@ body.sidebar-collapsed .sidebar { width:0; padding:0; min-width:0; }
 .modal-box { background:#fff; border-radius:22px; padding:28px; width:100%; max-width:480px; box-shadow:0 24px 60px rgba(15,23,42,0.2); }
 .modal-title { font-size:1.05rem; font-weight:900; margin-bottom:18px; }
 
-@media (max-width:991px) { .app-shell{flex-direction:column;} .sidebar{width:100%;height:auto;position:relative;} .layout-grid{grid-template-columns:1fr;} .course-list-panel{position:static;} }
+@media (max-width:991px) {
+  .app-shell{flex-direction:column;} .sidebar{width:100%;height:auto;position:relative;}
+  .layout-grid{grid-template-columns:1fr;} .course-list-panel{position:static;}
+  .project-row { grid-template-columns:1fr; gap:14px; }
+  .proj-thumb, .proj-thumb-placeholder { width:100%; height:auto; min-height:120px; }
+  .action-boxes { flex-wrap:wrap; }
+}
 </style>
 </head>
 <body>
@@ -259,7 +303,8 @@ body.sidebar-collapsed .sidebar { width:0; padding:0; min-width:0; }
         <a href="manage_classes.php"         class="nav-link-custom"><span class="nav-icon"><i class="fas fa-book"></i></span><span>Manage Classes</span></a>
         <a href="teacher_earnings.php"       class="nav-link-custom"><span class="nav-icon"><i class="fas fa-dollar-sign"></i></span><span>Teacher Earnings</span></a>
         <a href="available_slots.php"        class="nav-link-custom"><span class="nav-icon"><i class="fas fa-calendar-days"></i></span><span>Available Slots</span></a>
-        <a href="courses_home.php"                class="nav-link-custom active"><span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>Courses</span></a>
+        <a href="courses_home.php"                class="nav-link-custom"><span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>Courses</span></a>
+        <a href="manage_projects.php" class="nav-link-custom active"><span class="nav-icon"><i class="fas fa-folder-open"></i></span><span>Projects</span></a>
         <a href="reports.php"                class="nav-link-custom"><span class="nav-icon"><i class="fas fa-chart-bar"></i></span><span>Reports</span></a>
         <a href="admin_certificates.php"     class="nav-link-custom"><span class="nav-icon"><i class="fas fa-award"></i></span><span>Certificates</span></a>
       </div>
@@ -352,8 +397,12 @@ body.sidebar-collapsed .sidebar { width:0; padding:0; min-width:0; }
                 <input type="text" name="title" class="form-control" placeholder="e.g. Dino Run" required>
               </div>
               <div class="col-md-3">
-                <label class="form-label fw-bold">Image URL <span style="font-weight:400;color:var(--muted);">(opt.)</span></label>
-                <input type="text" name="image" id="addImageInput" class="form-control" placeholder="images/photo.png">
+                <label class="form-label fw-bold">Project Image <span style="font-weight:400;color:var(--muted);">(opt.)</span></label>
+                <div class="img-upload-wrap" onclick="document.getElementById('addImageFile').click()">
+                  <label class="img-upload-label"><i class="fas fa-upload me-1"></i>Click to upload a photo</label>
+                  <input type="file" name="image_file" id="addImageFile" accept="image/*" onchange="previewFile(this,'addImgPreview','addImgPreviewImg')">
+                </div>
+                <div class="img-preview-box" id="addImgPreview"><img id="addImgPreviewImg" src=""></div>
               </div>
               <div class="col-md-5">
                 <label class="form-label fw-bold">View Project Link <span style="font-weight:400;color:var(--muted);">(opt.)</span></label>
@@ -367,11 +416,7 @@ body.sidebar-collapsed .sidebar { width:0; padding:0; min-width:0; }
                 <div style="font-size:0.78rem;color:var(--muted);text-align:center;margin:4px 0;">— or paste a link —</div>
                 <input type="text" name="pdf_link" class="form-control" placeholder="https://drive.google.com/...">
               </div>
-              <div class="col-md-6 d-flex align-items-end">
-                <div id="addImagePreview" style="display:none;margin-bottom:8px;">
-                  <img id="addImagePreviewImg" src="" alt="Preview" style="height:60px;border-radius:10px;border:1px solid #dbeafe;object-fit:cover;">
-                </div>
-              </div>
+              <div class="col-md-6"></div>
             </div>
             <button type="submit" class="btn-main"><i class="fas fa-plus me-1"></i> Add Project</button>
           </form>
@@ -387,28 +432,41 @@ body.sidebar-collapsed .sidebar { width:0; padding:0; min-width:0; }
           <?php if (empty($projects)): ?>
             <div class="empty-box"><i class="fas fa-folder-open me-2"></i>No projects yet — add the first one above.</div>
           <?php else: ?>
-            <?php foreach ($projects as $p): ?>
+            <?php foreach ($projects as $i => $p):
+              $pdfH = !empty($p["pdf_url"]) ? (strpos($p["pdf_url"],'http')===0 ? $p["pdf_url"] : 'uploads/pdfs/'.$p["pdf_url"]) : '';
+            ?>
               <div class="project-row">
+
+                <!-- Thumbnail -->
                 <?php if (!empty($p["image"])): ?>
                   <img src="<?= htmlspecialchars($p["image"]) ?>" class="proj-thumb" alt="<?= htmlspecialchars($p["title"]) ?>">
                 <?php else: ?>
                   <div class="proj-thumb-placeholder"><i class="fas fa-gamepad"></i></div>
                 <?php endif; ?>
-                <div class="project-row-info">
-                  <div class="project-title"><?= htmlspecialchars($p["title"]) ?></div>
-                </div>
+
+                <!-- Title -->
+                <h3 class="project-title">Project <?= $i + 1 ?>: <?= htmlspecialchars($p["title"]) ?></h3>
+
+                <!-- Action buttons -->
                 <div class="action-boxes">
-                  <?php if (!empty($p["pdf_url"])): $pdfH = strpos($p["pdf_url"],'http')===0?$p["pdf_url"]:'uploads/pdfs/'.$p["pdf_url"]; ?>
-                    <a href="<?= htmlspecialchars($pdfH) ?>" target="_blank" class="action-box action-box-pdf"><i class="fas fa-file-pdf"></i> PDF</a>
-                  <?php else: ?>
-                    <div class="action-box-empty"><i class="fas fa-file-pdf"></i> No PDF</div>
-                  <?php endif; ?>
                   <?php if (!empty($p["url"])): ?>
-                    <a href="<?= htmlspecialchars($p["url"]) ?>" target="_blank" class="action-box action-box-link"><i class="fas fa-arrow-up-right-from-square"></i> View</a>
+                    <a href="<?= htmlspecialchars($p["url"]) ?>" target="_blank" class="action-box action-box-link">
+                      <i class="fas fa-arrow-up-right-from-square"></i> View Project
+                    </a>
                   <?php else: ?>
                     <div class="action-box-empty"><i class="fas fa-link"></i> No link</div>
                   <?php endif; ?>
+
+                  <?php if ($pdfH): ?>
+                    <a href="<?= htmlspecialchars($pdfH) ?>" target="_blank" class="action-box action-box-pdf">
+                      <i class="fas fa-file-pdf"></i> Check Course
+                    </a>
+                  <?php else: ?>
+                    <div class="action-box-empty"><i class="fas fa-file-pdf"></i> No PDF</div>
+                  <?php endif; ?>
                 </div>
+
+                <!-- Admin controls -->
                 <div style="display:flex;flex-direction:column;gap:6px;">
                   <button class="btn-edit-soft" onclick="openEdit(<?= $p['id'] ?>,<?= htmlspecialchars(json_encode($p['title'])) ?>,<?= htmlspecialchars(json_encode($p['url']??'')) ?>,<?= htmlspecialchars(json_encode($p['image']??'')) ?>,<?= htmlspecialchars(json_encode($p['pdf_url']??'')) ?>)">
                     <i class="fas fa-pen"></i> Edit
@@ -417,6 +475,7 @@ body.sidebar-collapsed .sidebar { width:0; padding:0; min-width:0; }
                     <i class="fas fa-trash"></i> Delete
                   </button>
                 </div>
+
               </div>
             <?php endforeach; ?>
           <?php endif; ?>
@@ -467,12 +526,18 @@ body.sidebar-collapsed .sidebar { width:0; padding:0; min-width:0; }
         <label class="form-label fw-bold">Title</label>
         <input type="text" name="title" id="editTitle" class="form-control" required>
       </div>
+      <input type="hidden" name="image_keep" id="editImageKeep">
       <div class="mb-3">
-        <label class="form-label fw-bold">Image URL <span style="font-weight:400;color:var(--muted);">(opt.)</span></label>
-        <input type="text" name="image" id="editImage" class="form-control">
-        <div id="editImagePreview" style="margin-top:8px;display:none;">
-          <img id="editImagePreviewImg" src="" alt="Preview" style="height:60px;border-radius:10px;border:1px solid #dbeafe;object-fit:cover;">
+        <label class="form-label fw-bold">Project Image <span style="font-weight:400;color:var(--muted);">(opt.)</span></label>
+        <div id="editCurrentImgWrap" style="display:none;margin-bottom:8px;">
+          <img id="editCurrentImg" src="" alt="Current" style="height:64px;border-radius:8px;border:1px solid #dbeafe;object-fit:cover;">
+          <div style="font-size:0.75rem;color:var(--muted);margin-top:3px;">Current image — upload a new one to replace it</div>
         </div>
+        <div class="img-upload-wrap" onclick="document.getElementById('editImageFile').click()">
+          <label class="img-upload-label"><i class="fas fa-upload me-1"></i>Click to upload a new photo</label>
+          <input type="file" name="image_file" id="editImageFile" accept="image/*" onchange="previewFile(this,'editImgPreview','editImgPreviewImg')">
+        </div>
+        <div class="img-preview-box" id="editImgPreview"><img id="editImgPreviewImg" src=""></div>
       </div>
       <div class="mb-3">
         <label class="form-label fw-bold">View Project Link <span style="font-weight:400;color:var(--muted);">(opt.)</span></label>
@@ -509,29 +574,41 @@ function openEdit(id, title, url, image, pdfUrl) {
   document.getElementById('editId').value          = id;
   document.getElementById('editTitle').value       = title;
   document.getElementById('editUrl').value         = url   || '';
-  document.getElementById('editImage').value       = image || '';
+  document.getElementById('editImageKeep').value   = image || '';
   document.getElementById('editExistingPdf').value = pdfUrl || '';
   document.getElementById('editPdfLink').value     = '';
+  // Show current image if exists
+  const wrap = document.getElementById('editCurrentImgWrap');
+  const curImg = document.getElementById('editCurrentImg');
+  if (image) { curImg.src = image; wrap.style.display = 'block'; }
+  else { wrap.style.display = 'none'; }
+  // Reset new file preview
+  document.getElementById('editImageFile').value = '';
+  document.getElementById('editImgPreview').style.display = 'none';
+  // PDF
   const cpd = document.getElementById('editCurrentPdf');
   if (pdfUrl) {
     const isLink = pdfUrl.startsWith('http');
     const href   = isLink ? pdfUrl : 'uploads/pdfs/' + pdfUrl;
-    cpd.innerHTML = 'Current: <a href="' + href + '" target="_blank" style="color:#2563eb;">' + (isLink ? pdfUrl : pdfUrl) + '</a>';
+    cpd.innerHTML = 'Current: <a href="' + href + '" target="_blank" style="color:#2563eb;">' + pdfUrl + '</a>';
     if (isLink) document.getElementById('editPdfLink').value = pdfUrl;
   } else { cpd.textContent = 'No PDF yet.'; }
-  updatePreview('editImage', 'editImagePreview', 'editImagePreviewImg');
   document.getElementById('editModal').classList.add('show');
 }
 function closeEdit() { document.getElementById('editModal').classList.remove('show'); }
 document.getElementById('editModal').addEventListener('click', e => { if (e.target===document.getElementById('editModal')) closeEdit(); });
 
-function updatePreview(inp, wrap, img) {
-  const v = document.getElementById(inp).value.trim();
-  document.getElementById(wrap).style.display = v ? 'block' : 'none';
-  if (v) document.getElementById(img).src = v;
+function previewFile(input, wrapId, imgId) {
+  const wrap = document.getElementById(wrapId);
+  const img  = document.getElementById(imgId);
+  if (input.files && input.files[0]) {
+    const reader = new FileReader();
+    reader.onload = e => { img.src = e.target.result; wrap.style.display = 'block'; };
+    reader.readAsDataURL(input.files[0]);
+  } else {
+    wrap.style.display = 'none';
+  }
 }
-document.getElementById('addImageInput').addEventListener('input', () => updatePreview('addImageInput', 'addImagePreview', 'addImagePreviewImg'));
-document.getElementById('editImage').addEventListener('input', () => updatePreview('editImage', 'editImagePreview', 'editImagePreviewImg'));
 </script>
 <script src="logout-modal.js"></script>
 </body>

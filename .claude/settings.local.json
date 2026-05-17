@@ -39,7 +39,8 @@
       "Bash(Get-ChildItem -Path \"C:\\\\xampp\\\\htdocs\\\\JuniorCode\" -Recurse -Filter \"*.php\")",
       "Bash(Select-Object -ExpandProperty FullName)",
       "Bash(python *)",
-      "Bash(xargs -I{} grep -n \"sidebar-top-area\\\\|sidebar-bottom\\\\|flex-direction.*column\\\\|overflow.*hidden\" {})"
+      "Bash(xargs -I{} grep -n \"sidebar-top-area\\\\|sidebar-bottom\\\\|flex-direction.*column\\\\|overflow.*hidden\" {})",
+      "Bash(grep -n 'fetch_all\\\\|classes.*ORDER\\\\|all_classes\\\\|$classes\\\\b' C:/xampp/htdocs/JuniorCode/manage_classes.php)"
     ]
   }
 }

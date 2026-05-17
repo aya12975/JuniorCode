@@ -485,6 +485,9 @@ $totalClasses  = array_sum(array_column($teachers, "total_classes"));
           <a href="courses_home.php" class="nav-link-custom">
             <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>Courses</span>
           </a>
+          <a href="manage_projects.php" class="nav-link-custom">
+            <span class="nav-icon"><i class="fas fa-folder-open"></i></span><span>Projects</span>
+          </a>
           <a href="reports.php" class="nav-link-custom">
             <span class="nav-icon"><i class="fas fa-chart-bar"></i></span><span>Reports</span>
           </a>

@@ -421,6 +421,10 @@ function isActive($page, $cur) { return $page === $cur ? "active" : ""; }
         <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span>
         <span><?= t('nav_courses') ?></span>
       </a>
+      <a href="manage_projects.php" class="nav-link-custom">
+        <span class="nav-icon"><i class="fas fa-folder-open"></i></span>
+        <span>Projects</span>
+      </a>
       <a href="reports.php" class="nav-link-custom <?= isActive('reports.php',$currentPage) ?>">
         <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
         <span><?= t('nav_reports') ?></span>

@@ -172,6 +172,36 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     }
 }
 
+/* Ensure renewals offset table exists */
+$conn->query("CREATE TABLE IF NOT EXISTS student_session_offsets (
+    student_name   VARCHAR(255) NOT NULL PRIMARY KEY,
+    offset_count   INT          NOT NULL DEFAULT 0,
+    last_renewed   TIMESTAMP    NULL DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+/* Handle session renewal POST */
+if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["action"] ?? "") === "renew_sessions") {
+    $rStudent = trim($_POST["student_name"] ?? "");
+    if ($rStudent !== "") {
+        $totQ = $conn->prepare("SELECT COUNT(*) AS t FROM classes WHERE student_name = ?");
+        $totQ->bind_param("s", $rStudent);
+        $totQ->execute();
+        $currentTotal = (int)$totQ->get_result()->fetch_assoc()["t"];
+        $totQ->close();
+
+        $upsert = $conn->prepare("
+            INSERT INTO student_session_offsets (student_name, offset_count, last_renewed)
+            VALUES (?, ?, NOW())
+            ON DUPLICATE KEY UPDATE offset_count = VALUES(offset_count), last_renewed = NOW()
+        ");
+        $upsert->bind_param("si", $rStudent, $currentTotal);
+        $upsert->execute();
+        $upsert->close();
+    }
+    header("Location: manage_classes.php?msg=renewed&student=" . urlencode($rStudent));
+    exit();
+}
+
 /* Get all classes */
 $classes = [];
 $result = $conn->query("SELECT * FROM classes ORDER BY class_date DESC, class_time ASC");
@@ -181,6 +211,28 @@ if ($result) {
         $classes[] = $row;
     }
 }
+
+/* Student session counts with renewal offsets */
+$studentSessions = [];
+$ssRes = $conn->query("
+    SELECT u.username AS student_name,
+           COUNT(c.id) AS total_sessions,
+           COALESCE(o.offset_count, 0) AS offset_count,
+           o.last_renewed
+    FROM users u
+    LEFT JOIN classes c ON c.student_name = u.username
+    LEFT JOIN student_session_offsets o ON o.student_name = u.username
+    WHERE u.role = 'student'
+    GROUP BY u.username, o.offset_count, o.last_renewed
+    ORDER BY u.username ASC
+");
+if ($ssRes) {
+    while ($r = $ssRes->fetch_assoc()) $studentSessions[] = $r;
+}
+
+/* Flash message for renewal */
+$renewedStudent = "";
+if (($_GET["msg"] ?? "") === "renewed") $renewedStudent = $_GET["student"] ?? "";
 
 function isActive($page, $currentPage) {
     return $page === $currentPage ? "active" : "";
@@ -367,6 +419,28 @@ function isActive($page, $currentPage) {
       font-weight: 900;
       margin: 0 0 18px 0;
     }
+
+    /* ── Student sessions grid ── */
+    .sessions-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:14px; }
+    .sess-card { background:#fff; border:1.5px solid #e2e8f0; border-radius:16px; padding:16px 18px; box-shadow:0 2px 8px rgba(0,0,0,0.05); }
+    .sess-card.warn  { border-color:#fde68a; background:#fffbeb; }
+    .sess-card.done  { border-color:#bbf7d0; background:#f0fdf4; }
+    .sess-card.fresh { border-color:#dbeafe; background:#f8fbff; }
+    .sess-name { font-weight:800; font-size:.95rem; margin-bottom:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .sess-progress { height:8px; background:#e2e8f0; border-radius:99px; overflow:hidden; margin-bottom:8px; }
+    .sess-bar { height:100%; border-radius:99px; transition:width .4s; }
+    .bar-fresh { background:linear-gradient(90deg,#3e5077,#60a5fa); }
+    .bar-warn  { background:linear-gradient(90deg,#f59e0b,#fbbf24); }
+    .bar-done  { background:linear-gradient(90deg,#059669,#34d399); }
+    .sess-info { display:flex; justify-content:space-between; align-items:center; font-size:.78rem; font-weight:700; }
+    .sess-used { color:#64748b; }
+    .sess-left { border-radius:20px; padding:3px 9px; font-size:.72rem; font-weight:800; }
+    .left-ok   { background:#dbeafe; color:#1d4ed8; }
+    .left-warn { background:#fef3c7; color:#92400e; }
+    .left-done { background:#dcfce7; color:#166534; }
+    .sess-total { font-size:.72rem; color:#94a3b8; margin-top:5px; }
+    .btn-renew { width:100%; background:linear-gradient(135deg,var(--primary),var(--secondary)); color:#fff; border:none; border-radius:10px; padding:8px 12px; font-weight:800; font-size:.8rem; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px; transition:opacity .2s; }
+    .btn-renew:hover { opacity:.88; }
 
     .form-control,
     .form-select {
@@ -589,6 +663,10 @@ function isActive($page, $currentPage) {
           <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span>
           <span>Courses</span>
         </a>
+        <a href="manage_projects.php" class="nav-link-custom">
+          <span class="nav-icon"><i class="fas fa-folder-open"></i></span>
+          <span>Projects</span>
+        </a>
 
         <a href="reports.php" class="nav-link-custom <?php echo isActive('reports.php', $currentPage); ?>">
           <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
@@ -702,6 +780,64 @@ function isActive($page, $currentPage) {
             </div>
           </div>
         </form>
+      </section>
+
+      <!-- ── Student Sessions Overview ── -->
+      <section class="panel-card">
+        <h2 class="panel-title"><i class="fas fa-chart-bar me-2" style="color:var(--primary)"></i>Student Sessions</h2>
+        <?php if (!empty($renewedStudent)): ?>
+          <div class="alert alert-success alert-dismissible fade show mb-3" style="border-radius:12px;">
+            <i class="fas fa-rotate-right me-2"></i>Sessions renewed for <strong><?= htmlspecialchars($renewedStudent) ?></strong> — new 8-session package started.
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        <?php endif; ?>
+        <?php if (empty($studentSessions)): ?>
+          <p style="color:var(--muted);font-style:italic;">No students found.</p>
+        <?php else: ?>
+          <div class="sessions-grid">
+            <?php foreach ($studentSessions as $s):
+              $total     = (int)$s["total_sessions"];
+              $offset    = (int)$s["offset_count"];
+              $used      = max(0, $total - $offset);   // sessions in current package
+              $used      = min($used, 8);              // cap at 8
+              $remaining = 8 - $used;
+              $pct       = round(($used / 8) * 100);
+              $renewedAt = $s["last_renewed"] ? date("d M Y", strtotime($s["last_renewed"])) : null;
+
+              if ($used >= 8)       { $cardClass = "warn";  $barClass = "bar-warn";  $leftClass = "left-warn"; }
+              elseif ($remaining <= 2) { $cardClass = "warn";  $barClass = "bar-warn";  $leftClass = "left-warn"; }
+              elseif ($used === 0)  { $cardClass = "done";  $barClass = "bar-done";  $leftClass = "left-done"; }
+              else                  { $cardClass = "fresh"; $barClass = "bar-fresh"; $leftClass = "left-ok"; }
+            ?>
+            <div class="sess-card <?= $cardClass ?>">
+              <div class="sess-name" title="<?= htmlspecialchars($s['student_name']) ?>">
+                <i class="fas fa-user-graduate me-1" style="color:var(--primary);opacity:.6"></i>
+                <?= htmlspecialchars($s["student_name"]) ?>
+              </div>
+              <div class="sess-progress">
+                <div class="sess-bar <?= $barClass ?>" style="width:<?= $pct ?>%"></div>
+              </div>
+              <div class="sess-info">
+                <span class="sess-used"><?= $used ?> / 8 used</span>
+                <span class="sess-left <?= $leftClass ?>">
+                  <?php if ($remaining <= 0): ?>
+                    <i class="fas fa-exclamation me-1"></i>Needs renewal
+                  <?php else: ?>
+                    <?= $remaining ?> left
+                  <?php endif; ?>
+                </span>
+              </div>
+              <div class="sess-total">
+                All-time: <?= $total ?> session<?= $total !== 1 ? 's' : '' ?>
+                <?php if ($renewedAt): ?> &nbsp;·&nbsp; Last renewed: <?= $renewedAt ?><?php endif; ?>
+              </div>
+              <button type="button" class="btn-renew" onclick="openRenewModal('<?= htmlspecialchars(addslashes($s['student_name'])) ?>')">
+                <i class="fas fa-rotate-right me-1"></i> Renew Sessions
+              </button>
+            </div>
+            <?php endforeach; ?>
+          </div>
+        <?php endif; ?>
       </section>
 
       <section class="panel-card">
