@@ -63,30 +63,84 @@ $gradients = [
 * { box-sizing:border-box; }
 body { margin:0; font-family:Arial,sans-serif; background:#eef2f7; color:#27344f; }
 
-/* ── App shell ── */
-.app-shell { display:flex; min-height:100vh; }
+.app-shell { min-height: 100vh; display: flex; }
 
-/* ── Sidebar ── */
-.sidebar { width:285px; flex-shrink:0; background:linear-gradient(180deg,#0f172a 0%,#172554 100%); color:#fff; padding:0; position:sticky; top:0; height:100vh; display:flex; flex-direction:column; transition:width .3s,padding .3s,min-width .3s; overflow-y:auto; }
-body.sidebar-collapsed .sidebar { width:0; padding:0; min-width:0; overflow:hidden; }
-.sidebar-top-area { padding:0 18px 18px; }
-.brand { display:flex; align-items:center; gap:12px; padding:0 4px 22px; border-bottom:1px solid rgba(255,255,255,0.1); margin-bottom:10px; }
-.brand-logo-img { width:55px; height:55px; object-fit:contain; flex-shrink:0; }
-.brand-title { font-weight:900; font-size:1.1rem; color:#fff; line-height:1.2; }
-.brand-subtitle { font-size:0.75rem; color:rgba(255,255,255,0.55); letter-spacing:1px; margin-top:3px; }
-.nav-title { font-size:0.78rem; text-transform:uppercase; letter-spacing:1.3px; color:rgba(255,255,255,0.45); margin:20px 10px 10px; font-weight:700; }
-.nav-custom { display:flex; flex-direction:column; gap:4px; }
-.student-box { display:flex; align-items:center; gap:12px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12); border-radius:16px; padding:14px; margin-bottom:18px; }
-.student-avatar { width:44px; height:44px; border-radius:50%; background:linear-gradient(135deg,var(--primary),var(--secondary)); color:#fff; font-weight:bold; font-size:18px; display:flex; align-items:center; justify-content:center; flex-shrink:0; overflow:hidden; }
-.student-avatar img { width:100%; height:100%; object-fit:cover; }
-.student-name { font-weight:800; margin:0; color:#fff; }
-.student-role { margin:0; color:rgba(255,255,255,0.55); font-size:.85rem; }
-.nav-link-custom { display:flex; align-items:center; gap:12px; text-decoration:none; color:rgba(255,255,255,0.78); padding:12px 14px; border-radius:14px; font-weight:700; transition:all .22s; }
-.nav-link-custom:hover { background:rgba(255,255,255,0.09); color:#fff; }
-.nav-link-custom.active { background:linear-gradient(135deg,var(--primary),var(--secondary)); color:#fff; box-shadow:0 8px 20px rgba(30,50,100,0.35); }
-.nav-icon { width:32px; height:32px; border-radius:10px; background:rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0; }
-.nav-link-custom.active .nav-icon { background:rgba(255,255,255,0.18); }
-.sidebar-bottom { padding:16px 18px; margin-top:auto; }
+.sidebar {
+  width: 285px; flex-shrink: 0;
+  background: linear-gradient(180deg, #0f172a 0%, #172554 100%);
+  color: #fff; padding: 0;
+  position: sticky; top: 0;
+  height: 100vh;
+  display: flex; flex-direction: column;
+  transition: width 0.3s ease, padding 0.3s ease, min-width 0.3s ease;
+  overflow-y: auto;
+}
+body.sidebar-collapsed .sidebar { width: 0; padding: 0; min-width: 0; }
+
+.sidebar-top-area { padding: 0 18px 18px; }
+
+.brand {
+  display: flex; align-items: center; gap: 12px;
+  padding: 0 4px 22px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  margin-bottom: 10px;
+}
+
+.brand-logo-img {
+  width: 55px; height: 55px;
+  object-fit: contain; flex-shrink: 0;
+  background: none; border-radius: 0;
+}
+
+.brand-title { font-weight: 900; font-size: 1.1rem; color: #fff; line-height: 1.2; }
+.brand-subtitle { font-size: 0.75rem; color: rgba(255,255,255,0.55); letter-spacing: 1px; margin-top: 3px; }
+
+.nav-title {
+  font-size: 0.78rem; text-transform: uppercase;
+  letter-spacing: 1.3px; color: rgba(255,255,255,0.45);
+  margin: 20px 10px 10px; font-weight: 700;
+}
+
+.nav-custom { display: flex; flex-direction: column; gap: 4px; }
+
+.student-box {
+  display: flex; align-items: center; gap: 12px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 16px; padding: 14px; margin-bottom: 18px;
+}
+
+.student-avatar {
+  width: 44px; height: 44px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  color: #fff; font-weight: bold; font-size: 18px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  overflow: hidden;
+}
+.student-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.student-name { font-weight: 800; margin: 0; color: #fff; }
+.student-role { margin: 0; color: rgba(255,255,255,0.55); font-size: 0.85rem; }
+
+.nav-link-custom {
+  display: flex; align-items: center; gap: 12px;
+  text-decoration: none; color: rgba(255,255,255,0.78);
+  padding: 12px 14px; border-radius: 14px; margin: 4px 0;
+  font-weight: 700; transition: all 0.22s ease;
+}
+.nav-link-custom:hover { background: rgba(255,255,255,0.09); color: #fff; }
+.nav-link-custom.active {
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  color: #fff; box-shadow: 0 8px 20px rgba(30,50,100,0.35);
+}
+.nav-icon {
+  width: 32px; height: 32px; border-radius: 10px;
+  background: rgba(255,255,255,0.08);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; flex-shrink: 0;
+}
+.nav-link-custom.active .nav-icon { background: rgba(255,255,255,0.18); }
+
+.sidebar-bottom { padding: 16px 18px; }
 
 /* ── Main ── */
 .main-content { flex:1; min-width:0; }
@@ -202,22 +256,38 @@ body.sidebar-collapsed .sidebar { width:0; padding:0; min-width:0; overflow:hidd
 
     <div class="nav-title">MAIN</div>
     <div class="nav-custom">
-      <a href="student_dashboard.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-house"></i></span><span>Dashboard</span></a>
-      <a href="student_courses.php" class="nav-link-custom active"><span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>My Courses</span></a>
-      <a href="student_projects.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-folder-open"></i></span><span>My Projects</span></a>
-      <a href="student_classes.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-book"></i></span><span>My Classes</span></a>
-      <a href="student_assignments.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-clipboard-list"></i></span><span>My Assignments</span></a>
-      <a href="student_quizzes.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-circle-question"></i></span><span>Quizzes</span></a>
-      <a href="student_certificates.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-award"></i></span><span>Certificates</span></a>
-      <a href="student_chat.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI Tutor</span></a>
-      <a href="student_contact.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-envelope"></i></span><span>Contact</span></a>
+      <a href="student_dashboard.php" class="nav-link-custom">
+        <span class="nav-icon"><i class="fas fa-house"></i></span><span>Dashboard</span>
+      </a>
+      <a href="student_courses.php" class="nav-link-custom active">
+        <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>My Courses</span>
+      </a>
+      <a href="student_classes.php" class="nav-link-custom">
+        <span class="nav-icon"><i class="fas fa-book"></i></span><span>My Classes</span>
+      </a>
+      <a href="student_assignments.php" class="nav-link-custom">
+        <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span><span>My Assignments</span>
+      </a>
+      <a href="student_quizzes.php" class="nav-link-custom">
+        <span class="nav-icon"><i class="fas fa-circle-question"></i></span><span>Quizzes</span>
+      </a>
+      <a href="student_certificates.php" class="nav-link-custom">
+        <span class="nav-icon"><i class="fas fa-award"></i></span><span>Certificates</span>
+      </a>
+      <a href="student_chat.php" class="nav-link-custom">
+        <span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI Tutor</span>
+      </a>
     </div>
   </div>
 
   <div class="sidebar-bottom">
-    <a href="student_profile.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-gear"></i></span><span>Settings</span></a>
+    <a href="student_profile.php" class="nav-link-custom">
+      <span class="nav-icon"><i class="fas fa-gear"></i></span><span>Settings</span>
+    </a>
     <div style="height:1px;background:rgba(255,255,255,0.1);margin:8px 0;"></div>
-    <a href="logout.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-right-from-bracket"></i></span><span>Logout</span></a>
+    <a href="logout.php" class="nav-link-custom">
+      <span class="nav-icon"><i class="fas fa-right-from-bracket"></i></span><span>Logout</span>
+    </a>
   </div>
 </aside>
 

@@ -9,16 +9,6 @@ if (!isset($_SESSION["role"]) || $_SESSION["role"] !== "teacher") {
 $teacherId   = (int)($_SESSION["user_id"] ?? 0);
 $teacherName = $_SESSION["username"] ?? "Teacher";
 
-/* ── Handle delete student ── */
-if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["action"] ?? "") === "remove_student") {
-    $studentName = trim($_POST["student_name"] ?? "");
-    if ($studentName !== "") {
-        $del = $conn->prepare("DELETE FROM teacher_students WHERE teacher_id = ? AND student_name = ?");
-        if ($del) { $del->bind_param("is", $teacherId, $studentName); $del->execute(); $del->close(); }
-    }
-    header("Location: teacher_students.php?removed=1");
-    exit();
-}
 
 /* ── Per-student summary (from assigned list + class stats) ── */
 $students = [];
@@ -611,11 +601,6 @@ $withUpcoming   = count(array_filter($students, fn($s) => !empty($s["next_class"
               <?php echo $total; ?> class<?php echo $total !== 1 ? "es" : ""; ?>
             </span>
           </div>
-          <button onclick="confirmRemove('<?= htmlspecialchars($name, ENT_QUOTES) ?>')"
-            style="background:#fee2e2;border:none;color:#dc2626;border-radius:10px;width:34px;height:34px;cursor:pointer;flex-shrink:0;font-size:0.9rem;"
-            title="Remove student">
-            <i class="fas fa-trash"></i>
-          </button>
         </div>
 
         <!-- Type breakdown -->
@@ -695,46 +680,7 @@ $withUpcoming   = count(array_filter($students, fn($s) => !empty($s["next_class"
   }
 </script>
 
-<!-- Remove Student Modal -->
-<div id="removeModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9999;align-items:center;justify-content:center;">
-  <div style="background:#fff;border-radius:22px;padding:32px;max-width:420px;width:90%;box-shadow:0 24px 60px rgba(0,0,0,0.2);text-align:center;">
-    <div style="width:60px;height:60px;border-radius:50%;background:#fee2e2;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:1.5rem;color:#dc2626;">
-      <i class="fas fa-trash"></i>
-    </div>
-    <h5 style="font-weight:900;margin:0 0 8px;">Remove Student?</h5>
-    <p style="color:#64748b;font-size:0.92rem;margin:0 0 24px;">
-      Remove <strong id="removeStudentName"></strong> from your student list? Their class records will not be deleted.
-    </p>
-    <form method="POST" id="removeForm">
-      <input type="hidden" name="action" value="remove_student">
-      <input type="hidden" name="student_name" id="removeStudentInput">
-      <div style="display:flex;gap:12px;justify-content:center;">
-        <button type="submit" style="background:linear-gradient(135deg,#dc2626,#b91c1c);border:none;color:#fff;font-weight:800;border-radius:12px;padding:11px 24px;cursor:pointer;">
-          <i class="fas fa-trash me-1"></i>Yes, Remove
-        </button>
-        <button type="button" onclick="closeRemoveModal()" style="background:#f1f5f9;border:none;color:#334155;font-weight:800;border-radius:12px;padding:11px 24px;cursor:pointer;">
-          Cancel
-        </button>
-      </div>
-    </form>
-  </div>
-</div>
-
 <script src="logout-modal.js"></script>
-
-<script>
-function confirmRemove(name) {
-  document.getElementById('removeStudentName').textContent  = name;
-  document.getElementById('removeStudentInput').value = name;
-  document.getElementById('removeModal').style.display = 'flex';
-}
-function closeRemoveModal() {
-  document.getElementById('removeModal').style.display = 'none';
-}
-document.getElementById('removeModal').addEventListener('click', function(e) {
-  if (e.target === this) closeRemoveModal();
-});
-</script>
 </body>
 </html>
 

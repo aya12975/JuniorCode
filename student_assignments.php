@@ -429,7 +429,6 @@ body {
       <a href="student_courses.php" class="nav-link-custom">
         <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>My Courses</span>
       </a>
-      <a href="student_projects.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-folder-open"></i></span><span>My Projects</span></a>
       <a href="student_classes.php" class="nav-link-custom">
         <span class="nav-icon"><i class="fas fa-book"></i></span><span>My Classes</span>
       </a>
@@ -444,9 +443,6 @@ body {
       </a>
       <a href="student_chat.php" class="nav-link-custom">
         <span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI Tutor</span>
-      </a>
-      <a href="student_contact.php" class="nav-link-custom">
-        <span class="nav-icon"><i class="fas fa-envelope"></i></span><span>Contact</span>
       </a>
     </div>
   </div>

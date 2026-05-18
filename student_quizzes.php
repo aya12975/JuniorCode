@@ -166,7 +166,7 @@ body { margin:0; font-family:Arial,Helvetica,sans-serif; color:var(--dark); back
 .hero p  { margin:4px 0 0; color:rgba(255,255,255,0.8); }
 
 .panel-card { background:white; border:1px solid #edf4ff; border-radius:22px; padding:22px; margin-bottom:22px; box-shadow:var(--shadow); position:relative; overflow:hidden; }
-.panel-card::before { content:''; display:block; height:5px; background:linear-gradient(135deg,var(--primary),var(--secondary)); position:absolute; top:0; left:0; right:0; border-radius:22px 22px 0 0; }
+.panel-card::before { content:''; display:block; height:5px; background:transparent; position:absolute; top:0; left:0; right:0; border-radius:22px 22px 0 0; }
 .panel-title { font-size:1.1rem; font-weight:900; color:var(--primary); margin-bottom:14px; }
 .panel-header { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:18px; flex-wrap:wrap; }
 .panel-header .panel-title { margin-bottom:0; }
@@ -225,7 +225,6 @@ body { margin:0; font-family:Arial,Helvetica,sans-serif; color:var(--dark); back
       <a href="student_courses.php" class="nav-link-custom">
         <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>My Courses</span>
       </a>
-      <a href="student_projects.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-folder-open"></i></span><span>My Projects</span></a>
       <a href="student_classes.php" class="nav-link-custom">
         <span class="nav-icon"><i class="fas fa-book"></i></span><span>My Classes</span>
       </a>
@@ -240,9 +239,6 @@ body { margin:0; font-family:Arial,Helvetica,sans-serif; color:var(--dark); back
       </a>
       <a href="student_chat.php" class="nav-link-custom">
         <span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI Tutor</span>
-      </a>
-      <a href="student_contact.php" class="nav-link-custom">
-        <span class="nav-icon"><i class="fas fa-envelope"></i></span><span>Contact</span>
       </a>
     </div>
   </div>

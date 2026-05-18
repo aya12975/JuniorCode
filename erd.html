@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JuniorCode — Database ERD</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --bg:      #0f172a;
+    --surface: #1e293b;
+    --border:  #334155;
+    --accent:  #3b82f6;
+    --text:    #e2e8f0;
+    --muted:   #94a3b8;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', Arial, sans-serif;
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  .header {
+    background: linear-gradient(135deg, #1e3a8a, #1d4ed8);
+    padding: 28px 36px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    flex-wrap: wrap;
+    box-shadow: 0 4px 24px rgba(29,78,216,0.4);
+  }
+  .header-left h1 {
+    font-size: 1.8rem;
+    font-weight: 900;
+    letter-spacing: -0.5px;
+  }
+  .header-left p { color: rgba(255,255,255,0.75); margin-top: 4px; font-size: 0.95rem; }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .leg-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 20px;
+    padding: 5px 13px;
+    font-size: 0.78rem;
+    font-weight: 700;
+  }
+  .leg-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* ── Controls ── */
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 36px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .ctrl-label { font-size: 0.82rem; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; }
+  .ctrl-btn {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 7px 16px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.18s;
+  }
+  .ctrl-btn:hover { background: var(--accent); border-color: var(--accent); }
+  .ctrl-sep { width: 1px; height: 24px; background: var(--border); }
+  .table-count { margin-left: auto; font-size: 0.82rem; color: var(--muted); font-weight: 600; }
+
+  /* ── Diagram container ── */
+  .diagram-wrap {
+    overflow: auto;
+    padding: 32px;
+    min-height: calc(100vh - 160px);
+    cursor: grab;
+    user-select: none;
+  }
+  .diagram-wrap:active { cursor: grabbing; }
+
+  #erd-container {
+    transform-origin: top left;
+    transition: transform 0.1s;
+  }
+
+  /* Mermaid override: entity title colours by domain */
+  .mermaid svg {
+    background: transparent !important;
+  }
+
+  /* ── Domain colour key used in legend ── */
+  /* domain colours are applied via mermaid theme vars in the diagram code */
+
+  /* ── Stats bar ── */
+  .stats-bar {
+    display: flex;
+    gap: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+  }
+  .stat-item {
+    flex: 1;
+    padding: 12px 20px;
+    text-align: center;
+    border-right: 1px solid var(--border);
+  }
+  .stat-item:last-child { border-right: none; }
+  .stat-num { font-size: 1.4rem; font-weight: 900; color: var(--accent); }
+  .stat-lbl { font-size: 0.72rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; margin-top: 2px; }
+</style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<div class="header">
+  <div class="header-left">
+    <h1>🗄️ JuniorCode — Entity Relationship Diagram</h1>
+    <p>Complete database schema · 20 tables · All user roles (Admin · Teacher · Student)</p>
+  </div>
+  <div class="legend">
+    <div class="leg-item"><div class="leg-dot" style="background:#3b82f6"></div>Users / Auth</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#10b981"></div>Courses &amp; Projects</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#f59e0b"></div>Classes &amp; Schedule</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#8b5cf6"></div>Assessments</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#ef4444"></div>Earnings</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#06b6d4"></div>Engagement</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#64748b"></div>System</div>
+  </div>
+</div>
+
+<!-- ── Controls ── -->
+<div class="controls">
+  <span class="ctrl-label">Zoom</span>
+  <button class="ctrl-btn" onclick="zoom(1.2)">＋ In</button>
+  <button class="ctrl-btn" onclick="zoom(0.8)">－ Out</button>
+  <button class="ctrl-btn" onclick="resetZoom()">↺ Reset</button>
+  <div class="ctrl-sep"></div>
+  <button class="ctrl-btn" onclick="window.print()">🖨 Print / Export PDF</button>
+  <span class="table-count">20 tables · 150+ columns</span>
+</div>
+
+<!-- ── Diagram ── -->
+<div class="diagram-wrap" id="diagramWrap">
+  <div id="erd-container">
+    <div class="mermaid">
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "primaryColor": "#1e293b",
+    "primaryTextColor": "#e2e8f0",
+    "primaryBorderColor": "#475569",
+    "lineColor": "#64748b",
+    "secondaryColor": "#0f172a",
+    "tertiaryColor": "#1e293b",
+    "edgeLabelBackground": "#334155",
+    "background": "#0f172a",
+    "fontFamily": "Segoe UI, Arial, sans-serif",
+    "fontSize": "13px"
+  }
+}}%%
+
+erDiagram
+
+  %% ══════════════════════════════════════
+  %% USERS / AUTH (all roles in one table)
+  %% ══════════════════════════════════════
+
+  users {
+    int       id               PK
+    varchar   username         UK
+    varchar   password
+    varchar   plain_password
+    varchar   role             "admin | teacher | student"
+    varchar   email
+    text      zoom_personal_link
+    varchar   profile_picture
+  }
+
+  %% ══════════════════════════════════════
+  %% CLASSES & SCHEDULING
+  %% ══════════════════════════════════════
+
+  classes {
+    int       id               PK
+    int       teacher_id       FK
+    varchar   teacher_name
+    varchar   student_name     FK
+    date      class_date
+    time      class_time
+    varchar   type             "paid | demo | halfpay | nopay"
+    text      details
+    text      zoom_link
+    text      teacher_notes
+    timestamp created_at
+  }
+
+  teacher_availability {
+    int       id               PK
+    int       teacher_id       FK
+    varchar   teacher_name
+    date      available_date
+    time      available_time
+    varchar   status           "available | booked"
+    timestamp created_at
+  }
+
+  class_feedback {
+    int       id               PK
+    int       class_id         FK
+    int       teacher_id       FK
+    varchar   teacher_name
+    varchar   student_name     FK
+    enum      attendance       "present | absent"
+    int       course_id        FK
+    varchar   course_name
+    int       project_id       FK
+    varchar   project_name
+    text      notes
+    timestamp submitted_at
+  }
+
+  student_session_offsets {
+    varchar   student_name     PK
+    int       offset_count     "renewal counter"
+    timestamp last_renewed
+  }
+
+  %% ══════════════════════════════════════
+  %% COURSES & PROJECTS
+  %% ══════════════════════════════════════
+
+  courses {
+    int       id               PK
+    varchar   course_name
+    varchar   category
+    varchar   age_group
+    varchar   level
+    decimal   price
+    varchar   course_type      "demo | paid"
+    varchar   status           "active | inactive"
+    varchar   duration
+    text      image
+    varchar   section          "kids | junior"
+    varchar   sub_section
+    text      link
+    tinyint   is_unlocked
+  }
+
+  course_projects {
+    int       id               PK
+    int       course_id        FK
+    varchar   section
+    varchar   category
+    varchar   title
+    text      url
+    text      image
+    text      pdf_url
+    int       sort_order
+    timestamp created_at
+  }
+
+  student_enrollments {
+    int       id               PK
+    varchar   student_name     FK
+    int       course_id        FK
+    timestamp enrolled_at
+  }
+
+  teacher_students {
+    int       id               PK
+    int       teacher_id       FK
+    varchar   teacher_name
+    varchar   student_name     FK
+    varchar   type             "Paid | Demo | HalfPay | NoPay"
+    text      details
+    timestamp assigned_at
+  }
+
+  certificates {
+    int       id               PK
+    varchar   student_name     FK
+    varchar   course_name
+    varchar   teacher_name     FK
+    date      issued_date
+    timestamp created_at
+  }
+
+  %% ══════════════════════════════════════
+  %% ASSIGNMENTS
+  %% ══════════════════════════════════════
+
+  assignments {
+    int       id               PK
+    int       teacher_id       FK
+    varchar   teacher_name
+    varchar   student_name     FK
+    varchar   title
+    text      description
+    date      due_date
+    varchar   file_name
+    varchar   link
+    timestamp created_at
+  }
+
+  assignment_submissions {
+    int       id               PK
+    int       assignment_id    FK
+    varchar   student_name     FK
+    varchar   file_name
+    varchar   link
+    timestamp submitted_at
+  }
+
+  %% ══════════════════════════════════════
+  %% QUIZZES
+  %% ══════════════════════════════════════
+
+  quizzes {
+    int       id               PK
+    varchar   title
+    varchar   topic
+    varchar   section          "kids | junior"
+    varchar   difficulty       "beginner | intermediate | advanced"
+    varchar   created_by       FK
+    int       time_limit       "seconds"
+    timestamp created_at
+  }
+
+  quiz_questions {
+    int       id               PK
+    int       quiz_id          FK
+    text      question
+    text      choice_a
+    text      choice_b
+    text      choice_c
+    text      choice_d
+    char      correct_answer   "A | B | C | D"
+    text      explanation
+  }
+
+  quiz_assignments {
+    int       id               PK
+    int       quiz_id          FK
+    varchar   student_username FK
+    varchar   assigned_by      FK
+    timestamp assigned_at
+  }
+
+  quiz_results {
+    int       id               PK
+    int       quiz_id          FK
+    varchar   student_username FK
+    int       score
+    int       total
+    text      answers          "JSON"
+    timestamp completed_at
+  }
+
+  %% ══════════════════════════════════════
+  %% EARNINGS
+  %% ══════════════════════════════════════
+
+  teacher_earnings {
+    int       id               PK
+    int       teacher_id       FK
+    varchar   teacher_name
+    varchar   lesson_title
+    decimal   amount
+    date      lesson_date
+    text      notes
+    int       class_id         FK
+    timestamp created_at
+  }
+
+  %% ══════════════════════════════════════
+  %% ENGAGEMENT / COMMUNICATION
+  %% ══════════════════════════════════════
+
+  notifications {
+    int       id               PK
+    int       user_id          FK
+    varchar   type             "info | warning | success"
+    varchar   title
+    text      message
+    tinyint   is_read
+    timestamp created_at
+  }
+
+  ai_chat_usage {
+    int       id               PK
+    varchar   student_name     FK
+    date      usage_date
+    int       message_count
+  }
+
+  %% ══════════════════════════════════════
+  %% SYSTEM
+  %% ══════════════════════════════════════
+
+  settings {
+    int       id               PK
+    varchar   setting_key      UK
+    text      setting_value
+  }
+
+  %% ══════════════════════════════════════
+  %% RELATIONSHIPS
+  %% ══════════════════════════════════════
+
+  %% users — classes (teacher + student)
+  users ||--o{ classes : "teaches (teacher_id)"
+  users ||--o{ classes : "attends (student_name)"
+
+  %% users — scheduling
+  users ||--o{ teacher_availability : "sets availability"
+  users ||--o{ teacher_students : "is teacher"
+  users ||--o{ teacher_students : "is student"
+
+  %% classes — feedback & earnings
+  classes ||--o{ class_feedback : "generates feedback"
+  classes ||--o{ teacher_earnings : "generates earning"
+
+  %% class_feedback — users, courses, projects
+  users ||--o{ class_feedback : "teacher submits"
+  users ||--o{ class_feedback : "student tracked"
+  courses ||--o{ class_feedback : "covered in class"
+  course_projects ||--o{ class_feedback : "project referenced"
+
+  %% session tracking
+  users ||--|| student_session_offsets : "session reset"
+
+  %% courses
+  courses ||--o{ course_projects : "has projects"
+  courses ||--o{ student_enrollments : "enrolled in"
+  users ||--o{ student_enrollments : "student enrolls"
+
+  %% certificates
+  users ||--o{ certificates : "student receives"
+  users ||--o{ certificates : "teacher issues"
+
+  %% assignments
+  users ||--o{ assignments : "teacher creates"
+  users ||--o{ assignments : "student receives"
+  assignments ||--o{ assignment_submissions : "submitted via"
+  users ||--o{ assignment_submissions : "student submits"
+
+  %% quizzes
+  users ||--o{ quizzes : "teacher creates"
+  quizzes ||--o{ quiz_questions : "contains"
+  quizzes ||--o{ quiz_assignments : "assigned to student"
+  quizzes ||--o{ quiz_results : "results recorded"
+  users ||--o{ quiz_assignments : "student assigned"
+  users ||--o{ quiz_results : "student result"
+
+  %% earnings
+  users ||--o{ teacher_earnings : "teacher earns"
+
+  %% notifications & chat
+  users ||--o{ notifications : "receives"
+  users ||--o{ ai_chat_usage : "student uses AI"
+    </div>
+  </div>
+</div>
+
+<!-- ── Stats bar ── -->
+<div class="stats-bar">
+  <div class="stat-item"><div class="stat-num">20</div><div class="stat-lbl">Tables</div></div>
+  <div class="stat-item"><div class="stat-num">3</div><div class="stat-lbl">User Roles</div></div>
+  <div class="stat-item"><div class="stat-num">150+</div><div class="stat-lbl">Columns</div></div>
+  <div class="stat-item"><div class="stat-num">30+</div><div class="stat-lbl">Relationships</div></div>
+  <div class="stat-item"><div class="stat-num">7</div><div class="stat-lbl">Domains</div></div>
+</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'base',
+    themeVariables: {
+      primaryColor: '#1e293b',
+      primaryTextColor: '#e2e8f0',
+      primaryBorderColor: '#475569',
+      lineColor: '#64748b',
+      secondaryColor: '#0f172a',
+      tertiaryColor: '#1e293b',
+      edgeLabelBackground: '#1e293b',
+      background: '#0f172a',
+      fontFamily: 'Segoe UI, Arial, sans-serif',
+      fontSize: '13px'
+    },
+    er: {
+      diagramPadding: 30,
+      layoutDirection: 'TB',
+      minEntityWidth: 100,
+      minEntityHeight: 75,
+      entityPadding: 15,
+      useMaxWidth: false
+    }
+  });
+
+  var scale = 1;
+  var container = document.getElementById('erd-container');
+
+  function zoom(factor) {
+    scale = Math.min(Math.max(scale * factor, 0.2), 3);
+    container.style.transform = 'scale(' + scale + ')';
+  }
+
+  function resetZoom() {
+    scale = 1;
+    container.style.transform = 'scale(1)';
+  }
+
+  /* Drag to pan */
+  var wrap = document.getElementById('diagramWrap');
+  var isDragging = false, startX, startY, scrollLeft, scrollTop;
+
+  wrap.addEventListener('mousedown', function(e) {
+    isDragging = true;
+    startX = e.pageX - wrap.offsetLeft;
+    startY = e.pageY - wrap.offsetTop;
+    scrollLeft = wrap.scrollLeft;
+    scrollTop  = wrap.scrollTop;
+  });
+  wrap.addEventListener('mouseleave',  function() { isDragging = false; });
+  wrap.addEventListener('mouseup',     function() { isDragging = false; });
+  wrap.addEventListener('mousemove',   function(e) {
+    if (!isDragging) return;
+    e.preventDefault();
+    var x = e.pageX - wrap.offsetLeft;
+    var y = e.pageY - wrap.offsetTop;
+    wrap.scrollLeft = scrollLeft - (x - startX);
+    wrap.scrollTop  = scrollTop  - (y - startY);
+  });
+
+  /* Ctrl + scroll zoom */
+  wrap.addEventListener('wheel', function(e) {
+    if (e.ctrlKey) {
+      e.preventDefault();
+      zoom(e.deltaY < 0 ? 1.1 : 0.9);
+    }
+  }, { passive: false });
+</script>
+
+</body>
+</html>

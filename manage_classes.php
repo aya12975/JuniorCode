@@ -183,7 +183,7 @@ $conn->query("CREATE TABLE IF NOT EXISTS student_session_offsets (
 if ($_SERVER["REQUEST_METHOD"] === "POST" && ($_POST["action"] ?? "") === "renew_sessions") {
     $rStudent = trim($_POST["student_name"] ?? "");
     if ($rStudent !== "") {
-        $totQ = $conn->prepare("SELECT COUNT(*) AS t FROM classes WHERE student_name = ?");
+        $totQ = $conn->prepare("SELECT COUNT(*) AS t FROM class_feedback WHERE student_name = ? AND attendance = 'present'");
         $totQ->bind_param("s", $rStudent);
         $totQ->execute();
         $currentTotal = (int)$totQ->get_result()->fetch_assoc()["t"];
@@ -212,15 +212,15 @@ if ($result) {
     }
 }
 
-/* Student session counts with renewal offsets */
+/* Student session counts — only present-attendance feedback counts as a session */
 $studentSessions = [];
 $ssRes = $conn->query("
     SELECT u.username AS student_name,
-           COUNT(c.id) AS total_sessions,
+           COUNT(cf.id) AS total_sessions,
            COALESCE(o.offset_count, 0) AS offset_count,
            o.last_renewed
     FROM users u
-    LEFT JOIN classes c ON c.student_name = u.username
+    LEFT JOIN class_feedback cf ON cf.student_name = u.username AND cf.attendance = 'present'
     LEFT JOIN student_session_offsets o ON o.student_name = u.username
     WHERE u.role = 'student'
     GROUP BY u.username, o.offset_count, o.last_renewed
@@ -228,6 +228,18 @@ $ssRes = $conn->query("
 ");
 if ($ssRes) {
     while ($r = $ssRes->fetch_assoc()) $studentSessions[] = $r;
+}
+
+/* Fetch all class feedback for admin view */
+$allFeedback = [];
+$fbRes = $conn->query("
+    SELECT cf.*, c.class_date, c.class_time, c.type AS class_type
+    FROM class_feedback cf
+    LEFT JOIN classes c ON c.id = cf.class_id
+    ORDER BY cf.submitted_at DESC
+");
+if ($fbRes) {
+    while ($r = $fbRes->fetch_assoc()) $allFeedback[] = $r;
 }
 
 /* Flash message for renewal */
@@ -441,6 +453,23 @@ function isActive($page, $currentPage) {
     .sess-total { font-size:.72rem; color:#94a3b8; margin-top:5px; }
     .btn-renew { width:100%; background:linear-gradient(135deg,var(--primary),var(--secondary)); color:#fff; border:none; border-radius:10px; padding:8px 12px; font-weight:800; font-size:.8rem; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px; transition:opacity .2s; }
     .btn-renew:hover { opacity:.88; }
+
+    .att-present { background:#dcfce7; color:#166534; padding:5px 11px; border-radius:999px; font-size:0.78rem; font-weight:800; white-space:nowrap; }
+    .att-absent  { background:#fee2e2; color:#991b1b; padding:5px 11px; border-radius:999px; font-size:0.78rem; font-weight:800; white-space:nowrap; }
+    .fb-notes-cell { max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:#64748b; font-size:0.85rem; }
+
+    /* Renew modal */
+    .renew-overlay { display:none; position:fixed; inset:0; background:rgba(15,23,42,0.55); backdrop-filter:blur(4px); z-index:9500; align-items:center; justify-content:center; }
+    .renew-overlay.open { display:flex; }
+    .renew-box { background:#fff; border-radius:22px; padding:28px; max-width:420px; width:94%; box-shadow:0 28px 70px rgba(15,23,42,0.22); }
+    .renew-title { font-size:1.1rem; font-weight:900; color:var(--primary); margin:0 0 14px; }
+    .renew-info  { background:#f0f4ff; border-radius:12px; padding:10px 14px; font-size:0.9rem; margin-bottom:14px; }
+    .renew-warn  { background:#fff7ed; border:1px solid #fed7aa; border-radius:12px; padding:10px 14px; font-size:0.85rem; color:#92400e; font-weight:700; margin-bottom:16px; }
+    .renew-btns  { display:flex; gap:10px; }
+    .renew-confirm { flex:1; padding:11px; border-radius:12px; border:none; background:linear-gradient(135deg,var(--primary),var(--secondary)); color:#fff; font-weight:800; cursor:pointer; transition:opacity .2s; }
+    .renew-confirm:hover { opacity:.9; }
+    .renew-cancel  { padding:11px 18px; border-radius:12px; border:none; background:#f1f5f9; color:#334155; font-weight:800; cursor:pointer; }
+    .renew-cancel:hover { background:#e2e8f0; }
 
     .form-control,
     .form-select {
@@ -840,6 +869,63 @@ function isActive($page, $currentPage) {
         <?php endif; ?>
       </section>
 
+      <!-- ── Class Feedback Panel ── -->
+      <section class="panel-card">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+          <h2 class="panel-title mb-0"><i class="fas fa-clipboard-list me-2" style="color:var(--primary)"></i>Class Feedback</h2>
+          <span style="color:var(--muted);font-size:0.9rem;"><?= count($allFeedback) ?> record<?= count($allFeedback) !== 1 ? 's' : '' ?></span>
+        </div>
+        <?php if (!empty($allFeedback)): ?>
+          <div class="table-responsive">
+            <table class="table align-middle">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Student</th>
+                  <th>Teacher</th>
+                  <th>Attendance</th>
+                  <th>Course</th>
+                  <th>Project</th>
+                  <th>Notes</th>
+                  <th>Submitted</th>
+                </tr>
+              </thead>
+              <tbody>
+                <?php foreach ($allFeedback as $fb): ?>
+                  <tr>
+                    <td style="white-space:nowrap;font-size:0.88rem;">
+                      <?= htmlspecialchars($fb['class_date'] ?? '—') ?>
+                      <?php if (!empty($fb['class_time'])): ?>
+                        <br><span style="color:#94a3b8;font-size:0.78rem;"><?= date('h:i A', strtotime($fb['class_time'])) ?></span>
+                      <?php endif; ?>
+                    </td>
+                    <td><strong><?= htmlspecialchars($fb['student_name'] ?? '—') ?></strong></td>
+                    <td><?= htmlspecialchars($fb['teacher_name'] ?? '—') ?></td>
+                    <td>
+                      <?php if ($fb['attendance'] === 'present'): ?>
+                        <span class="att-present"><i class="fas fa-user-check me-1"></i>Present</span>
+                      <?php else: ?>
+                        <span class="att-absent"><i class="fas fa-user-xmark me-1"></i>Absent</span>
+                      <?php endif; ?>
+                    </td>
+                    <td style="font-size:0.88rem;"><?= htmlspecialchars($fb['course_name'] ?: '—') ?></td>
+                    <td style="font-size:0.88rem;"><?= htmlspecialchars($fb['project_name'] ?: '—') ?></td>
+                    <td class="fb-notes-cell" title="<?= htmlspecialchars($fb['notes'] ?? '') ?>">
+                      <?= htmlspecialchars($fb['notes'] ?: '—') ?>
+                    </td>
+                    <td style="font-size:0.78rem;color:#94a3b8;white-space:nowrap;">
+                      <?= $fb['submitted_at'] ? date('d M Y', strtotime($fb['submitted_at'])) : '—' ?>
+                    </td>
+                  </tr>
+                <?php endforeach; ?>
+              </tbody>
+            </table>
+          </div>
+        <?php else: ?>
+          <div class="empty-box">No feedback submitted yet. Teachers submit feedback after each class.</div>
+        <?php endif; ?>
+      </section>
+
       <section class="panel-card">
         <?php
           $today = date("Y-m-d");
@@ -1193,6 +1279,39 @@ function confirmDelete() {
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-trash"></i> Delete';
   });
+}
+</script>
+
+<!-- Renew Sessions Modal -->
+<div class="renew-overlay" id="renewOverlay" onclick="if(event.target===this)closeRenewModal()">
+  <div class="renew-box">
+    <div class="renew-title"><i class="fas fa-rotate-right me-2"></i>Renew Sessions</div>
+    <div class="renew-info">
+      <strong style="color:var(--primary);">Student:</strong> <span id="renew-student-display"></span>
+    </div>
+    <div class="renew-warn">
+      <i class="fas fa-exclamation-circle me-1"></i>
+      This will start a new 8-session package. The current session count will be reset to 0.
+    </div>
+    <form id="renewForm" method="POST" action="manage_classes.php">
+      <input type="hidden" name="action" value="renew_sessions">
+      <input type="hidden" name="student_name" id="renew-student-input">
+      <div class="renew-btns">
+        <button type="submit" class="renew-confirm"><i class="fas fa-rotate-right me-1"></i>Yes, Renew</button>
+        <button type="button" class="renew-cancel" onclick="closeRenewModal()">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openRenewModal(studentName) {
+  document.getElementById('renew-student-display').textContent = studentName;
+  document.getElementById('renew-student-input').value = studentName;
+  document.getElementById('renewOverlay').classList.add('open');
+}
+function closeRenewModal() {
+  document.getElementById('renewOverlay').classList.remove('open');
 }
 </script>
 

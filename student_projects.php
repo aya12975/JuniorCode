@@ -200,7 +200,6 @@ $totalProjects = array_sum(array_map(fn($c) => count($c["projects"]), $coursesWi
       <a href="student_quizzes.php"      class="nav-link-custom"><span class="nav-icon"><i class="fas fa-circle-question"></i></span><span>Quizzes</span></a>
       <a href="student_certificates.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-award"></i></span><span>Certificates</span></a>
       <a href="student_chat.php"         class="nav-link-custom"><span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI Tutor</span></a>
-      <a href="student_contact.php"      class="nav-link-custom"><span class="nav-icon"><i class="fas fa-envelope"></i></span><span>Contact</span></a>
     </div>
   </div>
   <div class="sidebar-bottom">

@@ -279,8 +279,8 @@ body { font-family: Arial, Helvetica, sans-serif; background: #f0f4ff; color: va
 
     <div class="student-box">
       <div class="student-avatar">
-        <?php if ($sidebarPic): ?>
-          <img src="<?= $sidebarPic ?>" alt="Profile">
+        <?php if (!empty($_SESSION["profile_picture"])): ?>
+          <img src="uploads/profiles/<?= htmlspecialchars($_SESSION["profile_picture"]) ?>" alt="Profile">
         <?php else: ?>
           <?= strtoupper(substr($studentName, 0, 1)) ?>
         <?php endif; ?>
@@ -299,7 +299,6 @@ body { font-family: Arial, Helvetica, sans-serif; background: #f0f4ff; color: va
       <a href="student_courses.php" class="nav-link-custom">
         <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>My Courses</span>
       </a>
-      <a href="student_projects.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-folder-open"></i></span><span>My Projects</span></a>
       <a href="student_classes.php" class="nav-link-custom">
         <span class="nav-icon"><i class="fas fa-book"></i></span><span>My Classes</span>
       </a>
@@ -314,9 +313,6 @@ body { font-family: Arial, Helvetica, sans-serif; background: #f0f4ff; color: va
       </a>
       <a href="student_chat.php" class="nav-link-custom">
         <span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI Tutor</span>
-      </a>
-      <a href="student_contact.php" class="nav-link-custom">
-        <span class="nav-icon"><i class="fas fa-envelope"></i></span><span>Contact</span>
       </a>
     </div>
   </div>

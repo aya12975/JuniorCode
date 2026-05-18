@@ -38,6 +38,37 @@ foreach ($classSessions as $c) {
     elseif ($d === $today)     $todayCount++;
     elseif ($d === $tomorrow)  $tomorrowCount++;
 }
+
+/* Session count for "Class Nb: X / 8" */
+$classNb = 0;
+$scQ = $conn->prepare("
+    SELECT COUNT(cf.id) AS total, COALESCE(MAX(o.offset_count), 0) AS offset_count
+    FROM class_feedback cf
+    LEFT JOIN student_session_offsets o ON o.student_name = cf.student_name
+    WHERE cf.student_name = ? AND cf.attendance = 'present'
+");
+if ($scQ) {
+    $scQ->bind_param("s", $studentName);
+    $scQ->execute();
+    $row = $scQ->get_result()->fetch_assoc();
+    $scQ->close();
+    $classNb = min(8, max(0, (int)($row['total'] ?? 0) - (int)($row['offset_count'] ?? 0)));
+}
+
+/* Attendance feedback keyed by class_id */
+$classFeedback = [];
+if (!empty($classSessions)) {
+    $ids = array_column($classSessions, 'id');
+    $ph  = implode(',', array_fill(0, count($ids), '?'));
+    $fbQ = $conn->prepare("SELECT class_id, attendance FROM class_feedback WHERE class_id IN ($ph)");
+    if ($fbQ) {
+        $fbQ->bind_param(str_repeat('i', count($ids)), ...$ids);
+        $fbQ->execute();
+        $fbR = $fbQ->get_result();
+        while ($r = $fbR->fetch_assoc()) $classFeedback[$r['class_id']] = $r['attendance'];
+        $fbQ->close();
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -196,7 +227,7 @@ foreach ($classSessions as $c) {
 
     .stat-card::before {
       content: ''; display: block; height: 5px;
-      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      background: transparent;
       position: absolute; top: 0; left: 0; right: 0;
       border-radius: 22px 22px 0 0;
     }
@@ -241,7 +272,7 @@ foreach ($classSessions as $c) {
 
     .class-card::before {
       content: ''; display: block; height: 5px;
-      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      background: transparent;
       position: absolute; top: 0; left: 0; right: 0;
       border-radius: 22px 22px 0 0;
     }
@@ -313,6 +344,15 @@ foreach ($classSessions as $c) {
       border-radius: 14px; padding: 12px; margin-top: auto;
     }
 
+    .att-badge {
+      display: flex; align-items: center; gap: 7px;
+      border-radius: 10px; padding: 9px 13px;
+      font-size: 0.83rem; font-weight: 700; margin-top: 10px;
+    }
+    .att-present { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+    .att-absent  { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
+    .att-pending { background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; }
+
     .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); grid-column: 1 / -1; }
     .empty-state .empty-icon { font-size: 3.5rem; margin-bottom: 14px; }
     .empty-state h5 { font-weight: 800; color: #334155; }
@@ -367,7 +407,6 @@ foreach ($classSessions as $c) {
       <a href="student_courses.php" class="nav-link-custom">
         <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>My Courses</span>
       </a>
-      <a href="student_projects.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-folder-open"></i></span><span>My Projects</span></a>
       <a href="student_classes.php" class="nav-link-custom active">
         <span class="nav-icon"><i class="fas fa-book"></i></span><span>My Classes</span>
       </a>
@@ -382,9 +421,6 @@ foreach ($classSessions as $c) {
       </a>
       <a href="student_chat.php" class="nav-link-custom">
         <span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI Tutor</span>
-      </a>
-      <a href="student_contact.php" class="nav-link-custom">
-        <span class="nav-icon"><i class="fas fa-envelope"></i></span><span>Contact</span>
       </a>
     </div>
   </div>
@@ -465,6 +501,10 @@ foreach ($classSessions as $c) {
         elseif ($cDate === $today)     $when = "today";
         else                           $when = "tomorrow";
 
+        $isPast    = ($when === 'yesterday') ||
+                     ($when === 'today' && strtotime($cDate . ' ' . $cTime) < time());
+        $attendance = $classFeedback[$c['id']] ?? null;
+
         $t = strtolower(trim($cType));
         if ($t === "paid")              $tClass = "t-paid";
         elseif ($t === "demo")          $tClass = "t-demo";
@@ -498,6 +538,9 @@ foreach ($classSessions as $c) {
             <span class="type-badge <?php echo $tClass; ?>">
               <?php echo htmlspecialchars($cType); ?>
             </span>
+            <p style="margin: 5px 0 0; color: #5c6b82; font-size: 0.85rem; font-weight: 600;">
+              Class Nb: <?= $classNb ?> / 8
+            </p>
           </div>
         </div>
 
@@ -518,6 +561,23 @@ foreach ($classSessions as $c) {
           <div class="details-text">
             <i class="fas fa-note-sticky"></i> <?php echo htmlspecialchars($cDetails); ?>
           </div>
+        <?php endif; ?>
+
+        <!-- Attendance status (past classes only) -->
+        <?php if ($isPast): ?>
+          <?php if ($attendance === 'present'): ?>
+            <div class="att-badge att-present">
+              <i class="fas fa-circle-check"></i> Present &mdash; Class counted
+            </div>
+          <?php elseif ($attendance === 'absent'): ?>
+            <div class="att-badge att-absent">
+              <i class="fas fa-circle-xmark"></i> Absent &mdash; Class not counted
+            </div>
+          <?php else: ?>
+            <div class="att-badge att-pending">
+              <i class="fas fa-clock"></i> Awaiting teacher feedback
+            </div>
+          <?php endif; ?>
         <?php endif; ?>
 
         <!-- Zoom slot (timer-gated) -->

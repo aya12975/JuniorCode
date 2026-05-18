@@ -116,7 +116,7 @@ $resE = $stmtE->get_result();
 if ($resE) while ($row = $resE->fetch_assoc()) $earnings[] = $row;
 $stmtE->close();
 
-/* per-teacher totals */
+/* per-teacher totals for selected month */
 $teacherTotals = [];
 $grandTotal = 0.0;
 foreach ($earnings as $e) {
@@ -125,6 +125,7 @@ foreach ($earnings as $e) {
     $grandTotal += (float)$e['amount'];
 }
 arsort($teacherTotals);
+
 
 /* ── Load all classes for the "Add Earning" panel ── */
 $classes = [];
@@ -433,6 +434,54 @@ function isActive($page, $currentPage) {
       font-weight: 700;
     }
 
+    .teacher-totals-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 14px;
+      margin-bottom: 6px;
+    }
+    .teacher-total-card {
+      background: #f8fbff;
+      border: 1px solid #dbeafe;
+      border-radius: 16px;
+      padding: 16px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .ttc-name {
+      font-weight: 800;
+      font-size: 0.95rem;
+      color: var(--dark);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .ttc-amount {
+      font-size: 1.35rem;
+      font-weight: 900;
+      color: #065f46;
+    }
+    .ttc-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+    .grand-total-bar {
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      border-radius: 16px;
+      padding: 16px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: #fff;
+      margin-top: 16px;
+    }
+    .grand-total-bar .gt-label { font-weight: 800; font-size: 0.95rem; opacity: 0.85; }
+    .grand-total-bar .gt-amount { font-weight: 900; font-size: 1.5rem; }
+
     @media (max-width: 991px) {
       .app-shell {
         flex-direction: column;
@@ -561,36 +610,41 @@ function isActive($page, $currentPage) {
         <div class="alert alert-success">Earning added successfully.</div>
       <?php endif; ?>
 
-      <!-- Month switcher -->
-      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:22px;">
-        <div style="display:flex;align-items:center;gap:10px;">
-          <a href="teacher_earnings.php?month=<?= urlencode($prevMonth) ?>" style="display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:10px;background:#fff;border:1px solid #dbeafe;color:var(--primary);text-decoration:none;font-size:1.1rem;transition:background .2s;" title="Previous month">
+      <!-- Month switcher + per-teacher breakdown -->
+      <section class="panel-card" style="margin-bottom:24px;">
+        <!-- Month navigation -->
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap;">
+          <a href="teacher_earnings.php?month=<?= urlencode($prevMonth) ?>" style="display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:10px;background:#f8fbff;border:1px solid #dbeafe;color:var(--primary);text-decoration:none;font-size:1.1rem;transition:background .2s;" title="Previous month">
             <i class="fas fa-chevron-left"></i>
           </a>
-          <div style="font-size:1.2rem;font-weight:900;color:var(--dark);min-width:160px;text-align:center;"><?= htmlspecialchars($monthLabel) ?></div>
-          <a href="teacher_earnings.php?month=<?= urlencode($nextMonth) ?>" style="display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:10px;background:#fff;border:1px solid #dbeafe;color:var(--primary);text-decoration:none;font-size:1.1rem;transition:background .2s;<?= $isFuture ? 'opacity:.35;pointer-events:none;' : '' ?>" title="Next month">
+          <div style="font-size:1.25rem;font-weight:900;color:var(--dark);min-width:160px;text-align:center;"><?= htmlspecialchars($monthLabel) ?></div>
+          <a href="teacher_earnings.php?month=<?= urlencode($nextMonth) ?>" style="display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:10px;background:#f8fbff;border:1px solid #dbeafe;color:var(--primary);text-decoration:none;font-size:1.1rem;transition:background .2s;<?= $isFuture ? 'opacity:.35;pointer-events:none;' : '' ?>" title="Next month">
             <i class="fas fa-chevron-right"></i>
           </a>
           <?php if ($selectedMonth !== date('Y-m')): ?>
-            <a href="teacher_earnings.php" style="font-size:0.82rem;font-weight:700;color:var(--primary);background:#eff6ff;border-radius:999px;padding:5px 12px;text-decoration:none;">Today</a>
+            <a href="teacher_earnings.php" style="font-size:0.82rem;font-weight:700;color:var(--primary);background:#eff6ff;border-radius:999px;padding:5px 12px;text-decoration:none;">This Month</a>
           <?php endif; ?>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <?php if (!empty($teacherTotals)): ?>
+
+        <!-- Per-teacher cards for selected month -->
+        <?php if (!empty($teacherTotals)): ?>
+          <div class="teacher-totals-grid">
             <?php foreach ($teacherTotals as $tname => $tamt): ?>
-              <div style="background:#fff;border:1px solid #dbeafe;border-radius:12px;padding:8px 14px;font-size:0.85rem;">
-                <span style="color:var(--muted);font-weight:700;"><?= htmlspecialchars($tname) ?></span>
-                <span style="color:#065f46;font-weight:900;margin-left:6px;">$<?= number_format($tamt, 2) ?></span>
+              <div class="teacher-total-card">
+                <div class="ttc-label">Teacher</div>
+                <div class="ttc-name"><?= htmlspecialchars($tname) ?></div>
+                <div class="ttc-amount">$<?= number_format($tamt, 2) ?></div>
               </div>
             <?php endforeach; ?>
-            <div style="background:linear-gradient(135deg,var(--primary),var(--secondary));border-radius:12px;padding:8px 16px;font-size:0.9rem;color:#fff;font-weight:900;">
-              Total: $<?= number_format($grandTotal, 2) ?>
-            </div>
-          <?php else: ?>
-            <div style="color:var(--muted);font-size:0.9rem;font-weight:700;">No earnings for this month.</div>
-          <?php endif; ?>
-        </div>
-      </div>
+          </div>
+          <div class="grand-total-bar">
+            <span class="gt-label"><i class="fas fa-coins me-2"></i>Total — <?= htmlspecialchars($monthLabel) ?></span>
+            <span class="gt-amount">$<?= number_format($grandTotal, 2) ?></span>
+          </div>
+        <?php else: ?>
+          <div class="empty-box">No earnings recorded for <?= htmlspecialchars($monthLabel) ?>.</div>
+        <?php endif; ?>
+      </section>
 
       <!-- Classes panel: add earning from a class -->
       <section class="panel-card" style="margin-bottom:24px;">

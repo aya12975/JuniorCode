@@ -410,7 +410,7 @@ $currentYear = date("Y");
       content: '';
       display: block;
       height: 5px;
-      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      background: transparent;
       position: absolute;
       top: 0; left: 0; right: 0;
       border-radius: 22px 22px 0 0;

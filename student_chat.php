@@ -299,7 +299,6 @@ body {
       <a href="student_courses.php" class="nav-link-custom">
         <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>My Courses</span>
       </a>
-      <a href="student_projects.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-folder-open"></i></span><span>My Projects</span></a>
       <a href="student_classes.php" class="nav-link-custom">
         <span class="nav-icon"><i class="fas fa-book"></i></span><span>My Classes</span>
       </a>
@@ -314,9 +313,6 @@ body {
       </a>
       <a href="student_chat.php" class="nav-link-custom active">
         <span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI Tutor</span>
-      </a>
-      <a href="student_contact.php" class="nav-link-custom">
-        <span class="nav-icon"><i class="fas fa-envelope"></i></span><span>Contact</span>
       </a>
     </div>
   </div>
@@ -346,7 +342,6 @@ body {
         <div class="codi-avatar"><i class="fas fa-robot"></i></div>
         <div>
           <p class="codi-name">Codi — AI Coding Tutor</p>
-          <p class="codi-sub">Powered by Gemini · Always here to help</p>
         </div>
       </div>
       <div class="usage-pill" id="usagePill">

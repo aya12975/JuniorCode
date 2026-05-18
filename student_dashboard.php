@@ -64,6 +64,22 @@ if ($conn->query("SHOW TABLES LIKE 'certificates'")->num_rows > 0) {
     $stmtC->close();
 }
 
+/* ── Session count (present classes only) for Class Nb: X / 8 ── */
+$classNb = 0;
+$scQ = $conn->prepare("
+    SELECT COUNT(cf.id) AS total, COALESCE(MAX(o.offset_count), 0) AS offset_count
+    FROM class_feedback cf
+    LEFT JOIN student_session_offsets o ON o.student_name = cf.student_name
+    WHERE cf.student_name = ? AND cf.attendance = 'present'
+");
+if ($scQ) {
+    $scQ->bind_param("s", $studentName);
+    $scQ->execute();
+    $row = $scQ->get_result()->fetch_assoc();
+    $scQ->close();
+    $classNb = min(8, max(0, (int)($row['total'] ?? 0) - (int)($row['offset_count'] ?? 0)));
+}
+
 /* ── WhatsApp number from settings ── */
 require_once "admin_prefs.php";
 $whatsapp = getAdminSetting($conn, 'whatsapp', '');
@@ -197,6 +213,35 @@ body {
   border-radius: 12px; padding: 10px 18px; font-weight: 700; font-size: 0.9rem;
 }
 
+/* ── Session progress card ── */
+.session-progress-card {
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  border-radius: 22px; padding: 22px 28px; margin-bottom: 20px;
+  color: #fff; box-shadow: 0 12px 32px rgba(37,99,235,0.25);
+  display: flex; align-items: center; gap: 28px; flex-wrap: wrap;
+}
+.sp-label { font-size: 0.82rem; font-weight: 700; opacity: 0.78; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+.sp-count { font-size: 2.4rem; font-weight: 900; line-height: 1; }
+.sp-of8   { font-size: 1rem; font-weight: 600; opacity: 0.72; margin-left: 4px; }
+.sp-bar-wrap { flex: 1; min-width: 180px; }
+.sp-bar-bg {
+  background: rgba(255,255,255,0.2); border-radius: 100px;
+  height: 12px; overflow: hidden; margin-bottom: 8px;
+}
+.sp-bar-fill {
+  height: 100%; border-radius: 100px;
+  background: #fff;
+  transition: width 0.6s ease;
+}
+.sp-dots { display: flex; gap: 6px; }
+.sp-dot {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: rgba(255,255,255,0.2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800; color: rgba(255,255,255,0.6);
+}
+.sp-dot.done { background: #fff; color: var(--primary); }
+
 /* ── Stat cards ── */
 .stat-grid {
   display: grid; grid-template-columns: repeat(3, 1fr);
@@ -209,7 +254,7 @@ body {
 }
 .stat-card::before {
   content: ''; display: block; height: 5px;
-  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  background: transparent;
   position: absolute; top: 0; left: 0; right: 0;
   border-radius: 22px 22px 0 0;
 }
@@ -376,7 +421,6 @@ body {
       <a href="student_courses.php" class="nav-link-custom">
         <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span><span>My Courses</span>
       </a>
-      <a href="student_projects.php" class="nav-link-custom"><span class="nav-icon"><i class="fas fa-folder-open"></i></span><span>My Projects</span></a>
       <a href="student_classes.php" class="nav-link-custom">
         <span class="nav-icon"><i class="fas fa-book"></i></span><span>My Classes</span>
       </a>
@@ -391,9 +435,6 @@ body {
       </a>
       <a href="student_chat.php" class="nav-link-custom">
         <span class="nav-icon"><i class="fas fa-robot"></i></span><span>AI Tutor</span>
-      </a>
-      <a href="student_contact.php" class="nav-link-custom">
-        <span class="nav-icon"><i class="fas fa-envelope"></i></span><span>Contact</span>
       </a>
     </div>
   </div>
@@ -426,6 +467,24 @@ body {
       <p>Welcome to your learning dashboard</p>
     </div>
     <div class="topbar-date"><?= date("l, d F Y") ?></div>
+  </div>
+
+  <!-- Session progress -->
+  <div class="session-progress-card">
+    <div>
+      <div class="sp-label">Session Progress</div>
+      <div class="sp-count"><?= $classNb ?><span class="sp-of8"> / 8</span></div>
+    </div>
+    <div class="sp-bar-wrap">
+      <div class="sp-bar-bg">
+        <div class="sp-bar-fill" style="width:<?= round($classNb / 8 * 100) ?>%;"></div>
+      </div>
+      <div class="sp-dots">
+        <?php for ($i = 1; $i <= 8; $i++): ?>
+          <div class="sp-dot <?= $i <= $classNb ? 'done' : '' ?>"><?= $i ?></div>
+        <?php endfor; ?>
+      </div>
+    </div>
   </div>
 
   <!-- Stat cards -->
@@ -495,82 +554,6 @@ body {
     <?php endif; ?>
   </div>
 
-  <!-- Assignments -->
-  <div class="panel-card" id="assignments">
-    <div class="panel-title"><i class="fas fa-clipboard-list me-2"></i>My Assignments</div>
-    <?php if (empty($assignments)): ?>
-      <div class="empty-state">
-        <i class="fas fa-clipboard-list"></i>
-        <p>No assignments yet.</p>
-      </div>
-    <?php else: ?>
-      <div style="display:flex;flex-direction:column;gap:14px;">
-        <?php foreach ($assignments as $a): ?>
-        <div style="display:flex;align-items:flex-start;gap:14px;background:#f8fbff;border:1px solid #dbeafe;border-radius:16px;padding:16px 18px;">
-          <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#3e5077,#143674);color:white;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;">
-            <i class="fas fa-file-pen"></i>
-          </div>
-          <div style="flex:1;min-width:0;">
-            <div style="font-weight:900;font-size:1rem;color:#0f172a;margin-bottom:3px;"><?= htmlspecialchars($a["title"]) ?></div>
-            <div style="font-size:0.82rem;color:#64748b;margin-bottom:2px;"><i class="fas fa-chalkboard-user me-1"></i>From: <strong><?= htmlspecialchars($a["teacher_name"]) ?></strong></div>
-            <?php if (!empty($a["description"])): ?>
-              <div style="font-size:0.87rem;color:#334155;margin:6px 0;white-space:pre-wrap;"><?= htmlspecialchars($a["description"]) ?></div>
-            <?php endif; ?>
-            <?php if (!empty($a["due_date"])): ?>
-              <div style="font-size:0.82rem;font-weight:700;color:#f97316;margin-top:4px;"><i class="fas fa-clock me-1"></i>Due: <?= date("D, d M Y", strtotime($a["due_date"])) ?></div>
-            <?php endif; ?>
-            <?php if (!empty($a["file_name"]) || !empty($a["link"])): ?>
-              <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">
-                <?php if (!empty($a["file_name"])): ?>
-                  <a href="uploads/assignments/<?= urlencode($a["file_name"]) ?>" download
-                     style="display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,#3e5077,#143674);color:white;font-weight:800;border-radius:10px;padding:7px 14px;font-size:0.82rem;text-decoration:none;">
-                    <i class="fas fa-paperclip"></i> Download File
-                  </a>
-                <?php endif; ?>
-                <?php if (!empty($a["link"])): ?>
-                  <a href="<?= htmlspecialchars($a["link"]) ?>" target="_blank" rel="noopener"
-                     style="display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:white;font-weight:800;border-radius:10px;padding:7px 14px;font-size:0.82rem;text-decoration:none;">
-                    <i class="fas fa-link"></i> Open Link
-                  </a>
-                <?php endif; ?>
-              </div>
-            <?php endif; ?>
-            <div style="font-size:0.78rem;color:#94a3b8;margin-top:4px;">Received: <?= date("d M Y", strtotime($a["created_at"])) ?></div>
-          </div>
-        </div>
-        <?php endforeach; ?>
-      </div>
-    <?php endif; ?>
-  </div>
-
-
-  <!-- Certificates -->
-  <div class="panel-card" style="margin-top:22px;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--border);">
-      <div class="panel-title" style="margin:0;padding:0;border:none;"><i class="fas fa-award me-2" style="color:#f59e0b;"></i>My Certificates</div>
-      <a href="student_certificates.php" style="text-decoration:none;color:var(--primary);font-weight:800;font-size:0.85rem;background:#eff6ff;border-radius:999px;padding:5px 14px;">View all</a>
-    </div>
-    <?php if (empty($certificates)): ?>
-      <div class="empty-state">
-        <i class="fas fa-award"></i>
-        <p>No certificates yet — complete a course to earn one!</p>
-      </div>
-    <?php else: ?>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;">
-        <?php foreach ($certificates as $cert): ?>
-          <div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);border-radius:16px;padding:18px;color:#fff;position:relative;overflow:hidden;">
-            <div style="position:absolute;top:-14px;right:-14px;width:70px;height:70px;border-radius:50%;background:rgba(245,158,11,0.12);"></div>
-            <div style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#f59e0b,#b45309);display:flex;align-items:center;justify-content:center;margin-bottom:12px;">
-              <i class="fas fa-medal" style="color:#fff;font-size:1rem;"></i>
-            </div>
-            <div style="font-weight:800;font-size:0.95rem;margin-bottom:4px;line-height:1.3;"><?= htmlspecialchars($cert['course_name']) ?></div>
-            <div style="font-size:0.78rem;color:rgba(255,255,255,0.6);margin-bottom:2px;"><i class="fas fa-chalkboard-user me-1"></i><?= htmlspecialchars($cert['teacher_name']) ?></div>
-            <div style="font-size:0.75rem;color:#f59e0b;margin-top:8px;font-weight:700;"><i class="fas fa-calendar me-1"></i><?= date("M j, Y", strtotime($cert['issued_date'])) ?></div>
-          </div>
-        <?php endforeach; ?>
-      </div>
-    <?php endif; ?>
-  </div>
 
 </div>
 </div><!-- /.app-shell -->

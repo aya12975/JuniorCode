@@ -301,18 +301,26 @@ if ($loginSuccess) {
       50%      { transform: scale(1.4); opacity: 0.6; }
     }
 
+    .form-header {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 28px;
+    }
+
     .form-title {
-      font-size: 2rem;
+      font-size: 1.75rem;
       font-weight: 900;
       color: var(--dark);
-      margin-bottom: 8px;
+      margin: 0;
+      white-space: nowrap;
     }
 
     .form-sub {
       color: var(--muted);
-      line-height: 1.7;
-      margin-bottom: 32px;
-      font-size: 0.97rem;
+      font-size: 0.92rem;
+      margin: 0;
     }
 
     /* ── Floating-label fields ── */
@@ -594,19 +602,12 @@ if ($loginSuccess) {
   <!-- ══ RIGHT PANEL ══ -->
   <div class="right-panel">
 
-    <div class="rp-topbar">
-      <a href="index.html" class="back-link">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
-        Back to Home
-      </a>
-    </div>
-
     <div class="form-area">
 
-      <div class="form-badge">Secure Login</div>
-
-      <h2 class="form-title">Sign in to your account</h2>
-      <p class="form-sub">Enter your credentials to access your dashboard and learning materials.</p>
+      <div class="form-header">
+        <h2 class="form-title">Sign in to your account</h2>
+        <p class="form-sub">Enter your credentials to continue.</p>
+      </div>
 
       <?php if ($loginSuccess): ?>
         <div class="success-box" id="successBox">
